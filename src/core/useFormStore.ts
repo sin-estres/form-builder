@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { createStore } from 'zustand/vanilla';
 import { FormSchema, FormSection, FormField, FieldType } from './schemaTypes';
 import { generateId, DEFAULT_FIELD_CONFIG } from './constants';
 
@@ -8,20 +8,21 @@ interface FormState {
     history: FormSchema[];
     historyIndex: number;
     isPreviewMode: boolean;
+}
 
-    // Actions
+interface FormActions {
     setSchema: (schema: FormSchema) => void;
     togglePreview: () => void;
     addSection: () => void;
     removeSection: (sectionId: string) => void;
     updateSection: (sectionId: string, updates: Partial<FormSection>) => void;
-    moveSection: (activeId: string, overId: string) => void;
+    moveSection: (oldIndex: number, newIndex: number) => void;
 
     addField: (sectionId: string, type: FieldType, index?: number) => void;
     removeField: (fieldId: string) => void;
     updateField: (fieldId: string, updates: Partial<FormField>) => void;
     selectField: (fieldId: string | null) => void;
-    moveField: (activeId: string, overId: string, activeSectionId: string, overSectionId: string) => void;
+    moveField: (fieldId: string, targetSectionId: string, newIndex: number) => void;
 
     undo: () => void;
     redo: () => void;
@@ -41,7 +42,7 @@ const INITIAL_SCHEMA: FormSchema = {
     ],
 };
 
-export const useFormStore = create<FormState>((set, get) => ({
+export const formStore = createStore<FormState & FormActions>((set, get) => ({
     schema: INITIAL_SCHEMA,
     selectedFieldId: null,
     history: [INITIAL_SCHEMA],
@@ -95,13 +96,8 @@ export const useFormStore = create<FormState>((set, get) => ({
         });
     },
 
-    moveSection: (activeId, overId) => {
+    moveSection: (oldIndex, newIndex) => {
         const { schema, history, historyIndex } = get();
-        const oldIndex = schema.sections.findIndex(s => s.id === activeId);
-        const newIndex = schema.sections.findIndex(s => s.id === overId);
-
-        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
-
         const newSections = [...schema.sections];
         const [movedSection] = newSections.splice(oldIndex, 1);
         newSections.splice(newIndex, 0, movedSection);
@@ -181,51 +177,31 @@ export const useFormStore = create<FormState>((set, get) => ({
 
     selectField: (fieldId) => set({ selectedFieldId: fieldId }),
 
-    moveField: (activeId, overId, activeSectionId, overSectionId) => {
+    moveField: (fieldId, targetSectionId, newIndex) => {
         const { schema, history, historyIndex } = get();
 
-        // Deep clone to avoid mutation issues
-        const newSections = schema.sections.map(s => ({
-            ...s,
-            fields: [...s.fields]
-        }));
-
-        const activeSectionIndex = newSections.findIndex(s => s.id === activeSectionId);
-        const overSectionIndex = newSections.findIndex(s => s.id === overSectionId);
-
-        if (activeSectionIndex === -1 || overSectionIndex === -1) return;
-
-        const activeSection = newSections[activeSectionIndex];
-        const overSection = newSections[overSectionIndex];
-
-        const activeFieldIndex = activeSection.fields.findIndex(f => f.id === activeId);
-        const overFieldIndex = overSection.fields.findIndex(f => f.id === overId);
-
-        if (activeFieldIndex === -1) return;
-
-        // If moving within the same section
-        if (activeSectionId === overSectionId) {
-            if (activeFieldIndex === overFieldIndex) return;
-            const [movedField] = activeSection.fields.splice(activeFieldIndex, 1);
-            // If overFieldIndex is -1 (dropped on section container but not on a field), push to end? 
-            // But dnd-kit usually gives us a valid overId if we are over a sortable.
-            // If overId is the section itself, we might handle it differently.
-            // For now assume overId is a field.
-            activeSection.fields.splice(overFieldIndex, 0, movedField);
-        } else {
-            // Moving to different section
-            const [movedField] = activeSection.fields.splice(activeFieldIndex, 1);
-
-            // If overId is the section ID, append to end of that section
-            if (overId === overSectionId) {
-                overSection.fields.push(movedField);
-            } else {
-                // Insert before the target field
-                // If overFieldIndex is -1, it might mean we are over the container.
-                // We need to be careful here.
-                const insertIndex = overFieldIndex >= 0 ? overFieldIndex : overSection.fields.length;
-                overSection.fields.splice(insertIndex, 0, movedField);
+        // Find the field and remove it from its old position
+        let field: FormField | undefined;
+        const newSections = schema.sections.map(s => {
+            const fIndex = s.fields.findIndex(f => f.id === fieldId);
+            if (fIndex !== -1) {
+                field = s.fields[fIndex];
+                const newFields = [...s.fields];
+                newFields.splice(fIndex, 1);
+                return { ...s, fields: newFields };
             }
+            return s;
+        });
+
+        if (!field) return;
+
+        // Insert into new position
+        const targetSectionIndex = newSections.findIndex(s => s.id === targetSectionId);
+        if (targetSectionIndex !== -1) {
+            const targetSection = newSections[targetSectionIndex];
+            const newFields = [...targetSection.fields];
+            newFields.splice(newIndex, 0, field);
+            newSections[targetSectionIndex] = { ...targetSection, fields: newFields };
         }
 
         const newSchema = { ...schema, sections: newSections };
