@@ -33,11 +33,13 @@ interface FormSection {
 interface FormSchema {
     id: string;
     title: string;
+    formName: string;
     sections: FormSection[];
 }
 declare const FormSchemaValidation: z.ZodObject<{
     id: z.ZodString;
     title: z.ZodString;
+    formName: z.ZodString;
     sections: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         title: z.ZodString;
@@ -54,6 +56,7 @@ declare const FormSchemaValidation: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     id: string;
     title: string;
+    formName: string;
     sections: {
         id: string;
         title: string;
@@ -62,6 +65,7 @@ declare const FormSchemaValidation: z.ZodObject<{
 }, {
     id: string;
     title: string;
+    formName: string;
     sections: {
         id: string;
         title: string;

@@ -45,6 +45,7 @@ export interface FormSection {
 export interface FormSchema {
     id: string;
     title: string;
+    formName: string;
     sections: FormSection[];
 }
 
@@ -52,6 +53,7 @@ export interface FormSchema {
 export const FormSchemaValidation = z.object({
     id: z.string(),
     title: z.string(),
+    formName: z.string(),
     sections: z.array(z.object({
         id: z.string(),
         title: z.string(),

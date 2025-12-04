@@ -33,6 +33,7 @@ interface FormActions {
 const INITIAL_SCHEMA: FormSchema = {
     id: 'form_1',
     title: 'My New Form',
+    formName: 'myNewForm',
     sections: [
         {
             id: generateId(),

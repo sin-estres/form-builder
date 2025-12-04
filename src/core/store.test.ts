@@ -6,6 +6,7 @@ describe('formStore', () => {
         const initialState = {
             id: 'test_form',
             title: 'Test Form',
+            formName: 'testForm',
             sections: [],
         };
         formStore.setState({

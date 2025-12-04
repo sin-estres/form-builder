@@ -4055,6 +4055,7 @@ var NEVER = INVALID;
 var FormSchemaValidation = external_exports.object({
   id: external_exports.string(),
   title: external_exports.string(),
+  formName: external_exports.string(),
   sections: external_exports.array(external_exports.object({
     id: external_exports.string(),
     title: external_exports.string(),
@@ -4129,6 +4130,7 @@ var DEFAULT_FIELD_CONFIG = {
 var INITIAL_SCHEMA = {
   id: "form_1",
   title: "My New Form",
+  formName: "myNewForm",
   sections: [
     {
       id: generateId(),
@@ -25239,7 +25241,7 @@ var FormBuilder = class {
       className: "flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors",
       onclick: () => {
         if (confirm("Are you sure?")) {
-          formStore.getState().setSchema({ id: "new", title: "New Form", sections: [] });
+          formStore.getState().setSchema({ id: "new", title: "New Form", formName: "newForm", sections: [] });
         }
       }
     }, [getIcon("Trash2", 16), createElement("span", { className: "ml-2", text: "Clear" })]);
@@ -25290,13 +25292,21 @@ var FormBuilder = class {
     });
     const inner = createElement("div", { className: "max-w-3xl mx-auto" });
     const titleInput = createElement("input", {
-      className: "text-3xl font-bold text-center bg-transparent border-none focus:outline-none focus:ring-0 w-full text-gray-900 dark:text-white mb-8",
+      className: "text-3xl font-bold text-center bg-transparent border-none focus:outline-none focus:ring-0 w-full text-gray-900 dark:text-white mb-2",
       value: state.schema.title,
       placeholder: "Form Title",
       "data-focus-id": "form-title",
       oninput: (e) => formStore.getState().setSchema({ ...state.schema, title: e.target.value })
     });
     inner.appendChild(titleInput);
+    const formNameInput = createElement("input", {
+      className: "text-lg text-center bg-transparent border-none focus:outline-none focus:ring-0 w-full text-gray-600 dark:text-gray-400 mb-8",
+      value: state.schema.formName,
+      placeholder: "formName (e.g., contactForm)",
+      "data-focus-id": "form-name",
+      oninput: (e) => formStore.getState().setSchema({ ...state.schema, formName: e.target.value })
+    });
+    inner.appendChild(formNameInput);
     const sectionsContainer = createElement("div", { className: "space-y-6 min-h-[200px]", id: "sections-list" });
     state.schema.sections.forEach((section) => {
       const sectionEl = createElement("div", {
