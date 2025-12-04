@@ -193,16 +193,6 @@ export class FormBuilder {
 
         const inner = createElement('div', { className: 'max-w-3xl mx-auto' });
 
-        // // Title Input
-        // const titleInput = createElement('input', {
-        //     className: 'text-3xl font-bold text-center bg-transparent border-none focus:outline-none focus:ring-0 w-full text-gray-900 dark:text-white mb-2',
-        //     value: state.schema.title,
-        //     placeholder: 'Form Title',
-        //     'data-focus-id': 'form-title',
-        //     oninput: (e: Event) => formStore.getState().setSchema({ ...state.schema, title: (e.target as HTMLInputElement).value })
-        // });
-        // inner.appendChild(titleInput);
-
         // Form Name Input
         const formNameInput = createElement('input', {
             className: 'text-lg text-center bg-transparent border-none focus:outline-none focus:ring-0 w-full text-gray-600 dark:text-gray-400 mb-8',
