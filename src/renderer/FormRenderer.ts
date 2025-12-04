@@ -33,7 +33,7 @@ export class FormRenderer {
             const sectionEl = createElement('div', { className: 'space-y-4' });
             sectionEl.appendChild(createElement('h2', { className: 'text-xl font-semibold text-gray-800 dark:text-gray-200 border-b pb-2', text: section.title }));
 
-            const grid = createElement('div', { className: 'grid grid-cols-4 gap-4' });
+            const grid = createElement('div', { className: 'form-builder-grid' });
 
             section.fields.forEach(field => {
                 const fieldWrapper = createElement('div');

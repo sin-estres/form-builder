@@ -72,7 +72,10 @@ declare const FormSchemaValidation: z.ZodObject<{
 declare class FormBuilder {
     private container;
     private unsubscribe;
-    constructor(container: HTMLElement);
+    private onSave?;
+    constructor(container: HTMLElement, options?: {
+        onSave?: (schema: any) => void;
+    });
     private setupSubscriptions;
     destroy(): void;
     private render;

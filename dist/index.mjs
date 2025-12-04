@@ -4469,7 +4469,7 @@ var FormRenderer = class {
     this.schema.sections.forEach((section) => {
       const sectionEl = createElement("div", { className: "space-y-4" });
       sectionEl.appendChild(createElement("h2", { className: "text-xl font-semibold text-gray-800 dark:text-gray-200 border-b pb-2", text: section.title }));
-      const grid = createElement("div", { className: "grid grid-cols-4 gap-4" });
+      const grid = createElement("div", { className: "form-builder-grid" });
       section.fields.forEach((field) => {
         const fieldWrapper = createElement("div");
         const span = field.width === "100%" ? "col-span-4" : field.width === "50%" ? "col-span-2" : "col-span-1";
@@ -25148,10 +25148,12 @@ var createIcons = ({
 
 // src/builder/FormBuilder.ts
 var FormBuilder = class {
-  constructor(container) {
+  constructor(container, options) {
     __publicField(this, "container");
     __publicField(this, "unsubscribe");
+    __publicField(this, "onSave");
     this.container = container;
+    this.onSave = options?.onSave;
     this.render();
     this.setupSubscriptions();
   }
@@ -25223,8 +25225,13 @@ var FormBuilder = class {
     const saveBtn = createElement("button", {
       className: "flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors",
       onclick: () => {
-        console.log(formStore.getState().schema);
-        alert("Schema saved to console");
+        const schema = formStore.getState().schema;
+        console.log("Schema saved:", schema);
+        if (this.onSave) {
+          this.onSave(schema);
+        } else {
+          alert("Schema saved to console. Check browser console for JSON output.");
+        }
       }
     }, [getIcon("Save", 16), createElement("span", { className: "ml-2", text: "Save" })]);
     right.appendChild(clearBtn);
@@ -25287,14 +25294,14 @@ var FormBuilder = class {
       }, [getIcon("Trash2", 18)]));
       sectionEl.appendChild(header);
       const fieldsGrid = createElement("div", {
-        className: "p-4 min-h-[100px] grid grid-cols-4 gap-4 fields-list",
+        className: "form-builder-grid p-4 min-h-[100px] fields-list",
         "data-section-id": section.id
       });
       section.fields.forEach((field) => {
         const isSelected = state.selectedFieldId === field.id;
         const span = field.width === "100%" ? "col-span-4" : field.width === "50%" ? "col-span-2" : "col-span-1";
         const fieldWrapper = createElement("div", {
-          className: `relative group rounded-lg border-2 transition-all bg-white dark:bg-gray-800 ${isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"} ${span}`,
+          className: `form-builder-field-wrapper ${isSelected ? "selected" : ""} ${span}`,
           "data-id": field.id,
           onclick: (e) => {
             e.stopPropagation();

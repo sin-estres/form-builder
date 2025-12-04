@@ -15,16 +15,28 @@ import { FormBuilder, FormRenderer } from 'form-builder-pro';
 import 'form-builder-pro/dist/index.css';
 ```
 
-### 2. Create a Form Builder
+### 2. Create a Form Builder with Save Callback
 
 ```typescript
 // Get a container element
 const container = document.getElementById('builder-container');
 
-// Initialize the builder
-const builder = new FormBuilder(container);
-
-// The builder will render a complete drag-and-drop interface
+// Initialize the builder with onSave callback
+const builder = new FormBuilder(container, {
+  onSave: (schema) => {
+    console.log('Form saved:', schema);
+    
+    // Send to backend
+    fetch('/api/forms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(schema)
+    });
+    
+    // Or store locally
+    localStorage.setItem('myForm', JSON.stringify(schema));
+  }
+});
 ```
 
 ### 3. Use the Form Renderer
@@ -81,7 +93,11 @@ const renderer = new FormRenderer(formContainer, schema, (data) => {
 - **Left Sidebar**: Draggable field types (Text, Email, Number, Date, etc.)
 - **Center Canvas**: Drop zone for building your form with sections
 - **Right Panel**: Configuration panel for selected fields
-- **Top Toolbar**: Undo/Redo, Preview, Save buttons
+- **Top Toolbar**: Undo/Redo, Preview, **Save** buttons
+
+### Save Button Behavior
+- **With callback**: Calls your `onSave` function with the schema
+- **Without callback**: Shows alert and logs to console
 
 ### Features
 - ✅ Drag & drop fields from toolbox
@@ -89,7 +105,7 @@ const renderer = new FormRenderer(formContainer, schema, (data) => {
 - ✅ Configure field properties (label, placeholder, validation, width)
 - ✅ Live preview mode
 - ✅ Undo/Redo support
-- ✅ Export/Import JSON schema
+- ✅ **Save callback** for exporting JSON schema
 
 ### Form Renderer
 - Renders forms from JSON schema
@@ -104,20 +120,24 @@ const renderer = new FormRenderer(formContainer, schema, (data) => {
 
 ```typescript
 import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
-import { FormBuilder } from 'form-builder-pro';
+import { FormBuilder, FormSchema } from 'form-builder-pro';
 
 @Component({
   selector: 'app-form-builder',
-  template: `
-    <div #builderContainer class="h-screen"></div>
-  `
+  template: '<div #builderContainer class="h-screen"></div>'
 })
 export class FormBuilderComponent implements AfterViewInit, OnDestroy {
   @ViewChild('builderContainer') container!: ElementRef;
   private builder?: FormBuilder;
 
   ngAfterViewInit() {
-    this.builder = new FormBuilder(this.container.nativeElement);
+    this.builder = new FormBuilder(this.container.nativeElement, {
+      onSave: (schema: FormSchema) => {
+        console.log('Schema saved:', schema);
+        // Send to your API
+        this.http.post('/api/forms', schema).subscribe();
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -139,7 +159,16 @@ export function FormBuilderComponent() {
   useEffect(() => {
     if (!containerRef.current) return;
     
-    const builder = new FormBuilder(containerRef.current);
+    const builder = new FormBuilder(containerRef.current, {
+      onSave: (schema) => {
+        console.log('Schema saved:', schema);
+        // Send to your API
+        fetch('/api/forms', {
+          method: 'POST',
+          body: JSON.stringify(schema)
+        });
+      }
+    });
     
     return () => builder.destroy();
   }, []);
@@ -165,7 +194,12 @@ let builder = null;
 
 onMounted(() => {
   if (container.value) {
-    builder = new FormBuilder(container.value);
+    builder = new FormBuilder(container.value, {
+      onSave: (schema) => {
+        console.log('Schema saved:', schema);
+        // Send to your API
+      }
+    });
   }
 });
 
@@ -181,10 +215,18 @@ onUnmounted(() => {
 
 ```typescript
 class FormBuilder {
-  constructor(container: HTMLElement)
+  constructor(
+    container: HTMLElement,
+    options?: {
+      onSave?: (schema: FormSchema) => void
+    }
+  )
   destroy(): void
 }
 ```
+
+**Options:**
+- `onSave`: Callback function called when user clicks Save button. Receives the complete form schema as JSON.
 
 ### FormRenderer Class
 

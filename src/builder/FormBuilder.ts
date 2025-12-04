@@ -9,9 +9,11 @@ import { createIcons, icons } from 'lucide';
 export class FormBuilder {
     private container: HTMLElement;
     private unsubscribe!: () => void;
+    private onSave?: (schema: any) => void;
 
-    constructor(container: HTMLElement) {
+    constructor(container: HTMLElement, options?: { onSave?: (schema: any) => void }) {
         this.container = container;
+        this.onSave = options?.onSave;
         this.render();
         this.setupSubscriptions();
     }
@@ -33,6 +35,22 @@ export class FormBuilder {
 
     private render() {
         const state = formStore.getState();
+
+        // Preserve focus state before clearing DOM
+        const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+        let focusState: { id: string; selectionStart: number | null; selectionEnd: number | null } | null = null;
+
+        if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+            const focusId = activeElement.getAttribute('data-focus-id');
+            if (focusId) {
+                focusState = {
+                    id: focusId,
+                    selectionStart: activeElement.selectionStart,
+                    selectionEnd: activeElement.selectionEnd
+                };
+            }
+        }
+
         this.container.innerHTML = '';
 
         const wrapper = createElement('div', { className: 'flex flex-col h-screen bg-gray-100 dark:bg-gray-950' });
@@ -56,6 +74,20 @@ export class FormBuilder {
 
         wrapper.appendChild(main);
         this.container.appendChild(wrapper);
+
+        // Restore focus state after DOM is rebuilt
+        if (focusState) {
+            // Use setTimeout to ensure DOM is fully rendered
+            setTimeout(() => {
+                const elementToFocus = document.querySelector(`[data-focus-id="${focusState.id}"]`) as HTMLInputElement | HTMLTextAreaElement;
+                if (elementToFocus) {
+                    elementToFocus.focus();
+                    if (focusState.selectionStart !== null && focusState.selectionEnd !== null) {
+                        elementToFocus.setSelectionRange(focusState.selectionStart, focusState.selectionEnd);
+                    }
+                }
+            }, 0);
+        }
 
         // Initialize Lucide icons
         createIcons({ icons });
@@ -111,8 +143,13 @@ export class FormBuilder {
         const saveBtn = createElement('button', {
             className: 'flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors',
             onclick: () => {
-                console.log(formStore.getState().schema);
-                alert('Schema saved to console');
+                const schema = formStore.getState().schema;
+                console.log('Schema saved:', schema);
+
+                // Call the callback if provided
+                if (this.onSave) {
+                    this.onSave(schema);
+                }
             }
         }, [getIcon('Save', 16), createElement('span', { className: 'ml-2', text: 'Save' })]);
 
@@ -161,6 +198,7 @@ export class FormBuilder {
             className: 'text-3xl font-bold text-center bg-transparent border-none focus:outline-none focus:ring-0 w-full text-gray-900 dark:text-white mb-8',
             value: state.schema.title,
             placeholder: 'Form Title',
+            'data-focus-id': 'form-title',
             oninput: (e: Event) => formStore.getState().setSchema({ ...state.schema, title: (e.target as HTMLInputElement).value })
         });
         inner.appendChild(titleInput);
@@ -181,6 +219,7 @@ export class FormBuilder {
             headerLeft.appendChild(createElement('input', {
                 className: 'bg-transparent font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:border-b border-blue-500',
                 value: section.title,
+                'data-focus-id': `section-title-${section.id}`,
                 oninput: (e: Event) => formStore.getState().updateSection(section.id, { title: (e.target as HTMLInputElement).value })
             }));
             header.appendChild(headerLeft);
@@ -192,7 +231,7 @@ export class FormBuilder {
 
             // Fields Grid
             const fieldsGrid = createElement('div', {
-                className: 'p-4 min-h-[100px] grid grid-cols-4 gap-4 fields-list',
+                className: 'form-builder-grid p-4 min-h-[100px] fields-list',
                 'data-section-id': section.id
             });
 
@@ -201,7 +240,7 @@ export class FormBuilder {
                 const span = field.width === '100%' ? 'col-span-4' : field.width === '50%' ? 'col-span-2' : 'col-span-1';
 
                 const fieldWrapper = createElement('div', {
-                    className: `relative group rounded-lg border-2 transition-all bg-white dark:bg-gray-800 ${isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"} ${span}`,
+                    className: `form-builder-field-wrapper ${isSelected ? 'selected' : ''} ${span}`,
                     'data-id': field.id,
                     onclick: (e: Event) => {
                         e.stopPropagation();
@@ -274,6 +313,7 @@ export class FormBuilder {
         labelGroup.appendChild(createElement('input', {
             className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
             value: selectedField.label,
+            'data-focus-id': `field-label-${selectedField.id}`,
             oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { label: (e.target as HTMLInputElement).value })
         }));
         body.appendChild(labelGroup);
@@ -284,6 +324,7 @@ export class FormBuilder {
         placeholderGroup.appendChild(createElement('input', {
             className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
             value: selectedField.placeholder || '',
+            'data-focus-id': `field-placeholder-${selectedField.id}`,
             oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { placeholder: (e.target as HTMLInputElement).value })
         }));
         body.appendChild(placeholderGroup);
