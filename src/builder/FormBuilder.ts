@@ -20,7 +20,7 @@ export class FormBuilder {
 
     private setupSubscriptions() {
         this.unsubscribe = formStore.subscribe(() => {
-            // Re-render on state change. 
+           
             // Optimization: We could diff, but for now full re-render is safer for migration.
             // We need to be careful not to kill drag states if we re-render mid-drag.
             // Ideally we only re-render if schema changed in a way that affects DOM structure.
