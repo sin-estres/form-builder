@@ -25170,6 +25170,18 @@ var FormBuilder = class {
   }
   render() {
     const state = formStore.getState();
+    const activeElement = document.activeElement;
+    let focusState = null;
+    if (activeElement && (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA")) {
+      const focusId = activeElement.getAttribute("data-focus-id");
+      if (focusId) {
+        focusState = {
+          id: focusId,
+          selectionStart: activeElement.selectionStart,
+          selectionEnd: activeElement.selectionEnd
+        };
+      }
+    }
     this.container.innerHTML = "";
     const wrapper = createElement("div", { className: "flex flex-col h-screen bg-gray-100 dark:bg-gray-950" });
     wrapper.appendChild(this.renderToolbar(state));
@@ -25187,6 +25199,17 @@ var FormBuilder = class {
     }
     wrapper.appendChild(main);
     this.container.appendChild(wrapper);
+    if (focusState) {
+      setTimeout(() => {
+        const elementToFocus = document.querySelector(`[data-focus-id="${focusState.id}"]`);
+        if (elementToFocus) {
+          elementToFocus.focus();
+          if (focusState.selectionStart !== null && focusState.selectionEnd !== null) {
+            elementToFocus.setSelectionRange(focusState.selectionStart, focusState.selectionEnd);
+          }
+        }
+      }, 0);
+    }
     createIcons({ icons: iconsAndAliases_exports });
     if (!state.isPreviewMode) {
       this.initSortable();
@@ -25231,8 +25254,6 @@ var FormBuilder = class {
         console.log("Schema saved:", schema);
         if (this.onSave) {
           this.onSave(schema);
-        } else {
-          alert("Schema saved to console. Check browser console for JSON output.");
         }
       }
     }, [getIcon("Save", 16), createElement("span", { className: "ml-2", text: "Save" })]);
@@ -25272,6 +25293,7 @@ var FormBuilder = class {
       className: "text-3xl font-bold text-center bg-transparent border-none focus:outline-none focus:ring-0 w-full text-gray-900 dark:text-white mb-8",
       value: state.schema.title,
       placeholder: "Form Title",
+      "data-focus-id": "form-title",
       oninput: (e) => formStore.getState().setSchema({ ...state.schema, title: e.target.value })
     });
     inner.appendChild(titleInput);
@@ -25287,6 +25309,7 @@ var FormBuilder = class {
       headerLeft.appendChild(createElement("input", {
         className: "bg-transparent font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:border-b border-blue-500",
         value: section.title,
+        "data-focus-id": `section-title-${section.id}`,
         oninput: (e) => formStore.getState().updateSection(section.id, { title: e.target.value })
       }));
       header.appendChild(headerLeft);
@@ -25357,6 +25380,7 @@ var FormBuilder = class {
     labelGroup.appendChild(createElement("input", {
       className: "w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent",
       value: selectedField.label,
+      "data-focus-id": `field-label-${selectedField.id}`,
       oninput: (e) => formStore.getState().updateField(selectedField.id, { label: e.target.value })
     }));
     body.appendChild(labelGroup);
@@ -25365,6 +25389,7 @@ var FormBuilder = class {
     placeholderGroup.appendChild(createElement("input", {
       className: "w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent",
       value: selectedField.placeholder || "",
+      "data-focus-id": `field-placeholder-${selectedField.id}`,
       oninput: (e) => formStore.getState().updateField(selectedField.id, { placeholder: e.target.value })
     }));
     body.appendChild(placeholderGroup);
