@@ -8,6 +8,7 @@ export default defineConfig({
     sourcemap: true,
     clean: true,
     treeshake: true,
-    external: ['react', 'react-dom'],
-    injectStyle: false, // We will export a separate CSS file
+    // Bundle all dependencies - no externals
+    noExternal: [/.*/],
+    injectStyle: false, // We export a separate CSS file
 });
