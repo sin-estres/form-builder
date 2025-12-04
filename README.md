@@ -20,74 +20,52 @@ npm install form-builder-pro
 
 ## Usage
 
-### Form Builder
+### Vanilla JS / Angular / Vue
 
-```tsx
-import { FormBuilder } from 'form-builder-pro';
-import 'form-builder-pro/dist/index.css';
+This package is framework-agnostic. You can use it anywhere.
 
-function App() {
-  return (
-    <div className="h-screen">
-      <FormBuilder />
-    </div>
-  );
-}
-```
-
-### Form Renderer
-
-```tsx
-import { FormRenderer, FormSchema } from 'form-builder-pro';
-import 'form-builder-pro/dist/index.css';
-
-const schema: FormSchema = {
-  // ... your schema
-};
-
-function App() {
-  const handleSubmit = (data: any) => {
-    console.log(data);
-  };
-
-  return (
-    <FormRenderer 
-      schema={schema} 
-      onSubmit={handleSubmit} 
-    />
-  );
-}
-```
-
-### Angular / Vanilla JS (Web Components)
-
-This package exports standard Web Components that can be used in any framework.
-
-1. **Import the registration function** in your app's entry point (e.g., `main.ts` in Angular):
+1. **Import the classes**:
 
 ```typescript
-import { registerWebComponents } from 'form-builder-pro';
+import { FormBuilder, FormRenderer } from 'form-builder-pro';
 import 'form-builder-pro/dist/index.css';
-
-registerWebComponents();
 ```
 
-2. **Use in HTML/Template**:
+2. **Initialize Builder**:
 
-```html
-<!-- Builder -->
-<form-builder-pro></form-builder-pro>
+```typescript
+const container = document.getElementById('builder-container');
+const builder = new FormBuilder(container);
 
-<!-- Renderer -->
-<form-renderer-pro id="my-renderer"></form-renderer-pro>
+// To destroy
+// builder.destroy();
 ```
 
-3. **Pass complex data via JavaScript**:
+3. **Initialize Renderer**:
 
-```javascript
-const renderer = document.getElementById('my-renderer');
-renderer.schema = { ... }; // Pass your schema object
-renderer.onSubmit = (data) => console.log(data);
+```typescript
+const container = document.getElementById('form-container');
+const renderer = new FormRenderer(container, schema, (data) => {
+    console.log('Form submitted:', data);
+});
+```
+
+### Angular Example
+
+In your component:
+
+```typescript
+import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import { FormBuilder } from 'form-builder-pro';
+
+@Component({ ... })
+export class MyComponent implements AfterViewInit {
+  @ViewChild('builderContainer') container: ElementRef;
+
+  ngAfterViewInit() {
+    new FormBuilder(this.container.nativeElement);
+  }
+}
 ```
 
 ## Development
