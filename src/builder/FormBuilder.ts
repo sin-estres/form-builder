@@ -53,7 +53,7 @@ export class FormBuilder {
 
         this.container.innerHTML = '';
 
-        const wrapper = createElement('div', { className: 'flex flex-col h-screen bg-gray-100 dark:bg-gray-950' });
+        const wrapper = createElement('div', { className: 'flex flex-col h-screen ' });
 
         // Toolbar
         wrapper.appendChild(this.renderToolbar(state));
@@ -103,7 +103,7 @@ export class FormBuilder {
 
         // Left
         const left = createElement('div', { className: 'flex items-center space-x-2' });
-        left.appendChild(createElement('h1', { className: 'text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mr-4', text: 'FormBuilder Pro' }));
+        left.appendChild(createElement('h1', { className: 'text-xl font-semibold mb-2 text-primary  mr-4', text: 'FormBuilder Pro' }));
 
         const undoBtn = createElement('button', {
             className: 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
@@ -141,7 +141,7 @@ export class FormBuilder {
         }, [getIcon('Eye', 16), createElement('span', { className: 'ml-2', text: state.isPreviewMode ? 'Edit' : 'Preview' })]);
 
         const saveBtn = createElement('button', {
-            className: 'flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors',
+            className: 'flex items-center px-4 py-2 text-sm font-medium text-white bg-[#019FA2] hover:bg-[#3B497E] rounded-md shadow-sm transition-colors',
             onclick: () => {
                 const schema = formStore.getState().schema;
                 console.log('Schema saved:', schema);
@@ -162,18 +162,18 @@ export class FormBuilder {
     }
 
     private renderToolbox(): HTMLElement {
-        const toolbox = createElement('div', { className: 'w-64 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 overflow-y-auto h-full' });
+        const toolbox = createElement('div', { className: 'w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 overflow-y-auto h-full' });
         toolbox.appendChild(createElement('h2', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4', text: 'Form Fields' }));
 
-        const list = createElement('div', { className: 'space-y-1', id: 'toolbox-list' });
+        const list = createElement('div', { className: ' grid grid-cols-2 gap-3', id: 'toolbox-list' });
 
         FIELD_TYPES.forEach(field => {
             const item = createElement('div', {
-                className: 'flex items-center p-3 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md cursor-move hover:border-blue-500 hover:shadow-sm transition-all toolbox-item',
+                className: 'grid justify-center items-center p-3 bg-[#f2f3f7] dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md cursor-move hover:border-secondary hover:shadow-sm transition-all toolbox-item mt-0',
                 'data-type': field.type
             });
-            item.appendChild(createElement('span', { className: 'mr-3 text-gray-500 dark:text-gray-400' }, [getIcon(field.icon, 16)]));
-            item.appendChild(createElement('span', { className: 'text-sm font-medium text-gray-700 dark:text-gray-200', text: field.label }));
+            item.appendChild(createElement('span', { className: ' text-gray-500 mb-1 dark:text-gray-400 inline-flex mx-auto bg-[#019FA2] text-white w-9 h-9 rounded-sm p-1 justify-center items-center' }, [getIcon(field.icon, 16)]));
+            item.appendChild(createElement('span', { className: 'text-xs font-semibold text-gray-700 dark:text-gray-200', text: field.label }));
             list.appendChild(item);
         });
 
@@ -183,7 +183,7 @@ export class FormBuilder {
 
     private renderCanvas(state: any): HTMLElement {
         const canvas = createElement('div', {
-            className: 'flex-1 bg-gray-100 dark:bg-gray-950 p-8 overflow-y-auto h-full',
+            className: 'flex-1 bg-white dark:bg-gray-950 p-8 overflow-y-auto h-full',
             onclick: (e: Event) => {
                 if (e.target === canvas || e.target === canvas.firstElementChild) {
                     formStore.getState().selectField(null);
@@ -191,11 +191,11 @@ export class FormBuilder {
             }
         });
 
-        const inner = createElement('div', { className: 'max-w-3xl mx-auto' });
+        const inner = createElement('div', { className: 'mx-auto' });
 
         // Form Name Input
         const formNameInput = createElement('input', {
-            className: 'text-lg text-center bg-transparent border-none focus:outline-none focus:ring-0 w-full text-gray-600 dark:text-gray-400 mb-8',
+            className: 'text-lg border border-gray-200 dark:border-gray-700 rounded-md border-gray-200 p-2 bg-[#f2f3f7]  focus:outline-none focus:ring-0 w-full text-gray-600 dark:text-gray-400 mb-8',
             value: state.schema.formName,
             placeholder: 'formName (e.g., contactForm)',
             'data-focus-id': 'form-name',
@@ -213,7 +213,7 @@ export class FormBuilder {
             });
 
             // Header
-            const header = createElement('div', { className: 'flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg' });
+            const header = createElement('div', { className: 'flex items-center justify-between  p-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg' });
             const headerLeft = createElement('div', { className: 'flex items-center flex-1' });
             headerLeft.appendChild(createElement('div', { className: 'cursor-move mr-3 text-gray-400 hover:text-gray-600 section-handle' }, [getIcon('GripVertical', 20)]));
             headerLeft.appendChild(createElement('input', {
@@ -224,7 +224,7 @@ export class FormBuilder {
             }));
             header.appendChild(headerLeft);
             header.appendChild(createElement('button', {
-                className: 'text-gray-400 hover:text-red-500 transition-colors p-1',
+                className: 'text-gray-600 hover:text-red-500 transition-colors p-1',
                 onclick: () => formStore.getState().removeSection(section.id)
             }, [getIcon('Trash2', 18)]));
             sectionEl.appendChild(header);

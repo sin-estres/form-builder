@@ -16,7 +16,7 @@
     --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 019FA2;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
@@ -48,7 +48,7 @@
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 019FA2;
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217.2 32.6% 17.5%;
@@ -96,13 +96,13 @@
   .form-builder-field-wrapper {
     position: relative;
     border-radius: 0.5rem;
-    border-width: 2px;
+    border-width: 1px;
     transition: all 0.2s;
   }
 
   .form-builder-field-wrapper.selected {
-    border-color: rgb(59 130 246) !important;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+    border-color: #3B497E !important;
+    box-shadow: none !important;
   }
 
   .form-builder-field-wrapper:hover:not(.selected) {
@@ -114,5 +114,9 @@
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 1rem !important;
+  }
+
+  body{
+        font-family: Poppins, sans-serif;
   }
 }
