@@ -86,6 +86,142 @@ export class FormBuilderComponent implements AfterViewInit, OnDestroy {
 
 The Import dropdown allows users to select from existing forms and import their sections. To populate this dropdown with forms from your Angular application, pass the `existingForms` option when initializing the FormBuilder.
 
+### Loading Form Templates from JSON File
+
+If you have a `form-templates.json` file with pre-defined form templates, you can load it and pass it to the FormBuilder. This is the recommended approach for using the included form templates.
+
+**Step 1: Copy `form-templates.json` to your Angular assets folder**
+
+Copy the `form-templates.json` file to your Angular project's `src/assets/` directory:
+
+```bash
+# From your form-builder package directory
+cp form-templates.json /path/to/your-angular-app/src/assets/
+```
+
+**Step 2: Load and use the templates in your component**
+
+```typescript
+// form-builder.component.ts
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { FormBuilder, FormSchema } from 'form-builder-pro';
+
+@Component({
+  selector: 'app-form-builder',
+  template: `
+    <div #builderContainer class="h-screen"></div>
+  `
+})
+export class FormBuilderComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('builderContainer') container!: ElementRef;
+  private builder?: FormBuilder;
+  existingForms: FormSchema[] = [];
+
+  constructor(private http: HttpClient) {}
+
+  ngAfterViewInit() {
+    if (!this.container?.nativeElement) return;
+    
+    // Load form templates from assets
+    this.loadFormTemplates();
+  }
+
+  private loadFormTemplates() {
+    // Load from assets folder
+    this.http.get<FormSchema[]>('/assets/form-templates.json').subscribe({
+      next: (forms) => {
+        this.existingForms = forms;
+        this.initializeBuilder();
+      },
+      error: (err) => {
+        console.error('Failed to load form templates:', err);
+        // Initialize with empty list if file not found
+        this.initializeBuilder();
+      }
+    });
+  }
+
+  private initializeBuilder() {
+    if (!this.container?.nativeElement) return;
+    
+    this.builder = new FormBuilder(this.container.nativeElement, {
+      existingForms: this.existingForms, // Pass loaded templates here
+      onSave: (schema: FormSchema) => {
+        console.log('Form schema:', schema);
+        // Save to your backend
+        this.http.post('/api/forms', schema).subscribe();
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.builder?.destroy();
+  }
+}
+```
+
+**Alternative: Using fetch (if HttpClient is not available)**
+
+```typescript
+// form-builder.component.ts
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { FormBuilder, FormSchema } from 'form-builder-pro';
+
+@Component({
+  selector: 'app-form-builder',
+  template: `
+    <div #builderContainer class="h-screen"></div>
+  `
+})
+export class FormBuilderComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('builderContainer') container!: ElementRef;
+  private builder?: FormBuilder;
+  existingForms: FormSchema[] = [];
+
+  ngAfterViewInit() {
+    if (!this.container?.nativeElement) return;
+    
+    // Load form templates from assets
+    this.loadFormTemplates();
+  }
+
+  private async loadFormTemplates() {
+    try {
+      const response = await fetch('/assets/form-templates.json');
+      if (response.ok) {
+        this.existingForms = await response.json();
+      }
+    } catch (error) {
+      console.warn('Could not load form templates:', error);
+    } finally {
+      this.initializeBuilder();
+    }
+  }
+
+  private initializeBuilder() {
+    if (!this.container?.nativeElement) return;
+    
+    this.builder = new FormBuilder(this.container.nativeElement, {
+      existingForms: this.existingForms,
+      onSave: (schema: FormSchema) => {
+        console.log('Form schema:', schema);
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.builder?.destroy();
+  }
+}
+```
+
+**Important Notes:**
+- Make sure `form-templates.json` is in your `src/assets/` folder
+- The file will be served at `/assets/form-templates.json` when your app runs
+- If the file doesn't load, check the browser console for errors
+- The templates will appear in the "Import" tab of the form builder
+
 ### Basic Example
 
 ```typescript
