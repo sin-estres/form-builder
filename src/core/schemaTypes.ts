@@ -13,12 +13,21 @@ export type FieldType =
     | 'email'
     | 'phone';
 
-export type FieldWidth = '25%' | '50%' | '100%';
+export type FieldWidth = '25%' | '33%' | '50%' | '66%' | '75%' | '100%';
 
 export interface ValidationRule {
     type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'email';
     value?: string | number | boolean;
     message?: string;
+    // For pattern/regex
+    regex?: string;
+}
+
+export interface AsyncOptionSource {
+    api: string;
+    method: 'GET' | 'POST';
+    labelKey: string;
+    valueKey: string;
 }
 
 export interface FormField {
@@ -30,9 +39,11 @@ export interface FormField {
     required?: boolean;
     defaultValue?: any;
     options?: { label: string; value: string }[]; // For select, radio
+    optionsSource?: AsyncOptionSource; // For async select
     validation?: ValidationRule[];
     width: FieldWidth;
     hidden?: boolean; // For conditional logic later
+    position?: { row: number; column: number }; // Future proofing for strict grid, currently width-based
 }
 
 export interface FormSection {
@@ -40,6 +51,7 @@ export interface FormSection {
     title: string;
     fields: FormField[];
     isExpanded?: boolean;
+    columns?: 1 | 2 | 3; // Grid columns layout
 }
 
 export interface FormSchema {

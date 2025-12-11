@@ -1,6 +1,7 @@
 import { createStore } from 'zustand/vanilla';
 import { FormSchema, FormSection, FormField, FieldType } from './schemaTypes';
 import { generateId, DEFAULT_FIELD_CONFIG } from './constants';
+import { cloneForm, cloneSection } from '../utils/clone';
 
 interface FormState {
     schema: FormSchema;
@@ -8,11 +9,21 @@ interface FormState {
     history: FormSchema[];
     historyIndex: number;
     isPreviewMode: boolean;
+    existingForms: FormSchema[];
+    templates: FormSection[];
 }
 
 interface FormActions {
     setSchema: (schema: FormSchema) => void;
     togglePreview: () => void;
+
+    // New Actions
+    setExistingForms: (forms: FormSchema[]) => void;
+    setTemplates: (templates: FormSection[]) => void;
+    loadForm: (formId: string) => void;
+    cloneExistingForm: (formId: string) => void;
+    importSection: (section: FormSection) => void;
+
     addSection: () => void;
     removeSection: (sectionId: string) => void;
     updateSection: (sectionId: string, updates: Partial<FormSection>) => void;
@@ -49,9 +60,52 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     history: [INITIAL_SCHEMA],
     historyIndex: 0,
     isPreviewMode: false,
+    existingForms: [],
+    templates: [],
 
     setSchema: (schema) => set({ schema }),
     togglePreview: () => set((state) => ({ isPreviewMode: !state.isPreviewMode })),
+
+    // New Actions
+    setExistingForms: (forms) => set({ existingForms: forms }),
+    setTemplates: (templates) => set({ templates }),
+
+    loadForm: (formId) => {
+        const { existingForms, history, historyIndex } = get();
+        const found = existingForms.find(f => f.id === formId);
+        if (found) {
+            set({
+                schema: found,
+                history: [...history.slice(0, historyIndex + 1), found],
+                historyIndex: historyIndex + 1,
+            });
+        }
+    },
+
+    cloneExistingForm: (formId) => {
+        const { existingForms, history, historyIndex } = get();
+        const found = existingForms.find(f => f.id === formId);
+        if (found) {
+            const cloned = cloneForm(found); // Uses the new util
+            set({
+                schema: cloned,
+                history: [...history.slice(0, historyIndex + 1), cloned],
+                historyIndex: historyIndex + 1,
+            });
+        }
+    },
+
+    importSection: (section) => {
+        const { schema, history, historyIndex } = get();
+        const clonedSection = cloneSection(section); // Deep clone with new IDs
+        const newSchema = { ...schema, sections: [...schema.sections, clonedSection] };
+
+        set({
+            schema: newSchema,
+            history: [...history.slice(0, historyIndex + 1), newSchema],
+            historyIndex: historyIndex + 1,
+        });
+    },
 
     addSection: () => {
         const { schema, history, historyIndex } = get();
@@ -59,6 +113,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             id: generateId(),
             title: `Section ${schema.sections.length + 1}`,
             fields: [],
+            columns: 1 // Default to 1 column
         };
         const newSchema = { ...schema, sections: [...schema.sections, newSection] };
 

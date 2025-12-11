@@ -37,9 +37,15 @@ export class FormRenderer {
 
             section.fields.forEach(field => {
                 const fieldWrapper = createElement('div');
-                // Grid span logic
-                const span = field.width === '100%' ? 'col-span-4' : field.width === '50%' ? 'col-span-2' : 'col-span-1';
-                fieldWrapper.className = span;
+                // Grid span logic (12 Cols)
+                let spanClass = 'col-span-12';
+                if (field.width === '50%') spanClass = 'col-span-6';
+                else if (field.width === '33%') spanClass = 'col-span-4';
+                else if (field.width === '25%') spanClass = 'col-span-3';
+                else if (field.width === '66%') spanClass = 'col-span-8';
+                else if (field.width === '75%') spanClass = 'col-span-9';
+
+                fieldWrapper.className = spanClass;
 
                 const fieldEl = FieldRenderer.render(field, this.data[field.id], (val) => {
                     this.data[field.id] = val;

@@ -1,19 +1,18 @@
 import { FieldType, FormField } from './schemaTypes';
-import { v4 as uuidv4 } from 'uuid'; // We might need uuid, but for now I'll use a simple generator or just Date.now() if uuid isn't installed. Wait, I didn't install uuid. I'll use a helper.
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
     { type: 'text', label: 'Text Input', icon: 'Type' },
-    { type: 'textarea', label: 'Text Area', icon: 'AlignLeft' },
+    { type: 'textarea', label: 'Text Area', icon: 'DocumentText' },
     { type: 'number', label: 'Number', icon: 'Hash' },
     { type: 'email', label: 'Email', icon: 'Mail' },
     { type: 'phone', label: 'Phone', icon: 'Phone' },
     { type: 'date', label: 'Date Picker', icon: 'Calendar' },
-    { type: 'select', label: 'Dropdown', icon: 'ChevronDown' },
+    { type: 'select', label: 'Dropdown', icon: 'ListBullet' },
     { type: 'checkbox', label: 'Checkbox', icon: 'CheckSquare' },
     { type: 'radio', label: 'Radio Group', icon: 'CircleDot' },
-    { type: 'toggle', label: 'Toggle', icon: 'ToggleLeft' }, // Lucide icon names, will be mapped later
+    { type: 'toggle', label: 'Toggle', icon: 'ToggleSwitch' },
     { type: 'file', label: 'File Upload', icon: 'Upload' },
 ];
 
