@@ -1,0 +1,1320 @@
+[
+  {
+    "id": "section-contact-details-001",
+    "title": "Customer Lead / Prospect Form - Contact Details",
+    "fields": [
+      {
+        "id": "field-first-name-001",
+        "type": "text",
+        "label": "First Name",
+        "placeholder": "Enter your first name",
+        "width": "50%"
+      },
+      {
+        "id": "field-last-name-001",
+        "type": "text",
+        "label": "Last Name",
+        "placeholder": "Enter your last name",
+        "width": "50%"
+      },
+      {
+        "id": "field-phone-001",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-001",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "your.email@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-business-info-001",
+    "title": "Customer Lead / Prospect Form - Business Info",
+    "fields": [
+      {
+        "id": "field-company-name-001",
+        "type": "text",
+        "label": "Company Name",
+        "placeholder": "Enter company name",
+        "width": "50%"
+      },
+      {
+        "id": "field-industry-001",
+        "type": "select",
+        "label": "Industry",
+        "placeholder": "Select industry",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Technology",
+            "value": "technology"
+          },
+          {
+            "label": "Healthcare",
+            "value": "healthcare"
+          },
+          {
+            "label": "Finance",
+            "value": "finance"
+          },
+          {
+            "label": "Retail",
+            "value": "retail"
+          },
+          {
+            "label": "Manufacturing",
+            "value": "manufacturing"
+          },
+          {
+            "label": "Education",
+            "value": "education"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "id": "field-business-size-001",
+        "type": "select",
+        "label": "Business Size",
+        "placeholder": "Select business size",
+        "width": "50%",
+        "options": [
+          {
+            "label": "1-10 employees",
+            "value": "1-10"
+          },
+          {
+            "label": "11-50 employees",
+            "value": "11-50"
+          },
+          {
+            "label": "51-200 employees",
+            "value": "51-200"
+          },
+          {
+            "label": "201-500 employees",
+            "value": "201-500"
+          },
+          {
+            "label": "500+ employees",
+            "value": "500+"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-additional-001",
+    "title": "Customer Lead / Prospect Form - Additional",
+    "fields": [
+      {
+        "id": "field-notes-001",
+        "type": "textarea",
+        "label": "Notes / Requirements",
+        "placeholder": "Enter any additional notes or requirements",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-personal-details-002",
+    "title": "Employee Onboarding Form - Personal Details",
+    "fields": [
+      {
+        "id": "field-full-name-002",
+        "type": "text",
+        "label": "Full Name",
+        "placeholder": "Enter your full name",
+        "width": "50%"
+      },
+      {
+        "id": "field-dob-002",
+        "type": "date",
+        "label": "DOB",
+        "placeholder": "Select date of birth",
+        "width": "50%"
+      },
+      {
+        "id": "field-gender-002",
+        "type": "select",
+        "label": "Gender",
+        "placeholder": "Select gender",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Male",
+            "value": "male"
+          },
+          {
+            "label": "Female",
+            "value": "female"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          },
+          {
+            "label": "Prefer not to say",
+            "value": "prefer-not-to-say"
+          }
+        ]
+      },
+      {
+        "id": "field-phone-002",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-002",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "your.email@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-address-info-002",
+    "title": "Employee Onboarding Form - Address Information",
+    "fields": [
+      {
+        "id": "field-current-address-002",
+        "type": "textarea",
+        "label": "Current Address",
+        "placeholder": "Enter your current address",
+        "width": "50%"
+      },
+      {
+        "id": "field-permanent-address-002",
+        "type": "textarea",
+        "label": "Permanent Address",
+        "placeholder": "Enter your permanent address",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-job-details-002",
+    "title": "Employee Onboarding Form - Job Details",
+    "fields": [
+      {
+        "id": "field-department-002",
+        "type": "select",
+        "label": "Department",
+        "placeholder": "Select department",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Engineering",
+            "value": "engineering"
+          },
+          {
+            "label": "Sales",
+            "value": "sales"
+          },
+          {
+            "label": "Marketing",
+            "value": "marketing"
+          },
+          {
+            "label": "HR",
+            "value": "hr"
+          },
+          {
+            "label": "Finance",
+            "value": "finance"
+          },
+          {
+            "label": "Operations",
+            "value": "operations"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "id": "field-position-002",
+        "type": "text",
+        "label": "Position",
+        "placeholder": "Enter position title",
+        "width": "50%"
+      },
+      {
+        "id": "field-joining-date-002",
+        "type": "date",
+        "label": "Joining Date",
+        "placeholder": "Select joining date",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-banking-id-002",
+    "title": "Employee Onboarding Form - Banking & ID",
+    "fields": [
+      {
+        "id": "field-aadhar-002",
+        "type": "text",
+        "label": "Aadhar Number",
+        "placeholder": "Enter Aadhar number",
+        "width": "50%"
+      },
+      {
+        "id": "field-pan-002",
+        "type": "text",
+        "label": "PAN Number",
+        "placeholder": "Enter PAN number",
+        "width": "50%"
+      },
+      {
+        "id": "field-bank-account-002",
+        "type": "text",
+        "label": "Bank Account No",
+        "placeholder": "Enter bank account number",
+        "width": "50%"
+      },
+      {
+        "id": "field-ifsc-002",
+        "type": "text",
+        "label": "IFSC",
+        "placeholder": "Enter IFSC code",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-vendor-info-003",
+    "title": "Vendor Registration Form - Vendor Info",
+    "fields": [
+      {
+        "id": "field-vendor-name-003",
+        "type": "text",
+        "label": "Vendor Name",
+        "placeholder": "Enter vendor name",
+        "width": "50%"
+      },
+      {
+        "id": "field-business-nature-003",
+        "type": "select",
+        "label": "Business Nature",
+        "placeholder": "Select business nature",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Manufacturing",
+            "value": "manufacturing"
+          },
+          {
+            "label": "Trading",
+            "value": "trading"
+          },
+          {
+            "label": "Services",
+            "value": "services"
+          },
+          {
+            "label": "Consulting",
+            "value": "consulting"
+          },
+          {
+            "label": "IT Services",
+            "value": "it-services"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "id": "field-gst-number-003",
+        "type": "text",
+        "label": "GST Number",
+        "placeholder": "Enter GST number",
+        "width": "50%"
+      },
+      {
+        "id": "field-pan-number-003",
+        "type": "text",
+        "label": "PAN Number",
+        "placeholder": "Enter PAN number",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-contact-details-003",
+    "title": "Vendor Registration Form - Contact Details",
+    "fields": [
+      {
+        "id": "field-contact-person-003",
+        "type": "text",
+        "label": "Contact Person",
+        "placeholder": "Enter contact person name",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-003",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "contact@vendor.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      },
+      {
+        "id": "field-phone-003",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-bank-details-003",
+    "title": "Vendor Registration Form - Bank Details",
+    "fields": [
+      {
+        "id": "field-account-holder-003",
+        "type": "text",
+        "label": "Account Holder Name",
+        "placeholder": "Enter account holder name",
+        "width": "50%"
+      },
+      {
+        "id": "field-account-no-003",
+        "type": "text",
+        "label": "Account No",
+        "placeholder": "Enter account number",
+        "width": "50%"
+      },
+      {
+        "id": "field-ifsc-003",
+        "type": "text",
+        "label": "IFSC",
+        "placeholder": "Enter IFSC code",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-compliance-003",
+    "title": "Vendor Registration Form - Compliance",
+    "fields": [
+      {
+        "id": "field-cancelled-cheque-003",
+        "type": "file",
+        "label": "Upload Cancelled Cheque",
+        "placeholder": "Upload file",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-personal-info-004",
+    "title": "Customer Feedback Form - Personal Info",
+    "fields": [
+      {
+        "id": "field-name-004",
+        "type": "text",
+        "label": "Name",
+        "placeholder": "Enter your name",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-004",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "your.email@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-feedback-004",
+    "title": "Customer Feedback Form - Feedback",
+    "fields": [
+      {
+        "id": "field-rate-experience-004",
+        "type": "select",
+        "label": "Rate Experience",
+        "placeholder": "Select rating",
+        "width": "50%",
+        "options": [
+          {
+            "label": "1 - Poor",
+            "value": "1"
+          },
+          {
+            "label": "2 - Fair",
+            "value": "2"
+          },
+          {
+            "label": "3 - Good",
+            "value": "3"
+          },
+          {
+            "label": "4 - Very Good",
+            "value": "4"
+          },
+          {
+            "label": "5 - Excellent",
+            "value": "5"
+          }
+        ]
+      },
+      {
+        "id": "field-what-liked-004",
+        "type": "textarea",
+        "label": "What did you like?",
+        "placeholder": "Tell us what you liked about your experience",
+        "width": "100%"
+      },
+      {
+        "id": "field-what-improved-004",
+        "type": "textarea",
+        "label": "What can be improved?",
+        "placeholder": "Tell us what can be improved",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-customer-details-005",
+    "title": "Support Ticket / Complaint Form - Customer Details",
+    "fields": [
+      {
+        "id": "field-name-005",
+        "type": "text",
+        "label": "Name",
+        "placeholder": "Enter your name",
+        "width": "50%"
+      },
+      {
+        "id": "field-phone-005",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-005",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "your.email@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-issue-details-005",
+    "title": "Support Ticket / Complaint Form - Issue Details",
+    "fields": [
+      {
+        "id": "field-category-005",
+        "type": "select",
+        "label": "Category",
+        "placeholder": "Select category",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Technical Issue",
+            "value": "technical"
+          },
+          {
+            "label": "Billing Issue",
+            "value": "billing"
+          },
+          {
+            "label": "Account Issue",
+            "value": "account"
+          },
+          {
+            "label": "Feature Request",
+            "value": "feature-request"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "id": "field-severity-005",
+        "type": "select",
+        "label": "Severity",
+        "placeholder": "Select severity",
+        "width": "50%",
+        "options": [
+          {
+            "label": "High",
+            "value": "high"
+          },
+          {
+            "label": "Medium",
+            "value": "medium"
+          },
+          {
+            "label": "Low",
+            "value": "low"
+          }
+        ]
+      },
+      {
+        "id": "field-description-005",
+        "type": "textarea",
+        "label": "Description",
+        "placeholder": "Describe the issue in detail",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-attachment-005",
+    "title": "Support Ticket / Complaint Form - Attachment",
+    "fields": [
+      {
+        "id": "field-screenshot-005",
+        "type": "file",
+        "label": "Upload Screenshot/File",
+        "placeholder": "Upload file",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-customer-info-006",
+    "title": "Sales Order Request Form - Customer Information",
+    "fields": [
+      {
+        "id": "field-name-006",
+        "type": "text",
+        "label": "Name",
+        "placeholder": "Enter customer name",
+        "width": "50%"
+      },
+      {
+        "id": "field-phone-006",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-006",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "customer@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-order-details-006",
+    "title": "Sales Order Request Form - Order Details",
+    "fields": [
+      {
+        "id": "field-product-list-006",
+        "type": "select",
+        "label": "Product List",
+        "placeholder": "Select product",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Product A",
+            "value": "product-a"
+          },
+          {
+            "label": "Product B",
+            "value": "product-b"
+          },
+          {
+            "label": "Product C",
+            "value": "product-c"
+          },
+          {
+            "label": "Product D",
+            "value": "product-d"
+          },
+          {
+            "label": "Product E",
+            "value": "product-e"
+          }
+        ]
+      },
+      {
+        "id": "field-quantity-006",
+        "type": "number",
+        "label": "Quantity",
+        "placeholder": "Enter quantity",
+        "width": "50%"
+      },
+      {
+        "id": "field-shipping-address-006",
+        "type": "textarea",
+        "label": "Shipping Address",
+        "placeholder": "Enter shipping address",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-payment-006",
+    "title": "Sales Order Request Form - Payment",
+    "fields": [
+      {
+        "id": "field-payment-method-006",
+        "type": "select",
+        "label": "Payment Method",
+        "placeholder": "Select payment method",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Credit Card",
+            "value": "credit-card"
+          },
+          {
+            "label": "Debit Card",
+            "value": "debit-card"
+          },
+          {
+            "label": "Bank Transfer",
+            "value": "bank-transfer"
+          },
+          {
+            "label": "Cash on Delivery",
+            "value": "cod"
+          },
+          {
+            "label": "UPI",
+            "value": "upi"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-personal-info-007",
+    "title": "Job Application / Recruitment Form - Personal Info",
+    "fields": [
+      {
+        "id": "field-name-007",
+        "type": "text",
+        "label": "Name",
+        "placeholder": "Enter your full name",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-007",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "your.email@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      },
+      {
+        "id": "field-phone-007",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      },
+      {
+        "id": "field-linkedin-007",
+        "type": "text",
+        "label": "LinkedIn",
+        "placeholder": "https://linkedin.com/in/yourprofile",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-professional-info-007",
+    "title": "Job Application / Recruitment Form - Professional Info",
+    "fields": [
+      {
+        "id": "field-resume-007",
+        "type": "file",
+        "label": "Resume Upload",
+        "placeholder": "Upload resume",
+        "width": "50%"
+      },
+      {
+        "id": "field-skill-set-007",
+        "type": "textarea",
+        "label": "Skill Set",
+        "placeholder": "Enter your skills (comma separated)",
+        "width": "50%"
+      },
+      {
+        "id": "field-experience-007",
+        "type": "number",
+        "label": "Experience",
+        "placeholder": "Years of experience",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-additional-007",
+    "title": "Job Application / Recruitment Form - Additional",
+    "fields": [
+      {
+        "id": "field-why-hire-007",
+        "type": "textarea",
+        "label": "Why should we hire you?",
+        "placeholder": "Tell us why you're the right fit for this position",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-employee-info-008",
+    "title": "Internal Request Form (IT / Admin) - Employee Info",
+    "fields": [
+      {
+        "id": "field-name-008",
+        "type": "text",
+        "label": "Name",
+        "placeholder": "Enter employee name",
+        "width": "50%"
+      },
+      {
+        "id": "field-employee-id-008",
+        "type": "text",
+        "label": "Employee ID",
+        "placeholder": "Enter employee ID",
+        "width": "50%"
+      },
+      {
+        "id": "field-department-008",
+        "type": "text",
+        "label": "Department",
+        "placeholder": "Enter department name",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-request-details-008",
+    "title": "Internal Request Form (IT / Admin) - Request Details",
+    "fields": [
+      {
+        "id": "field-request-type-008",
+        "type": "select",
+        "label": "Request Type",
+        "placeholder": "Select request type",
+        "width": "50%",
+        "options": [
+          {
+            "label": "IT Support",
+            "value": "it-support"
+          },
+          {
+            "label": "Hardware Request",
+            "value": "hardware"
+          },
+          {
+            "label": "Software Request",
+            "value": "software"
+          },
+          {
+            "label": "Access Request",
+            "value": "access"
+          },
+          {
+            "label": "Admin Request",
+            "value": "admin"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "id": "field-priority-008",
+        "type": "select",
+        "label": "Priority",
+        "placeholder": "Select priority",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Low",
+            "value": "low"
+          },
+          {
+            "label": "Medium",
+            "value": "medium"
+          },
+          {
+            "label": "High",
+            "value": "high"
+          },
+          {
+            "label": "Urgent",
+            "value": "urgent"
+          }
+        ]
+      },
+      {
+        "id": "field-description-008",
+        "type": "textarea",
+        "label": "Description",
+        "placeholder": "Describe your request in detail",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-participant-info-009",
+    "title": "Event Registration Form - Participant Info",
+    "fields": [
+      {
+        "id": "field-name-009",
+        "type": "text",
+        "label": "Name",
+        "placeholder": "Enter your name",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-009",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "your.email@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      },
+      {
+        "id": "field-phone-009",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-event-details-009",
+    "title": "Event Registration Form - Event Details",
+    "fields": [
+      {
+        "id": "field-select-event-009",
+        "type": "select",
+        "label": "Select Event",
+        "placeholder": "Choose an event",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Conference 2024",
+            "value": "conference-2024"
+          },
+          {
+            "label": "Workshop Series",
+            "value": "workshop-series"
+          },
+          {
+            "label": "Networking Event",
+            "value": "networking-event"
+          },
+          {
+            "label": "Training Session",
+            "value": "training-session"
+          },
+          {
+            "label": "Seminar",
+            "value": "seminar"
+          }
+        ]
+      },
+      {
+        "id": "field-number-seats-009",
+        "type": "number",
+        "label": "Number of Seats",
+        "placeholder": "Enter number of seats",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-additional-009",
+    "title": "Event Registration Form - Additional",
+    "fields": [
+      {
+        "id": "field-comments-009",
+        "type": "textarea",
+        "label": "Comments or Requirements",
+        "placeholder": "Any special requirements or comments",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-customer-info-010",
+    "title": "Appointment / Booking Form - Customer Info",
+    "fields": [
+      {
+        "id": "field-full-name-010",
+        "type": "text",
+        "label": "Full Name",
+        "placeholder": "Enter your full name",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-010",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "your.email@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      },
+      {
+        "id": "field-phone-010",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-booking-details-010",
+    "title": "Appointment / Booking Form - Booking Details",
+    "fields": [
+      {
+        "id": "field-service-type-010",
+        "type": "select",
+        "label": "Service Type",
+        "placeholder": "Select service type",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Consultation",
+            "value": "consultation"
+          },
+          {
+            "label": "Treatment",
+            "value": "treatment"
+          },
+          {
+            "label": "Check-up",
+            "value": "check-up"
+          },
+          {
+            "label": "Follow-up",
+            "value": "follow-up"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "id": "field-preferred-date-010",
+        "type": "date",
+        "label": "Preferred Date",
+        "placeholder": "Select preferred date",
+        "width": "50%"
+      },
+      {
+        "id": "field-preferred-time-010",
+        "type": "text",
+        "label": "Preferred Time",
+        "placeholder": "e.g., 10:00 AM",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-notes-010",
+    "title": "Appointment / Booking Form - Notes",
+    "fields": [
+      {
+        "id": "field-additional-requests-010",
+        "type": "textarea",
+        "label": "Additional Requests",
+        "placeholder": "Any additional requests or notes",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-contact-details-011",
+    "title": "CRM Contact / Company Form - Contact Details",
+    "fields": [
+      {
+        "id": "field-name-011",
+        "type": "text",
+        "label": "Name",
+        "placeholder": "Enter contact name",
+        "width": "50%"
+      },
+      {
+        "id": "field-phone-011",
+        "type": "phone",
+        "label": "Phone",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      },
+      {
+        "id": "field-email-011",
+        "type": "email",
+        "label": "Email",
+        "placeholder": "contact@example.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-company-details-011",
+    "title": "CRM Contact / Company Form - Company Details",
+    "fields": [
+      {
+        "id": "field-company-name-011",
+        "type": "text",
+        "label": "Company Name",
+        "placeholder": "Enter company name",
+        "width": "50%"
+      },
+      {
+        "id": "field-role-011",
+        "type": "text",
+        "label": "Role",
+        "placeholder": "Enter role/title",
+        "width": "50%"
+      },
+      {
+        "id": "field-industry-011",
+        "type": "select",
+        "label": "Industry",
+        "placeholder": "Select industry",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Technology",
+            "value": "technology"
+          },
+          {
+            "label": "Healthcare",
+            "value": "healthcare"
+          },
+          {
+            "label": "Finance",
+            "value": "finance"
+          },
+          {
+            "label": "Retail",
+            "value": "retail"
+          },
+          {
+            "label": "Manufacturing",
+            "value": "manufacturing"
+          },
+          {
+            "label": "Education",
+            "value": "education"
+          },
+          {
+            "label": "Real Estate",
+            "value": "real-estate"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-notes-011",
+    "title": "CRM Contact / Company Form - Notes",
+    "fields": [
+      {
+        "id": "field-description-011",
+        "type": "textarea",
+        "label": "Description",
+        "placeholder": "Enter additional notes or description",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-employee-info-012",
+    "title": "Expense Reimbursement Form - Employee Info",
+    "fields": [
+      {
+        "id": "field-name-012",
+        "type": "text",
+        "label": "Name",
+        "placeholder": "Enter employee name",
+        "width": "50%"
+      },
+      {
+        "id": "field-employee-id-012",
+        "type": "text",
+        "label": "Employee ID",
+        "placeholder": "Enter employee ID",
+        "width": "50%"
+      },
+      {
+        "id": "field-department-012",
+        "type": "text",
+        "label": "Department",
+        "placeholder": "Enter department name",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-expense-details-012",
+    "title": "Expense Reimbursement Form - Expense Details",
+    "fields": [
+      {
+        "id": "field-expense-type-012",
+        "type": "select",
+        "label": "Expense Type",
+        "placeholder": "Select expense type",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Travel",
+            "value": "travel"
+          },
+          {
+            "label": "Meals",
+            "value": "meals"
+          },
+          {
+            "label": "Accommodation",
+            "value": "accommodation"
+          },
+          {
+            "label": "Transportation",
+            "value": "transportation"
+          },
+          {
+            "label": "Office Supplies",
+            "value": "office-supplies"
+          },
+          {
+            "label": "Training",
+            "value": "training"
+          },
+          {
+            "label": "Other",
+            "value": "other"
+          }
+        ]
+      },
+      {
+        "id": "field-amount-012",
+        "type": "number",
+        "label": "Amount",
+        "placeholder": "Enter amount",
+        "width": "50%"
+      },
+      {
+        "id": "field-date-012",
+        "type": "date",
+        "label": "Date",
+        "placeholder": "Select expense date",
+        "width": "50%"
+      },
+      {
+        "id": "field-description-012",
+        "type": "textarea",
+        "label": "Description",
+        "placeholder": "Describe the expense",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-upload-012",
+    "title": "Expense Reimbursement Form - Upload",
+    "fields": [
+      {
+        "id": "field-receipt-012",
+        "type": "file",
+        "label": "Receipt Attachment",
+        "placeholder": "Upload receipt",
+        "width": "100%"
+      }
+    ]
+  }
+]

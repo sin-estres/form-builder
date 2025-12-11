@@ -25,6 +25,9 @@ export class FormBuilder {
     private options: FormBuilderOptions;
 
     constructor(container: HTMLElement, options: FormBuilderOptions = {}) {
+        if (!container) {
+            throw new Error('Builder container not found. Please ensure the container element exists before initializing FormBuilder.');
+        }
         this.container = container;
         this.options = options;
 
@@ -74,6 +77,12 @@ export class FormBuilder {
 
     public applyTemplate(template: FormSection) {
         this.importSection(template);
+    }
+
+    public updateExistingForms(forms: FormSchema[]) {
+        formStore.getState().setExistingForms(forms);
+        // Re-render to update the import dropdown
+        this.render();
     }
 
     private setupSubscriptions() {
@@ -298,15 +307,32 @@ export class FormBuilder {
             if (templates.length === 0) {
                 content.appendChild(createElement('div', { className: 'text-sm text-gray-500 text-center mt-4', text: 'No templates saved.' }));
             } else {
+                const templatesList = createElement('div', { id: 'templates-list', className: 'space-y-3' });
                 templates.forEach(t => {
                     const item = createElement('div', {
-                        className: 'p-3 mb-2 bg-gray-50 dark:bg-gray-800 border rounded cursor-pointer hover:border-blue-500',
-                        onclick: () => this.applyTemplate(t)
+                        className: 'p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg cursor-move hover:border-blue-500 hover:shadow-sm transition-all template-item',
+                        'data-template-id': t.id,
+                        'data-type': 'template-section'
                     });
-                    item.appendChild(createElement('div', { className: 'font-medium text-sm', text: t.title }));
-                    item.appendChild(createElement('div', { className: 'text-xs text-gray-500', text: `${t.fields.length} fields` }));
-                    content.appendChild(item);
+
+                    // Title
+                    item.appendChild(createElement('div', {
+                        className: 'font-semibold text-sm text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2'
+                    }, [
+                        getIcon('DocumentText', 16), // Small icon
+                        createElement('span', { text: t.title })
+                    ]));
+
+                    // Fields Summary
+                    const fieldNames = t.fields.map(f => f.label).join(', ');
+                    item.appendChild(createElement('div', {
+                        className: 'text-xs text-gray-500 truncate',
+                        text: `Fields: ${fieldNames}`
+                    }));
+
+                    templatesList.appendChild(item);
                 });
+                content.appendChild(templatesList);
             }
         } else if (this.activeTab === 'import') {
             const existingForms = formStore.getState().existingForms;
@@ -377,8 +403,12 @@ export class FormBuilder {
         });
         inner.appendChild(formNameInput);
 
-        // Sections Container
-        const sectionsContainer = createElement('div', { className: 'space-y-6 min-h-[200px]', id: 'sections-list' });
+        // Sections Container (Drop Zone for Templates)
+        const sectionsContainer = createElement('div', {
+            className: 'space-y-6 min-h-[200px]',
+            id: 'sections-list',
+            'data-drop-zone': 'sections'
+        });
 
         state.schema.sections.forEach((section: any) => {
             const sectionEl = createElement('div', {
@@ -714,6 +744,8 @@ export class FormBuilder {
         return panel;
     }
 
+
+
     private initSortable() {
         // Toolbox
         const toolboxList = document.getElementById('toolbox-list');
@@ -729,14 +761,55 @@ export class FormBuilder {
             });
         }
 
-        // Sections (Reorder)
+        // Templates List (Draggable)
+        const templatesList = document.getElementById('templates-list');
+        if (templatesList) {
+            new Sortable(templatesList, {
+                group: {
+                    name: 'shared',
+                    pull: 'clone',
+                    put: false
+                },
+                sort: false,
+                animation: 150,
+                draggable: '.template-item',
+                forceFallback: true
+            });
+        }
+
+        // Sections (Reorder & Drop from Templates)
         const sectionsList = document.getElementById('sections-list');
         if (sectionsList) {
             new Sortable(sectionsList, {
+                group: 'shared',
                 handle: '.section-handle',
                 animation: 150,
+                onAdd: (evt) => {
+                    const item = evt.item;
+                    const templateId = item.getAttribute('data-template-id');
+                    const isTemplate = item.getAttribute('data-type') === 'template-section';
+
+                    // If dropped from templates list
+                    if (templateId && isTemplate) {
+                        const templates = formStore.getState().templates;
+                        const template = templates.find(t => t.id === templateId);
+                        if (template) {
+                            // Remove cloned DOM element immediately
+                            item.remove();
+                            // Import the section which will create a new section with the template's content
+                            formStore.getState().importSection(template);
+                            return; // Exit early to prevent other handlers
+                        }
+                    }
+                },
                 onEnd: (evt) => {
-                    if (evt.oldIndex !== undefined && evt.newIndex !== undefined) {
+                    const item = evt.item;
+                    const templateId = item.getAttribute('data-template-id');
+                    const isTemplate = item.getAttribute('data-type') === 'template-section';
+
+                    // Only handle reordering if it's not a template drop
+                    // Template drops are handled in onAdd
+                    if (!templateId && !isTemplate && evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
                         formStore.getState().moveSection(evt.oldIndex, evt.newIndex);
                     }
                 }
