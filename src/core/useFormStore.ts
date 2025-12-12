@@ -1,7 +1,7 @@
 import { createStore } from 'zustand/vanilla';
 import { FormSchema, FormSection, FormField, FieldType } from './schemaTypes';
 import { generateId, DEFAULT_FIELD_CONFIG } from './constants';
-import { cloneForm, cloneSection } from '../utils/clone';
+import { cloneForm, cloneSection, cloneField } from '../utils/clone';
 
 interface FormState {
     schema: FormSchema;
@@ -39,6 +39,7 @@ interface FormActions {
     redo: () => void;
     canUndo: () => boolean;
     canRedo: () => boolean;
+    addTemplateFields: (targetSectionId: string, template: FormSection, index?: number) => void;
 }
 
 const INITIAL_SCHEMA: FormSchema = {
@@ -265,6 +266,33 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             schema: newSchema,
             history: [...history.slice(0, historyIndex + 1), newSchema],
             historyIndex: historyIndex + 1,
+        });
+    },
+
+    addTemplateFields: (targetSectionId: string, template: FormSection, index?: number) => {
+        set((state) => {
+            const sectionIndex = state.schema.sections.findIndex(s => s.id === targetSectionId);
+            if (sectionIndex === -1) return state;
+
+            const section = state.schema.sections[sectionIndex];
+            const newFields = template.fields.map(cloneField);
+
+            const currentFields = [...section.fields];
+            if (typeof index === 'number' && index >= 0) {
+                currentFields.splice(index, 0, ...newFields);
+            } else {
+                currentFields.push(...newFields);
+            }
+
+            const newSection = { ...section, fields: currentFields };
+            const newSections = [...state.schema.sections];
+            newSections[sectionIndex] = newSection;
+
+            return {
+                schema: { ...state.schema, sections: newSections },
+                history: [...state.history.slice(0, state.historyIndex + 1), { ...state.schema, sections: newSections }],
+                historyIndex: state.historyIndex + 1
+            };
         });
     },
 

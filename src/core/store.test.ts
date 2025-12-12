@@ -46,4 +46,28 @@ describe('formStore', () => {
         formStore.getState().redo();
         expect(formStore.getState().schema.sections).toHaveLength(1);
     });
+
+    it('should add fields from a template to a section', () => {
+        formStore.getState().addSection();
+        const sectionId = formStore.getState().schema.sections[0].id;
+
+        const template = {
+            id: 'temp_1',
+            title: 'Test Template',
+            fields: [
+                { id: 'f1', type: 'text', label: 'Field 1' } as any,
+                { id: 'f2', type: 'number', label: 'Field 2' } as any
+            ]
+        };
+
+        formStore.getState().addTemplateFields(sectionId, template);
+        const state = formStore.getState();
+
+        expect(state.schema.sections[0].fields).toHaveLength(2);
+        expect(state.schema.sections[0].fields[0].label).toBe('Field 1');
+        expect(state.schema.sections[0].fields[1].label).toBe('Field 2');
+        // IDs should be regenerated
+        expect(state.schema.sections[0].fields[0].id).not.toBe('f1');
+        expect(state.schema.sections[0].fields[1].id).not.toBe('f2');
+    });
 });

@@ -868,6 +868,20 @@ export class FormBuilder {
 
                     // If dropped from toolbox
                     if (type && sectionId) {
+                        // Check if it's a template drop
+                        if (type === 'template-section') {
+                            const templateId = item.getAttribute('data-template-id');
+                            const templates = formStore.getState().templates;
+                            const template = templates.find(t => t.id === templateId);
+
+                            item.remove(); // Remove DOM element immediately
+
+                            if (template) {
+                                formStore.getState().addTemplateFields(sectionId, template, evt.newIndex);
+                            }
+                            return;
+                        }
+
                         // Remove the cloned DOM element because store update will re-render everything
                         item.remove();
                         formStore.getState().addField(sectionId, type as any, evt.newIndex);
