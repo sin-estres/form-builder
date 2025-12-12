@@ -3,4 +3,5 @@ export default {
         tailwindcss: {},
         autoprefixer: {},
     },
+    map: false, // Disable source maps to prevent corruption issues
 }
