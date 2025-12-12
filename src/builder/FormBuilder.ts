@@ -163,7 +163,7 @@ export class FormBuilder {
         // Toolbar
         wrapper.appendChild(this.renderToolbar(state));
 
-        const main = createElement('div', { className: 'flex flex-1 overflow-hidden' });
+        const main = createElement('div', { className: 'flex flex-col md:flex-row flex-1 overflow-hidden' });
 
         if (state.isPreviewMode) {
             const previewContainer = createElement('div', { className: 'flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
@@ -172,9 +172,20 @@ export class FormBuilder {
             previewContainer.appendChild(inner);
             main.appendChild(previewContainer);
         } else {
-            main.appendChild(this.renderToolbox());
-            main.appendChild(this.renderCanvas(state));
-            main.appendChild(this.renderConfigPanel(state));
+            // Wrap toolbox for mobile collapsibility
+            const toolboxWrapper = createElement('div', { className: 'form-builder-toolbox-wrapper w-full md:w-80 bg-white dark:bg-gray-900 border-r md:border-r border-b md:border-b-0 border-gray-200 dark:border-gray-800' });
+            toolboxWrapper.appendChild(this.renderToolbox());
+            main.appendChild(toolboxWrapper);
+
+            // Canvas wrapper
+            const canvasWrapper = createElement('div', { className: 'form-builder-canvas flex-1 overflow-y-auto' });
+            canvasWrapper.appendChild(this.renderCanvas(state));
+            main.appendChild(canvasWrapper);
+
+            // Wrap config panel for mobile collapsibility
+            const configWrapper = createElement('div', { className: 'form-builder-config-wrapper w-full md:w-80 bg-white dark:bg-gray-900 border-l md:border-l border-t md:border-t-0 border-gray-200 dark:border-gray-800' });
+            configWrapper.appendChild(this.renderConfigPanel(state));
+            main.appendChild(configWrapper);
         }
 
         wrapper.appendChild(main);
@@ -305,7 +316,7 @@ export class FormBuilder {
     private activeTab: 'fields' | 'templates' | 'import' = 'fields';
 
     private renderToolbox(): HTMLElement {
-        const toolbox = createElement('div', { className: 'w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full' });
+        const toolbox = createElement('div', { className: 'bg-white dark:bg-gray-900 flex flex-col h-full' });
 
         // Tabs
         const tabs = createElement('div', { className: 'flex border-b border-gray-200 dark:border-gray-800' });
@@ -421,7 +432,7 @@ export class FormBuilder {
 
     private renderCanvas(state: any): HTMLElement {
         const canvas = createElement('div', {
-            className: 'flex-1 bg-white dark:bg-gray-950 p-8 overflow-y-auto h-full',
+            className: 'flex-1 bg-white dark:bg-gray-950 p-4 md:p-8 overflow-y-auto',
             onclick: (e: Event) => {
                 if (e.target === canvas || e.target === canvas.firstElementChild) {
                     formStore.getState().selectField(null);
@@ -566,7 +577,7 @@ export class FormBuilder {
     }
 
     private renderConfigPanel(state: any): HTMLElement {
-        const panel = createElement('div', { className: 'w-80 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col h-full' });
+        const panel = createElement('div', { className: 'bg-white dark:bg-gray-900 flex flex-col h-full' });
 
         const selectedField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === state.selectedFieldId);
 

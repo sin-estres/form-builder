@@ -6,6 +6,14 @@ export default {
         "./src/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
+        // Mobile-first breakpoints (explicit for clarity)
+        screens: {
+            'sm': '640px',   // Small tablets, large phones landscape
+            'md': '768px',   // Tablets
+            'lg': '1024px',  // Small desktops, large tablets landscape
+            'xl': '1280px',  // Desktops
+            '2xl': '1536px', // Large desktops
+        },
         extend: {
             colors: {
                 border: "hsl(var(--border))",
@@ -46,6 +54,18 @@ export default {
                 lg: "var(--radius)",
                 md: "calc(var(--radius) - 2px)",
                 sm: "calc(var(--radius) - 4px)",
+            },
+            // Touch-friendly minimum sizes
+            minHeight: {
+                'touch': '44px',
+            },
+            minWidth: {
+                'touch': '44px',
+            },
+            // Responsive spacing for form builder
+            spacing: {
+                'sidebar': '320px',
+                'sidebar-sm': '280px',
             },
         },
     },

@@ -79,6 +79,44 @@
 /* Form Builder Specific Styles - High Specificity */
 @layer components {
 
+  /* ===== MOBILE-FIRST RESPONSIVE LAYOUT ===== */
+  /* On mobile (< 768px): Stack vertically, make sidebars collapsible */
+  /* On desktop (≥ 768px): Horizontal layout with fixed sidebars */
+
+  /* Make sidebars collapsible on mobile only */
+  @media (max-width: 767px) {
+
+    /* Toolbox: Collapsible on mobile */
+    .form-builder-toolbox-wrapper {
+      max-height: 300px;
+      overflow-y: auto;
+      border-bottom: 1px solid rgb(229 231 235);
+    }
+
+    .form-builder-toolbox-wrapper.collapsed {
+      max-height: 48px;
+      overflow: hidden;
+    }
+
+    /* Config panel: Collapsible on mobile */
+    .form-builder-config-wrapper {
+      max-height: 400px;
+      overflow-y: auto;
+      border-top: 1px solid rgb(229 231 235);
+    }
+
+    .form-builder-config-wrapper.collapsed {
+      max-height: 48px;
+      overflow: hidden;
+    }
+
+    /* Canvas gets more space on mobile */
+    .form-builder-canvas {
+      flex: 1;
+      min-height: 400px;
+    }
+  }
+
   /* Grid column spans - explicit !important to override Angular styles */
   .form-builder-field-wrapper.selected-field {
     border: 2px solid #3b82f6 !important;
@@ -143,6 +181,30 @@
     display: grid !important;
     grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
     gap: 1rem !important;
+  }
+
+  /* Responsive grid: fewer columns on mobile */
+  @media (max-width: 767px) {
+    .form-builder-grid {
+      grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+      gap: 0.75rem !important;
+    }
+
+    /* All fields full width on mobile */
+    .form-builder-grid .col-span-1,
+    .form-builder-grid .col-span-2,
+    .form-builder-grid .col-span-3,
+    .form-builder-grid .col-span-4,
+    .form-builder-grid .col-span-5,
+    .form-builder-grid .col-span-6,
+    .form-builder-grid .col-span-7,
+    .form-builder-grid .col-span-8,
+    .form-builder-grid .col-span-9,
+    .form-builder-grid .col-span-10,
+    .form-builder-grid .col-span-11,
+    .form-builder-grid .col-span-12 {
+      grid-column: span 1 / span 1 !important;
+    }
   }
 
   body {
