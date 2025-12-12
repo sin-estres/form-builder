@@ -82,145 +82,21 @@ export class FormBuilderComponent implements AfterViewInit, OnDestroy {
 }
 ```
 
+## Loading Forms List and Templates
+
+The FormBuilder supports two separate input parameters:
+
+1. **`existingForms`** - List of created forms (FormSchema[]) that populates `state.existingForms` and appears in the Import dropdown
+2. **`formTemplates`** - Form templates from `form-templates.json` (FormSchema[]) that extracts sections and populates the Templates tab
+
+### Understanding the Difference
+
+- **`existingForms`**: Used for importing complete forms or their sections. These are your created/saved forms that users can select from the Import dropdown to import sections into the current form.
+- **`formTemplates`**: Used for loading template sections from `form-templates.json`. All sections from these forms are extracted and made available in the Templates tab for drag-and-drop into the current form.
+
 ## Loading Forms List for Import Dropdown
 
 The Import dropdown allows users to select from existing forms and import their sections. To populate this dropdown with forms from your Angular application, pass the `existingForms` option when initializing the FormBuilder.
-
-### Loading Form Templates from JSON File
-
-If you have a `form-templates.json` file with pre-defined form templates, you can load it and pass it to the FormBuilder. This is the recommended approach for using the included form templates.
-
-**Step 1: Copy `form-templates.json` to your Angular assets folder**
-
-Copy the `form-templates.json` file to your Angular project's `src/assets/` directory:
-
-```bash
-# From your form-builder package directory
-cp form-templates.json /path/to/your-angular-app/src/assets/
-```
-
-**Step 2: Load and use the templates in your component**
-
-```typescript
-// form-builder.component.ts
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { FormBuilder, FormSchema } from 'form-builder-pro';
-
-@Component({
-  selector: 'app-form-builder',
-  template: `
-    <div #builderContainer class="h-screen"></div>
-  `
-})
-export class FormBuilderComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('builderContainer') container!: ElementRef;
-  private builder?: FormBuilder;
-  existingForms: FormSchema[] = [];
-
-  constructor(private http: HttpClient) {}
-
-  ngAfterViewInit() {
-    if (!this.container?.nativeElement) return;
-    
-    // Load form templates from assets
-    this.loadFormTemplates();
-  }
-
-  private loadFormTemplates() {
-    // Load from assets folder
-    this.http.get<FormSchema[]>('/assets/form-templates.json').subscribe({
-      next: (forms) => {
-        this.existingForms = forms;
-        this.initializeBuilder();
-      },
-      error: (err) => {
-        console.error('Failed to load form templates:', err);
-        // Initialize with empty list if file not found
-        this.initializeBuilder();
-      }
-    });
-  }
-
-  private initializeBuilder() {
-    if (!this.container?.nativeElement) return;
-    
-    this.builder = new FormBuilder(this.container.nativeElement, {
-      existingForms: this.existingForms, // Pass loaded templates here
-      onSave: (schema: FormSchema) => {
-        console.log('Form schema:', schema);
-        // Save to your backend
-        this.http.post('/api/forms', schema).subscribe();
-      }
-    });
-  }
-
-  ngOnDestroy() {
-    this.builder?.destroy();
-  }
-}
-```
-
-**Alternative: Using fetch (if HttpClient is not available)**
-
-```typescript
-// form-builder.component.ts
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormSchema } from 'form-builder-pro';
-
-@Component({
-  selector: 'app-form-builder',
-  template: `
-    <div #builderContainer class="h-screen"></div>
-  `
-})
-export class FormBuilderComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('builderContainer') container!: ElementRef;
-  private builder?: FormBuilder;
-  existingForms: FormSchema[] = [];
-
-  ngAfterViewInit() {
-    if (!this.container?.nativeElement) return;
-    
-    // Load form templates from assets
-    this.loadFormTemplates();
-  }
-
-  private async loadFormTemplates() {
-    try {
-      const response = await fetch('/assets/form-templates.json');
-      if (response.ok) {
-        this.existingForms = await response.json();
-      }
-    } catch (error) {
-      console.warn('Could not load form templates:', error);
-    } finally {
-      this.initializeBuilder();
-    }
-  }
-
-  private initializeBuilder() {
-    if (!this.container?.nativeElement) return;
-    
-    this.builder = new FormBuilder(this.container.nativeElement, {
-      existingForms: this.existingForms,
-      onSave: (schema: FormSchema) => {
-        console.log('Form schema:', schema);
-      }
-    });
-  }
-
-  ngOnDestroy() {
-    this.builder?.destroy();
-  }
-}
-```
-
-**Important Notes:**
-- Make sure `form-templates.json` is in your `src/assets/` folder
-- The file will be served at `/assets/form-templates.json` when your app runs
-- If the file doesn't load, check the browser console for errors
-- The templates will appear in the "Import" tab of the form builder
 
 ### Basic Example
 
@@ -491,6 +367,283 @@ export class FormBuilderComponent {
 - Each imported section gets new unique IDs to avoid conflicts.
 - You can import multiple sections from different forms into your current form.
 - The forms list can be updated dynamically using the `updateExistingForms()` method without re-initializing the builder.
+
+## Loading Form Templates from form-templates.json
+
+To load templates from `form-templates.json` into the Templates tab, use the `formTemplates` option. This option accepts an array of `FormSchema[]` and automatically extracts all sections from those forms to populate the Templates section.
+
+### Basic Example with Both Options
+
+```typescript
+// form-builder.component.ts
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { FormBuilder, FormSchema } from 'form-builder-pro';
+
+@Component({
+  selector: 'app-form-builder',
+  template: `
+    <div #builderContainer class="h-screen"></div>
+  `
+})
+export class FormBuilderComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('builderContainer') container!: ElementRef;
+  private builder?: FormBuilder;
+  
+  // Created forms - for Import dropdown
+  existingForms: FormSchema[] = [];
+  
+  // Form templates - for Templates tab
+  formTemplates: FormSchema[] = [];
+
+  constructor(private http: HttpClient) {}
+
+  ngAfterViewInit() {
+    if (!this.container?.nativeElement) return;
+    
+    // Load both existing forms and templates
+    this.loadData();
+  }
+
+  private loadData() {
+    // Load created forms (for Import dropdown)
+    this.http.get<FormSchema[]>('/api/forms').subscribe({
+      next: (forms) => {
+        this.existingForms = forms;
+        this.initializeBuilder();
+      },
+      error: (err) => {
+        console.error('Failed to load forms:', err);
+        this.initializeBuilder();
+      }
+    });
+
+    // Load form templates (for Templates tab)
+    this.http.get<FormSchema[]>('/assets/form-templates.json').subscribe({
+      next: (templates) => {
+        this.formTemplates = templates;
+        this.initializeBuilder();
+      },
+      error: (err) => {
+        console.warn('Could not load form templates:', err);
+        this.initializeBuilder();
+      }
+    });
+  }
+
+  private initializeBuilder() {
+    // Only initialize if container is ready
+    if (!this.container?.nativeElement || this.builder) return;
+    
+    this.builder = new FormBuilder(this.container.nativeElement, {
+      existingForms: this.existingForms,      // Populates Import dropdown
+      formTemplates: this.formTemplates,      // Populates Templates tab
+      onSave: (schema: FormSchema) => {
+        console.log('Form schema:', schema);
+        // Save to your backend
+        this.http.post('/api/forms', schema).subscribe();
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.builder?.destroy();
+  }
+}
+```
+
+### Loading form-templates.json from Assets
+
+1. **Place `form-templates.json` in your Angular assets folder** (typically `src/assets/`):
+
+```json
+// src/assets/form-templates.json
+[
+  {
+    "id": "form-customer-lead-001",
+    "title": "Customer Lead / Prospect Form",
+    "formName": "customerLeadForm",
+    "sections": [
+      {
+        "id": "section-contact-details-001",
+        "title": "Contact Details",
+        "fields": [...]
+      }
+    ]
+  }
+]
+```
+
+2. **Load it in your component**:
+
+```typescript
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { FormBuilder, FormSchema } from 'form-builder-pro';
+
+@Component({
+  selector: 'app-form-builder',
+  template: `<div #builderContainer class="h-screen"></div>`
+})
+export class FormBuilderComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('builderContainer') container!: ElementRef;
+  private builder?: FormBuilder;
+  formTemplates: FormSchema[] = [];
+  existingForms: FormSchema[] = [];
+
+  constructor(private http: HttpClient) {}
+
+  ngAfterViewInit() {
+    if (!this.container?.nativeElement) return;
+    
+    // Load form templates from assets
+    this.http.get<FormSchema[]>('/assets/form-templates.json').subscribe({
+      next: (templates) => {
+        this.formTemplates = templates;
+        this.initializeBuilder();
+      },
+      error: (err) => {
+        console.warn('Could not load form templates:', err);
+        this.initializeBuilder();
+      }
+    });
+
+    // Load existing forms from API
+    this.http.get<FormSchema[]>('/api/forms').subscribe({
+      next: (forms) => {
+        this.existingForms = forms;
+        this.initializeBuilder();
+      },
+      error: (err) => {
+        console.error('Failed to load forms:', err);
+        this.initializeBuilder();
+      }
+    });
+  }
+
+  private initializeBuilder() {
+    if (!this.container?.nativeElement || this.builder) return;
+    
+    this.builder = new FormBuilder(this.container.nativeElement, {
+      existingForms: this.existingForms,    // For Import dropdown
+      formTemplates: this.formTemplates,    // For Templates tab
+      onSave: (schema) => {
+        console.log('Form saved:', schema);
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.builder?.destroy();
+  }
+}
+```
+
+### Using Component Inputs
+
+```typescript
+// form-builder.component.ts
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { FormBuilder, FormSchema } from 'form-builder-pro';
+
+@Component({
+  selector: 'app-form-builder',
+  template: `<div #builderContainer class="h-screen"></div>`
+})
+export class FormBuilderComponent implements AfterViewInit, OnDestroy, OnChanges {
+  @ViewChild('builderContainer') container!: ElementRef;
+  @Input() existingForms: FormSchema[] = [];  // Created forms from parent
+  @Input() formTemplates: FormSchema[] = [];  // Templates from parent
+  private builder?: FormBuilder;
+
+  ngAfterViewInit() {
+    if (this.container?.nativeElement) {
+      this.initializeBuilder();
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (this.builder) {
+      if (changes['existingForms']) {
+        this.builder.updateExistingForms(this.existingForms);
+      }
+      if (changes['formTemplates']) {
+        this.builder.loadFormTemplates(this.formTemplates);
+      }
+    }
+  }
+
+  private initializeBuilder() {
+    if (!this.container?.nativeElement) return;
+    
+    this.builder = new FormBuilder(this.container.nativeElement, {
+      existingForms: this.existingForms,
+      formTemplates: this.formTemplates,
+      onSave: (schema: FormSchema) => {
+        console.log('Form schema:', schema);
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.builder?.destroy();
+  }
+}
+```
+
+```typescript
+// parent.component.ts
+export class ParentComponent {
+  // Created forms - for Import dropdown
+  createdForms: FormSchema[] = [
+    // Your created forms here
+  ];
+  
+  // Form templates - for Templates tab
+  templates: FormSchema[] = [
+    // Load from form-templates.json or define here
+  ];
+}
+```
+
+```html
+<!-- parent.component.html -->
+<app-form-builder 
+  [existingForms]="createdForms"
+  [formTemplates]="templates">
+</app-form-builder>
+```
+
+### Updating Templates Dynamically
+
+You can update templates after initialization:
+
+```typescript
+export class FormBuilderComponent {
+  private builder?: FormBuilder;
+  
+  // Update templates dynamically
+  updateTemplates(newTemplates: FormSection[]) {
+    if (this.builder) {
+      this.builder.updateTemplates(newTemplates);
+    }
+  }
+  
+  // Load form templates and extract sections
+  loadFormTemplates(formTemplates: FormSchema[]) {
+    if (this.builder) {
+      this.builder.loadFormTemplates(formTemplates);
+    }
+  }
+}
+```
+
+### Summary
+
+- **`existingForms`**: Pass your created/saved forms (FormSchema[]) → Populates Import dropdown → Users can import sections from these forms
+- **`formTemplates`**: Pass form templates from `form-templates.json` (FormSchema[]) → Extracts sections → Populates Templates tab → Users can drag-and-drop sections into their form
+- Both options can be used together
+- Templates are extracted automatically from `formTemplates` - all sections from all forms are added to the Templates tab
 
 ## Troubleshooting
 

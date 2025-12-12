@@ -11,6 +11,7 @@ import Sortable from 'sortablejs';
 export interface FormBuilderOptions {
     existingForms?: FormSchema[];
     reusableSections?: FormSection[];
+    formTemplates?: FormSchema[]; // Form templates (FormSchema[]) - sections will be extracted and loaded into templates
     mode?: 'create' | 'edit';
     formJson?: FormSchema;
     onSave?: (schema: FormSchema) => void;
@@ -38,8 +39,23 @@ export class FormBuilder {
         if (options.reusableSections) {
             formStore.getState().setTemplates(options.reusableSections);
         }
+        // Handle formTemplates - extract sections from FormSchema[] and load into templates
+        if (options.formTemplates) {
+            const extractedSections: FormSection[] = [];
+            options.formTemplates.forEach(form => {
+                if (form.sections && Array.isArray(form.sections)) {
+                    extractedSections.push(...form.sections);
+                }
+            });
+            if (extractedSections.length > 0) {
+                // Merge with existing templates if reusableSections was also provided
+                const existingTemplates = options.reusableSections || [];
+                formStore.getState().setTemplates([...existingTemplates, ...extractedSections]);
+            }
+        }
 
-        if (options.mode === 'edit' && options.formJson) {
+        // Load formJson if provided (for edit mode or when explicitly passing form data)
+        if (options.formJson) {
             formStore.getState().setSchema(options.formJson);
         } else if (options.mode === 'create') {
             // Ensure fresh state if needed, though store defaults to new form
@@ -83,6 +99,28 @@ export class FormBuilder {
         formStore.getState().setExistingForms(forms);
         // Re-render to update the import dropdown
         this.render();
+    }
+
+    public updateTemplates(templates: FormSection[]) {
+        formStore.getState().setTemplates(templates);
+        // Re-render to update the templates tab
+        this.render();
+    }
+
+    public loadFormTemplates(formTemplates: FormSchema[]) {
+        // Extract sections from FormSchema[] and add to templates
+        const extractedSections: FormSection[] = [];
+        formTemplates.forEach(form => {
+            if (form.sections && Array.isArray(form.sections)) {
+                extractedSections.push(...form.sections);
+            }
+        });
+        if (extractedSections.length > 0) {
+            const currentTemplates = formStore.getState().templates;
+            formStore.getState().setTemplates([...currentTemplates, ...extractedSections]);
+            // Re-render to update the templates tab
+            this.render();
+        }
     }
 
     private setupSubscriptions() {
