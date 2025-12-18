@@ -69,13 +69,96 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     templates: [],
     masterTypes: [],
 
-    setSchema: (schema) => set({ schema }),
+    setSchema: (schema) => {
+        // Helper function to convert master type indexes to options format
+        const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
+            if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
+                return [];
+            }
+            return indexes.map((item, index) => {
+                if (typeof item === 'string') {
+                    return { label: item, value: item };
+                }
+                if (typeof item === 'object' && item !== null) {
+                    const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
+                    const value = item.value || item.id || item.name || String(index);
+                    return { label, value };
+                }
+                return { label: String(item), value: String(item) };
+            });
+        };
+
+        // Populate options for fields with groupName from masterTypes
+        const state = get();
+        if (state.masterTypes && state.masterTypes.length > 0 && schema.sections) {
+            const updatedSections = schema.sections.map(section => ({
+                ...section,
+                fields: section.fields.map(field => {
+                    if (field.type === 'select' && field.groupName && (!field.options || field.options.length === 0)) {
+                        const masterType = state.masterTypes.find(mt => 
+                            mt.active === true && 
+                            (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                        );
+                        if (masterType && masterType.indexes && masterType.indexes.length > 0) {
+                            const options = convertIndexesToOptions(masterType.indexes);
+                            return { ...field, options };
+                        }
+                    }
+                    return field;
+                })
+            }));
+            set({ schema: { ...schema, sections: updatedSections } });
+        } else {
+            set({ schema });
+        }
+    },
     togglePreview: () => set((state) => ({ isPreviewMode: !state.isPreviewMode })),
 
     // New Actions
     setExistingForms: (forms) => set({ existingForms: forms }),
     setTemplates: (templates) => set({ templates }),
-    setMasterTypes: (masterTypes) => set({ masterTypes }),
+    setMasterTypes: (masterTypes) => {
+        set({ masterTypes });
+        // Populate options for fields with groupName when masterTypes are set
+        const state = get();
+        if (state.schema && state.schema.sections) {
+            const updatedSections = state.schema.sections.map(section => ({
+                ...section,
+                fields: section.fields.map(field => {
+                    if (field.type === 'select' && field.groupName && (!field.options || field.options.length === 0)) {
+                        const masterType = masterTypes.find(mt => 
+                            mt.active === true && 
+                            (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                        );
+                        if (masterType && masterType.indexes && masterType.indexes.length > 0) {
+                            const options = masterType.indexes.map((item: any, index: number) => {
+                                if (typeof item === 'string') {
+                                    return { label: item, value: item };
+                                }
+                                if (typeof item === 'object' && item !== null) {
+                                    const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
+                                    const value = item.value || item.id || item.name || String(index);
+                                    return { label, value };
+                                }
+                                return { label: String(item), value: String(item) };
+                            });
+                            return { ...field, options };
+                        }
+                    }
+                    return field;
+                })
+            }));
+            // Check if any fields were updated
+            const hasChanges = updatedSections.some((section, idx) => 
+                section.fields.some((field, fieldIdx) => 
+                    field !== state.schema.sections[idx]?.fields[fieldIdx]
+                )
+            );
+            if (hasChanges) {
+                set({ schema: { ...state.schema, sections: updatedSections } });
+            }
+        }
+    },
 
     loadForm: (formId) => {
         const { existingForms, history, historyIndex } = get();

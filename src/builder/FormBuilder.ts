@@ -568,6 +568,28 @@ export class FormBuilder {
             const masterTypes = formStore.getState().masterTypes;
             const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
             
+            // Helper function to convert master type indexes to options format
+            const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
+                if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
+                    return [];
+                }
+                
+                return indexes.map((item, index) => {
+                    // If item is a string, use it as both label and value
+                    if (typeof item === 'string') {
+                        return { label: item, value: item };
+                    }
+                    // If item is an object, try to extract label and value
+                    if (typeof item === 'object' && item !== null) {
+                        const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
+                        const value = item.value || item.id || item.name || String(index);
+                        return { label, value };
+                    }
+                    // Fallback
+                    return { label: String(item), value: String(item) };
+                });
+            };
+            
             if (activeMasterTypes.length > 0) {
                 const groupNameGroup = createElement('div', { className: 'mb-4' });
                 groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Group Name' }));
@@ -578,15 +600,21 @@ export class FormBuilder {
                         if (selectedValue) {
                             const selectedMasterType = activeMasterTypes.find(mt => mt.id === selectedValue || mt.name === selectedValue);
                             if (selectedMasterType) {
+                                // Convert indexes to options format
+                                const options = convertIndexesToOptions(selectedMasterType.indexes || []);
                                 formStore.getState().updateField(selectedField.id, {
                                     groupName: {
                                         id: selectedMasterType.id,
                                         name: selectedMasterType.name
-                                    }
+                                    },
+                                    options: options.length > 0 ? options : undefined
                                 });
                             }
                         } else {
-                            formStore.getState().updateField(selectedField.id, { groupName: undefined });
+                            formStore.getState().updateField(selectedField.id, { 
+                                groupName: undefined,
+                                options: undefined // Clear options when groupName is cleared
+                            });
                         }
                     }
                 });
@@ -611,6 +639,19 @@ export class FormBuilder {
                 
                 groupNameGroup.appendChild(groupNameSelect);
                 body.appendChild(groupNameGroup);
+                
+                // If field already has a groupName but no options, populate options from master type
+                if (selectedField.groupName && (!selectedField.options || selectedField.options.length === 0)) {
+                    const currentMasterType = activeMasterTypes.find(mt => 
+                        mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name
+                    );
+                    if (currentMasterType && currentMasterType.indexes && currentMasterType.indexes.length > 0) {
+                        const options = convertIndexesToOptions(currentMasterType.indexes);
+                        if (options.length > 0) {
+                            formStore.getState().updateField(selectedField.id, { options });
+                        }
+                    }
+                }
             }
         }
 
