@@ -6,6 +6,7 @@ import { FormRenderer } from '../renderer/FormRenderer';
 import { FormSchema, FormSection } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
 import Sortable from 'sortablejs';
+import { SectionList } from './SectionList';
 
 
 export interface FormBuilderOptions {
@@ -209,7 +210,7 @@ export class FormBuilder {
 
         // Initialize SortableJS
         if (!state.isPreviewMode) {
-            this.initSortable();
+            this.initSidebarSortables();
         }
     }
 
@@ -389,8 +390,6 @@ export class FormBuilder {
             const select = createElement('select', {
                 className: 'w-full px-3 py-2 mb-4 border rounded bg-transparent',
                 onchange: (e: Event) => {
-                    // We need to re-render to show sections for selected form. 
-                    // Storing selectedImportFormId in local class state would be better, but loop closure works for now if we rebuild.
                     const formId = (e.target as HTMLSelectElement).value;
                     this.renderImportList(content, formId);
                 }
@@ -452,137 +451,9 @@ export class FormBuilder {
         });
         inner.appendChild(formNameInput);
 
-        // Sections Container (Drop Zone for Templates and Fields when no sections exist)
-        const sectionsContainer = createElement('div', {
-            className: 'space-y-6 min-h-[200px]',
-            id: 'sections-list',
-            'data-drop-zone': 'sections'
-        });
-
-        // If no sections exist, add a root-level drop zone for fields
-        if (state.schema.sections.length === 0) {
-            const rootDropZone = createElement('div', {
-                className: 'form-builder-grid p-4 min-h-[100px] fields-list border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg',
-                'data-section-id': '',
-                'data-root-drop-zone': 'true',
-                id: 'root-fields-list'
-            });
-            
-            // Add placeholder text when empty (non-interactive, will be removed on re-render when fields are added)
-            const placeholder = createElement('div', {
-                className: 'col-span-12 text-center text-gray-400 dark:text-gray-500 py-8 pointer-events-none',
-                text: 'Drag fields here to get started (a default section will be created automatically)'
-            });
-            rootDropZone.appendChild(placeholder);
-            
-            sectionsContainer.appendChild(rootDropZone);
-        }
-
-        state.schema.sections.forEach((section: any) => {
-            const sectionEl = createElement('div', {
-                className: 'mb-6 rounded-lg border bg-white dark:bg-gray-900 shadow-sm transition-all border-gray-200 dark:border-gray-800',
-                'data-id': section.id
-            });
-
-            // Header
-            const header = createElement('div', { className: 'flex items-center justify-between  p-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg' });
-            const headerLeft = createElement('div', { className: 'flex items-center flex-1' });
-            headerLeft.appendChild(createElement('div', { className: 'cursor-move mr-3 text-gray-400 hover:text-gray-600 section-handle' }, [getIcon('GripVertical', 20)]));
-            headerLeft.appendChild(createElement('input', {
-                className: 'bg-transparent font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:border-b border-blue-500',
-                value: section.title,
-                'data-focus-id': `section-title-${section.id}`,
-                oninput: (e: Event) => formStore.getState().updateSection(section.id, { title: (e.target as HTMLInputElement).value })
-            }));
-            header.appendChild(headerLeft);
-
-            const actions = createElement('div', { className: 'flex items-center space-x-1' });
-
-            // Grid Columns Selector
-            const colSelect = createElement('select', {
-                className: 'text-xs border rounded bg-transparent mr-2 p-1 text-gray-600',
-                title: 'Section Columns',
-                onchange: (e: Event) => {
-                    formStore.getState().updateSection(section.id, { columns: parseInt((e.target as HTMLSelectElement).value) as 1 | 2 | 3 });
-                }
-            });
-            [1, 2, 3].forEach(c => {
-                colSelect.appendChild(createElement('option', { value: c.toString(), text: `${c} Col`, selected: (section.columns || 1) === c }));
-            });
-            actions.appendChild(colSelect);
-
-            // Save Template Button
-            actions.appendChild(createElement('button', {
-                className: 'text-gray-600 hover:text-blue-500 transition-colors p-1',
-                title: 'Save as Template',
-                onclick: () => {
-                    const name = prompt('Enter template name:', section.title);
-                    if (name) {
-                        this.saveSectionAsTemplate({ ...section, title: name });
-                    }
-                }
-            }, [getIcon('Save', 18)]));
-
-            // Delete Button
-            actions.appendChild(createElement('button', {
-                className: 'text-gray-600 hover:text-red-500 transition-colors p-1',
-                onclick: () => formStore.getState().removeSection(section.id)
-            }, [getIcon('Trash2', 18)]));
-
-            header.appendChild(actions);
-            sectionEl.appendChild(header);
-
-            // Fields Grid
-            const fieldsGrid = createElement('div', {
-                className: 'form-builder-grid p-4 min-h-[100px] fields-list',
-                'data-section-id': section.id
-            });
-
-            section.fields.forEach((field: any) => {
-                const isSelected = state.selectedFieldId === field.id;
-                // Grid Span Logic (12 Cols Base)
-                let spanClass = 'col-span-12';
-                if (field.width === '50%') spanClass = 'col-span-6';
-                else if (field.width === '33%') spanClass = 'col-span-4';
-                else if (field.width === '25%') spanClass = 'col-span-3';
-                else if (field.width === '66%') spanClass = 'col-span-8';
-                else if (field.width === '75%') spanClass = 'col-span-9';
-
-                const fieldWrapper = createElement('div', {
-                    className: `form-builder-field-wrapper ${isSelected ? 'selected-field' : ''} ${spanClass}`,
-                    'data-id': field.id,
-                    onclick: (e: Event) => {
-                        e.stopPropagation();
-                        formStore.getState().selectField(field.id);
-                    }
-                });
-
-                // Drag Handle
-                fieldWrapper.appendChild(createElement('div', {
-                    className: `absolute top-2 left-2 cursor-move p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity field-handle ${isSelected ? "opacity-100" : ""}`
-                }, [getIcon('GripVertical', 16)]));
-
-                // Delete
-                fieldWrapper.appendChild(createElement('button', {
-                    className: `absolute top-2 right-2 p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity ${isSelected ? "opacity-100" : ""}`,
-                    onclick: (e: Event) => {
-                        e.stopPropagation();
-                        formStore.getState().removeField(field.id);
-                    }
-                }, [getIcon('Trash2', 16)]));
-
-                const content = createElement('div', { className: 'p-4 pointer-events-none' });
-                content.appendChild(FieldRenderer.render(field, null, undefined, true));
-                fieldWrapper.appendChild(content);
-
-                fieldsGrid.appendChild(fieldWrapper);
-            });
-
-            sectionEl.appendChild(fieldsGrid);
-            sectionsContainer.appendChild(sectionEl);
-        });
-
-        inner.appendChild(sectionsContainer);
+        // SectionList
+        const sectionList = new SectionList(state.schema, state.selectedFieldId);
+        inner.appendChild(sectionList.getElement());
 
         // Add Section Button
         const addSectionBtn = createElement('button', {
@@ -812,15 +683,13 @@ export class FormBuilder {
         return panel;
     }
 
-
-
-    private initSortable() {
-        // Toolbox
+    private initSidebarSortables() {
+        // Toolbox (Fields)
         const toolboxList = document.getElementById('toolbox-list');
         if (toolboxList) {
             new Sortable(toolboxList, {
                 group: {
-                    name: 'shared',
+                    name: 'shared-fields', // Matches the group in Section.ts
                     pull: 'clone',
                     put: false
                 },
@@ -834,7 +703,7 @@ export class FormBuilder {
         if (templatesList) {
             new Sortable(templatesList, {
                 group: {
-                    name: 'shared',
+                    name: 'shared-templates',
                     pull: 'clone',
                     put: false
                 },
@@ -844,150 +713,5 @@ export class FormBuilder {
                 forceFallback: true
             });
         }
-
-        // Sections (Reorder & Drop from Templates)
-        const sectionsList = document.getElementById('sections-list');
-        if (sectionsList) {
-            new Sortable(sectionsList, {
-                group: 'shared',
-                handle: '.section-handle',
-                animation: 150,
-                onAdd: (evt) => {
-                    const item = evt.item;
-                    const templateId = item.getAttribute('data-template-id');
-                    const isTemplate = item.getAttribute('data-type') === 'template-section';
-
-                    // If dropped from templates list
-                    if (templateId && isTemplate) {
-                        const templates = formStore.getState().templates;
-                        const template = templates.find(t => t.id === templateId);
-                        if (template) {
-                            // Remove cloned DOM element immediately
-                            item.remove();
-                            // Import the section which will create a new section with the template's content
-                            formStore.getState().importSection(template);
-                            return; // Exit early to prevent other handlers
-                        }
-                    }
-                },
-                onEnd: (evt) => {
-                    const item = evt.item;
-                    const templateId = item.getAttribute('data-template-id');
-                    const isTemplate = item.getAttribute('data-type') === 'template-section';
-
-                    // Only handle reordering if it's not a template drop
-                    // Template drops are handled in onAdd
-                    if (!templateId && !isTemplate && evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
-                        formStore.getState().moveSection(evt.oldIndex, evt.newIndex);
-                    }
-                }
-            });
-        }
-
-        // Fields (Reorder & Drop from Toolbox)
-        const fieldLists = document.querySelectorAll('.fields-list');
-        fieldLists.forEach(list => {
-            new Sortable(list as HTMLElement, {
-                group: 'shared',
-                handle: '.field-handle',
-                animation: 150,
-                onAdd: (evt) => {
-                    const item = evt.item;
-                    const type = item.getAttribute('data-type');
-                    const sectionIdAttr = list.getAttribute('data-section-id');
-                    // Handle null sectionId (root drop zone) - convert empty string to null
-                    const sectionId = sectionIdAttr === '' || sectionIdAttr === 'null' ? null : sectionIdAttr;
-
-                    // If dropped from toolbox
-                    if (type) {
-                        // Check if it's a template drop
-                        if (type === 'template-section') {
-                            const templateId = item.getAttribute('data-template-id');
-                            const templates = formStore.getState().templates;
-                            const template = templates.find(t => t.id === templateId);
-
-                            item.remove(); // Remove DOM element immediately
-
-                            if (template && sectionId) {
-                                formStore.getState().addTemplateFields(sectionId, template, evt.newIndex);
-                            }
-                            return;
-                        }
-
-                        // Remove the cloned DOM element because store update will re-render everything
-                        item.remove();
-                        // Pass null if no sectionId (root drop zone) - addField will create a default section
-                        formStore.getState().addField(sectionId, type as any, evt.newIndex);
-                    } else if (sectionId !== null) {
-                        // Moved from another section
-                        const fieldId = item.getAttribute('data-id');
-                        if (fieldId) {
-                            // We need to handle moveField. 
-                            // Since we re-render on store update, we just need to call the action.
-                            // However, SortableJS might have already moved the DOM.
-                            // To avoid conflict, we can remove the item and let render handle it, 
-                            // OR we rely on the fact that moveField updates state which triggers render.
-                            // But we need to know the source section.
-                            // SortableJS 'onAdd' means it came from another list.
-                            // 'onUpdate' means same list.
-
-                            // Actually, for simplicity in this migration:
-                            // We can just use the DOM state to calculate new index?
-                            // No, better to use the event indices.
-
-                            // We need to know where it came FROM.
-                            // SortableJS doesn't easily give us the source list ID in onAdd without some setup.
-                            // But we can find the field in the store to know its previous section.
-
-                            // Let's just trigger the move.
-                            // item.remove(); // Remove DOM, let store re-render.
-                            // formStore.getState().moveField(fieldId, sectionId, evt.newIndex);
-                        }
-                    }
-                },
-                onUpdate: (evt) => {
-                    // Same list reorder
-                    const item = evt.item;
-                    const fieldId = item.getAttribute('data-id');
-                    const sectionIdAttr = list.getAttribute('data-section-id');
-                    const sectionId = sectionIdAttr === '' || sectionIdAttr === 'null' ? null : sectionIdAttr;
-                    if (fieldId && sectionId !== null && evt.newIndex !== undefined) {
-                        formStore.getState().moveField(fieldId, sectionId, evt.newIndex);
-                    }
-                },
-                onEnd: (evt) => {
-                    // This fires for both move within list and move to other list.
-                    // But we handled onAdd/onUpdate.
-                    // Actually, for cross-list move, onAdd fires on target, onRemove fires on source.
-                    // We need to be careful not to double update.
-
-                    // Strategy:
-                    // If we use `onEnd` on the source list, we know where it went?
-                    // SortableJS is tricky with React/VirtualDOM, but here we are doing full re-renders.
-                    // So if we modify state, the whole DOM gets trashed and rebuilt.
-                    // This might break the drag operation if we are not careful.
-                    // But `onEnd` happens AFTER drag.
-
-                    // For cross-list:
-                    // `onAdd` on target list is best place to handle "Toolbox -> Canvas" and "Section -> Section".
-
-                    // Let's refine `onAdd`:
-                    const item = evt.item;
-                    const fromList = evt.from;
-                    const toList = evt.to;
-
-                    // If it was a move between sections
-                    if (fromList !== toList && fromList.classList.contains('fields-list') && toList.classList.contains('fields-list')) {
-                        const fieldId = item.getAttribute('data-id');
-                        const targetSectionIdAttr = toList.getAttribute('data-section-id');
-                        const targetSectionId = targetSectionIdAttr === '' || targetSectionIdAttr === 'null' ? null : targetSectionIdAttr;
-                        if (fieldId && evt.newIndex !== undefined) {
-                            // moveField now handles null targetSectionId by creating a default section
-                            formStore.getState().moveField(fieldId, targetSectionId, evt.newIndex);
-                        }
-                    }
-                }
-            });
-        });
     }
 }
