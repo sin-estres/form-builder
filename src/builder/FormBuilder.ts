@@ -452,12 +452,31 @@ export class FormBuilder {
         });
         inner.appendChild(formNameInput);
 
-        // Sections Container (Drop Zone for Templates)
+        // Sections Container (Drop Zone for Templates and Fields when no sections exist)
         const sectionsContainer = createElement('div', {
             className: 'space-y-6 min-h-[200px]',
             id: 'sections-list',
             'data-drop-zone': 'sections'
         });
+
+        // If no sections exist, add a root-level drop zone for fields
+        if (state.schema.sections.length === 0) {
+            const rootDropZone = createElement('div', {
+                className: 'form-builder-grid p-4 min-h-[100px] fields-list border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg',
+                'data-section-id': '',
+                'data-root-drop-zone': 'true',
+                id: 'root-fields-list'
+            });
+            
+            // Add placeholder text when empty (non-interactive, will be removed on re-render when fields are added)
+            const placeholder = createElement('div', {
+                className: 'col-span-12 text-center text-gray-400 dark:text-gray-500 py-8 pointer-events-none',
+                text: 'Drag fields here to get started (a default section will be created automatically)'
+            });
+            rootDropZone.appendChild(placeholder);
+            
+            sectionsContainer.appendChild(rootDropZone);
+        }
 
         state.schema.sections.forEach((section: any) => {
             const sectionEl = createElement('div', {
@@ -875,10 +894,12 @@ export class FormBuilder {
                 onAdd: (evt) => {
                     const item = evt.item;
                     const type = item.getAttribute('data-type');
-                    const sectionId = list.getAttribute('data-section-id');
+                    const sectionIdAttr = list.getAttribute('data-section-id');
+                    // Handle null sectionId (root drop zone) - convert empty string to null
+                    const sectionId = sectionIdAttr === '' || sectionIdAttr === 'null' ? null : sectionIdAttr;
 
                     // If dropped from toolbox
-                    if (type && sectionId) {
+                    if (type) {
                         // Check if it's a template drop
                         if (type === 'template-section') {
                             const templateId = item.getAttribute('data-template-id');
@@ -887,7 +908,7 @@ export class FormBuilder {
 
                             item.remove(); // Remove DOM element immediately
 
-                            if (template) {
+                            if (template && sectionId) {
                                 formStore.getState().addTemplateFields(sectionId, template, evt.newIndex);
                             }
                             return;
@@ -895,8 +916,9 @@ export class FormBuilder {
 
                         // Remove the cloned DOM element because store update will re-render everything
                         item.remove();
+                        // Pass null if no sectionId (root drop zone) - addField will create a default section
                         formStore.getState().addField(sectionId, type as any, evt.newIndex);
-                    } else if (sectionId) {
+                    } else if (sectionId !== null) {
                         // Moved from another section
                         const fieldId = item.getAttribute('data-id');
                         if (fieldId) {
@@ -927,8 +949,9 @@ export class FormBuilder {
                     // Same list reorder
                     const item = evt.item;
                     const fieldId = item.getAttribute('data-id');
-                    const sectionId = list.getAttribute('data-section-id');
-                    if (fieldId && sectionId && evt.newIndex !== undefined) {
+                    const sectionIdAttr = list.getAttribute('data-section-id');
+                    const sectionId = sectionIdAttr === '' || sectionIdAttr === 'null' ? null : sectionIdAttr;
+                    if (fieldId && sectionId !== null && evt.newIndex !== undefined) {
                         formStore.getState().moveField(fieldId, sectionId, evt.newIndex);
                     }
                 },
@@ -956,10 +979,10 @@ export class FormBuilder {
                     // If it was a move between sections
                     if (fromList !== toList && fromList.classList.contains('fields-list') && toList.classList.contains('fields-list')) {
                         const fieldId = item.getAttribute('data-id');
-                        const targetSectionId = toList.getAttribute('data-section-id');
-                        if (fieldId && targetSectionId && evt.newIndex !== undefined) {
-                            // We need to prevent Sortable from leaving the DOM in a weird state before our re-render?
-                            // Actually, just updating store is enough.
+                        const targetSectionIdAttr = toList.getAttribute('data-section-id');
+                        const targetSectionId = targetSectionIdAttr === '' || targetSectionIdAttr === 'null' ? null : targetSectionIdAttr;
+                        if (fieldId && evt.newIndex !== undefined) {
+                            // moveField now handles null targetSectionId by creating a default section
                             formStore.getState().moveField(fieldId, targetSectionId, evt.newIndex);
                         }
                     }

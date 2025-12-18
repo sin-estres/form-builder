@@ -29,11 +29,11 @@ interface FormActions {
     updateSection: (sectionId: string, updates: Partial<FormSection>) => void;
     moveSection: (oldIndex: number, newIndex: number) => void;
 
-    addField: (sectionId: string, type: FieldType, index?: number) => void;
+    addField: (sectionId: string | null, type: FieldType, index?: number) => void;
     removeField: (fieldId: string) => void;
     updateField: (fieldId: string, updates: Partial<FormField>) => void;
     selectField: (fieldId: string | null) => void;
-    moveField: (fieldId: string, targetSectionId: string, newIndex: number) => void;
+    moveField: (fieldId: string, targetSectionId: string | null, newIndex: number) => void;
 
     undo: () => void;
     redo: () => void;
@@ -46,13 +46,7 @@ const INITIAL_SCHEMA: FormSchema = {
     id: 'form_1',
     title: 'My New Form',
     formName: 'myNewForm',
-    sections: [
-        {
-            id: generateId(),
-            title: 'Section 1',
-            fields: [],
-        },
-    ],
+    sections: [],
 };
 
 export const formStore = createStore<FormState & FormActions>((set, get) => ({
@@ -175,20 +169,45 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             ...DEFAULT_FIELD_CONFIG[type],
         } as FormField;
 
+        let newSections = [...schema.sections];
+        
+        // If no sections exist or sectionId is null, create a default section
+        if (newSections.length === 0 || sectionId === null) {
+            const defaultSection: FormSection = {
+                id: generateId(),
+                title: 'Default Section',
+                fields: [],
+                columns: 1
+            };
+            newSections.push(defaultSection);
+            sectionId = defaultSection.id;
+        }
+
+        // Find the section and add the field
+        const sectionIndex = newSections.findIndex(s => s.id === sectionId);
+        if (sectionIndex !== -1) {
+            const section = newSections[sectionIndex];
+            const newFields = [...section.fields];
+            if (typeof index === 'number') {
+                newFields.splice(index, 0, newField);
+            } else {
+                newFields.push(newField);
+            }
+            newSections[sectionIndex] = { ...section, fields: newFields };
+        } else {
+            // If sectionId was provided but not found, create a default section
+            const defaultSection: FormSection = {
+                id: generateId(),
+                title: 'Default Section',
+                fields: [newField],
+                columns: 1
+            };
+            newSections.push(defaultSection);
+        }
+
         const newSchema = {
             ...schema,
-            sections: schema.sections.map((s) => {
-                if (s.id === sectionId) {
-                    const newFields = [...s.fields];
-                    if (typeof index === 'number') {
-                        newFields.splice(index, 0, newField);
-                    } else {
-                        newFields.push(newField);
-                    }
-                    return { ...s, fields: newFields };
-                }
-                return s;
-            }),
+            sections: newSections,
         };
 
         set({
@@ -251,6 +270,18 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         });
 
         if (!field) return;
+
+        // If targetSectionId is null or no sections exist, create a default section
+        if (targetSectionId === null || newSections.length === 0) {
+            const defaultSection: FormSection = {
+                id: generateId(),
+                title: 'Default Section',
+                fields: [],
+                columns: 1
+            };
+            newSections.push(defaultSection);
+            targetSectionId = defaultSection.id;
+        }
 
         // Insert into new position
         const targetSectionIndex = newSections.findIndex(s => s.id === targetSectionId);
