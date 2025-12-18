@@ -36,6 +36,13 @@ export class FormRenderer {
             const grid = createElement('div', { className: 'form-builder-grid' });
 
             section.fields.forEach(field => {
+                // Check if field is visible (default to true if not specified)
+                const isVisible = field.visible !== false;
+                
+                if (!isVisible) {
+                    return; // Skip rendering hidden fields
+                }
+
                 const fieldWrapper = createElement('div');
                 // Grid span logic (12 Cols)
                 let spanClass = 'col-span-12';

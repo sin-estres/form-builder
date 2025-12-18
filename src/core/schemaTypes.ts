@@ -44,6 +44,9 @@ export interface FormField {
     width: FieldWidth;
     hidden?: boolean; // For conditional logic later
     position?: { row: number; column: number }; // Future proofing for strict grid, currently width-based
+    groupName?: { id: string; name: string }; // For dropdown fields - mapped from masterTypes
+    enabled?: boolean; // Whether the field is enabled/disabled
+    visible?: boolean; // Whether the field is visible/hidden
 }
 
 export interface FormSection {

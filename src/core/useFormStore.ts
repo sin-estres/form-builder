@@ -3,6 +3,14 @@ import { FormSchema, FormSection, FormField, FieldType } from './schemaTypes';
 import { generateId, DEFAULT_FIELD_CONFIG } from './constants';
 import { cloneForm, cloneSection, cloneField } from '../utils/clone';
 
+export interface MasterType {
+    id: string;
+    name: string;
+    displayName: string;
+    indexes?: any[];
+    active: boolean;
+}
+
 interface FormState {
     schema: FormSchema;
     selectedFieldId: string | null;
@@ -11,6 +19,7 @@ interface FormState {
     isPreviewMode: boolean;
     existingForms: FormSchema[];
     templates: FormSection[];
+    masterTypes: MasterType[];
 }
 
 interface FormActions {
@@ -20,6 +29,7 @@ interface FormActions {
     // New Actions
     setExistingForms: (forms: FormSchema[]) => void;
     setTemplates: (templates: FormSection[]) => void;
+    setMasterTypes: (masterTypes: MasterType[]) => void;
     loadForm: (formId: string) => void;
     cloneExistingForm: (formId: string) => void;
     importSection: (section: FormSection) => void;
@@ -57,6 +67,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     isPreviewMode: false,
     existingForms: [],
     templates: [],
+    masterTypes: [],
 
     setSchema: (schema) => set({ schema }),
     togglePreview: () => set((state) => ({ isPreviewMode: !state.isPreviewMode })),
@@ -64,6 +75,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     // New Actions
     setExistingForms: (forms) => set({ existingForms: forms }),
     setTemplates: (templates) => set({ templates }),
+    setMasterTypes: (masterTypes) => set({ masterTypes }),
 
     loadForm: (formId) => {
         const { existingForms, history, historyIndex } = get();

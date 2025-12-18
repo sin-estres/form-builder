@@ -7,6 +7,7 @@ import { FormSchema, FormSection } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
 import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
+import { MasterType } from '../core/useFormStore';
 
 
 export interface FormBuilderOptions {
@@ -19,6 +20,9 @@ export interface FormBuilderOptions {
     onClone?: (schema: FormSchema) => void;
     onSectionImported?: (section: FormSection) => void;
     onTemplateSave?: (template: FormSection) => void;
+    data?: {
+        masterTypes?: MasterType[];
+    };
 }
 
 export class FormBuilder {
@@ -61,6 +65,11 @@ export class FormBuilder {
         } else if (options.mode === 'create') {
             // Ensure fresh state if needed, though store defaults to new form
             // formStore.getState().setSchema(INITIAL_SCHEMA); 
+        }
+
+        // Store masterTypes configuration if provided
+        if (options.data?.masterTypes) {
+            formStore.getState().setMasterTypes(options.data.masterTypes);
         }
 
         this.render();
@@ -532,6 +541,79 @@ export class FormBuilder {
             onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { required: (e.target as HTMLInputElement).checked })
         }));
         body.appendChild(requiredGroup);
+
+        // Enabled
+        const enabledGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+        enabledGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Enabled' }));
+        enabledGroup.appendChild(createElement('input', {
+            type: 'checkbox',
+            className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+            checked: selectedField.enabled !== false, // Default to true if not specified
+            onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { enabled: (e.target as HTMLInputElement).checked })
+        }));
+        body.appendChild(enabledGroup);
+
+        // Visible
+        const visibleGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+        visibleGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Visible' }));
+        visibleGroup.appendChild(createElement('input', {
+            type: 'checkbox',
+            className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+            checked: selectedField.visible !== false, // Default to true if not specified
+            onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { visible: (e.target as HTMLInputElement).checked })
+        }));
+        body.appendChild(visibleGroup);
+
+        // --- Group Name (Select/Dropdown only) ---
+        if (selectedField.type === 'select') {
+            const masterTypes = formStore.getState().masterTypes;
+            const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
+            
+            if (activeMasterTypes.length > 0) {
+                const groupNameGroup = createElement('div', { className: 'mb-4' });
+                groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Group Name' }));
+                const groupNameSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    onchange: (e: Event) => {
+                        const selectedValue = (e.target as HTMLSelectElement).value;
+                        if (selectedValue) {
+                            const selectedMasterType = activeMasterTypes.find(mt => mt.id === selectedValue || mt.name === selectedValue);
+                            if (selectedMasterType) {
+                                formStore.getState().updateField(selectedField.id, {
+                                    groupName: {
+                                        id: selectedMasterType.id,
+                                        name: selectedMasterType.name
+                                    }
+                                });
+                            }
+                        } else {
+                            formStore.getState().updateField(selectedField.id, { groupName: undefined });
+                        }
+                    }
+                });
+                
+                // Add empty option for clearing selection
+                groupNameSelect.appendChild(createElement('option', { 
+                    value: '', 
+                    text: 'None', 
+                    selected: !selectedField.groupName 
+                }));
+                
+                // Add options from active masterTypes
+                activeMasterTypes.forEach(mt => {
+                    const isSelected = selectedField.groupName && 
+                        (selectedField.groupName.id === mt.id || selectedField.groupName.name === mt.name);
+                    groupNameSelect.appendChild(createElement('option', { 
+                        value: mt.id || mt.name, 
+                        text: mt.displayName || mt.name, 
+                        selected: !!isSelected 
+                    }));
+                });
+                
+                groupNameGroup.appendChild(groupNameSelect);
+                body.appendChild(groupNameGroup);
+            }
+        }
 
         // --- Advanced Validation ---
         const validationHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Validation Rules' });

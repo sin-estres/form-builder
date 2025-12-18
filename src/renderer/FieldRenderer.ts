@@ -5,6 +5,9 @@ export class FieldRenderer {
     static render(field: FormField, value?: any, onChange?: (val: any) => void, readOnly: boolean = false): HTMLElement {
         const wrapper = createElement('div', { className: 'w-full' });
 
+        // Check if field is enabled (default to true if not specified)
+        const isEnabled = field.enabled !== false && !readOnly;
+
         // Label (except for checkbox which has its own layout)
         if (field.type !== 'checkbox') {
             const label = createElement('label', {
@@ -35,7 +38,7 @@ export class FieldRenderer {
                     className: 'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                     placeholder: field.placeholder,
                     value: value || '',
-                    disabled: readOnly,
+                    disabled: !isEnabled,
                     oninput: (e: Event) => onChange?.((e.target as HTMLTextAreaElement).value)
                 });
                 break;
@@ -44,7 +47,7 @@ export class FieldRenderer {
                 input = createElement('select', {
                     className: 'flex min-h-touch w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                     value: value || '',
-                    disabled: readOnly,
+                    disabled: !isEnabled,
                     onchange: (e: Event) => onChange?.((e.target as HTMLSelectElement).value)
                 });
                 input.appendChild(createElement('option', { value: '', text: 'Select an option', disabled: true, selected: !value }));
@@ -59,7 +62,7 @@ export class FieldRenderer {
                     type: 'checkbox',
                     className: 'h-5 w-5 sm:h-6 sm:w-6 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer',
                     checked: !!value,
-                    disabled: readOnly,
+                    disabled: !isEnabled,
                     onchange: (e: Event) => onChange?.((e.target as HTMLInputElement).checked)
                 });
                 input.appendChild(checkbox);
@@ -74,7 +77,7 @@ export class FieldRenderer {
                         name: field.id,
                         value: opt.value,
                         checked: value === opt.value,
-                        disabled: readOnly,
+                        disabled: !isEnabled,
                         className: 'aspect-square h-4 w-4 sm:h-5 sm:w-5 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                         onchange: (e: Event) => onChange?.((e.target as HTMLInputElement).value)
                     });
@@ -94,7 +97,7 @@ export class FieldRenderer {
                     className: 'flex min-h-touch w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                     placeholder: field.placeholder,
                     value: value || '',
-                    disabled: readOnly,
+                    disabled: !isEnabled,
                     oninput: (e: Event) => onChange?.((e.target as HTMLInputElement).value)
                 });
         }

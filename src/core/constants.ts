@@ -17,15 +17,15 @@ export const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
 ];
 
 export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
-    text: { label: 'Text Input', placeholder: 'Enter text...', width: '100%' },
-    textarea: { label: 'Text Area', placeholder: 'Enter description...', width: '100%' },
-    number: { label: 'Number', placeholder: '0', width: '50%' },
-    email: { label: 'Email', placeholder: 'example@email.com', width: '100%', validation: [{ type: 'email', message: 'Invalid email' }] },
-    phone: { label: 'Phone', placeholder: '+1 234 567 8900', width: '100%' },
-    date: { label: 'Date', width: '50%' },
-    select: { label: 'Dropdown', options: [{ label: 'Option 1', value: 'opt1' }, { label: 'Option 2', value: 'opt2' }], width: '100%' },
-    checkbox: { label: 'Checkbox', width: '100%' },
-    radio: { label: 'Radio Group', options: [{ label: 'Option 1', value: 'opt1' }, { label: 'Option 2', value: 'opt2' }], width: '100%' },
-    toggle: { label: 'Toggle', width: '50%' },
-    file: { label: 'File Upload', width: '100%' },
+    text: { label: 'Text Input', placeholder: 'Enter text...', width: '100%', enabled: true, visible: true },
+    textarea: { label: 'Text Area', placeholder: 'Enter description...', width: '100%', enabled: true, visible: true },
+    number: { label: 'Number', placeholder: '0', width: '50%', enabled: true, visible: true },
+    email: { label: 'Email', placeholder: 'example@email.com', width: '100%', validation: [{ type: 'email', message: 'Invalid email' }], enabled: true, visible: true },
+    phone: { label: 'Phone', placeholder: '+1 234 567 8900', width: '100%', enabled: true, visible: true },
+    date: { label: 'Date', width: '50%', enabled: true, visible: true },
+    select: { label: 'Dropdown', options: [{ label: 'Option 1', value: 'opt1' }, { label: 'Option 2', value: 'opt2' }], width: '100%', enabled: true, visible: true },
+    checkbox: { label: 'Checkbox', width: '100%', enabled: true, visible: true },
+    radio: { label: 'Radio Group', options: [{ label: 'Option 1', value: 'opt1' }, { label: 'Option 2', value: 'opt2' }], width: '100%', enabled: true, visible: true },
+    toggle: { label: 'Toggle', width: '50%', enabled: true, visible: true },
+    file: { label: 'File Upload', width: '100%', enabled: true, visible: true },
 };

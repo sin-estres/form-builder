@@ -6,6 +6,9 @@ import { formStore } from '../core/useFormStore';
 
 export class FieldWrapper {
     static render(field: FormField, isSelected: boolean): HTMLElement {
+        // Check if field is visible (default to true if not specified)
+        const isVisible = field.visible !== false;
+
         // Grid Span Logic (12 Cols Base)
         let spanClass = 'col-span-12';
         if (field.width === '50%') spanClass = 'col-span-6';
@@ -15,7 +18,7 @@ export class FieldWrapper {
         else if (field.width === '75%') spanClass = 'col-span-9';
 
         const fieldWrapper = createElement('div', {
-            className: `form-builder-field-wrapper ${isSelected ? 'selected-field' : ''} ${spanClass} relative group border border-transparent hover:border-blue-200 rounded-md transition-all`,
+            className: `form-builder-field-wrapper ${isSelected ? 'selected-field' : ''} ${spanClass} relative group border border-transparent hover:border-blue-200 rounded-md transition-all ${!isVisible ? 'hidden' : ''}`,
             'data-id': field.id,
             onclick: (e: Event) => {
                 e.stopPropagation();
