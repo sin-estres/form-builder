@@ -1,7 +1,6 @@
 import { formStore } from '../core/useFormStore';
 import { createElement, getIcon } from '../utils/dom';
 import { FIELD_TYPES } from '../core/constants';
-import { FieldRenderer } from '../renderer/FieldRenderer';
 import { FormRenderer } from '../renderer/FormRenderer';
 import { FormSchema, FormSection } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
