@@ -7,6 +7,7 @@ export interface MasterType {
     id: string;
     name: string;
     displayName: string;
+    enumName?: string;
     indexes?: any[];
     active: boolean;
 }
