@@ -22,6 +22,21 @@ export interface FormBuilderOptions {
     data?: {
         masterTypes?: MasterType[];
     };
+    // Angular integration inputs
+    masterTypeGroups?: {
+        id: string;
+        displayName: string;
+        enumName: string;
+    }[];
+    dropdownOptionsMap?: {
+        [groupEnumName: string]: {
+            label: string;
+            value: string;
+        }[];
+    };
+    // Angular integration outputs
+    onGroupSelectionChange?: (event: { fieldId: string; groupEnumName: string }) => void;
+    onDropdownValueChange?: (event: { fieldId: string; value: string }) => void;
 }
 
 export class FormBuilder {
@@ -71,6 +86,25 @@ export class FormBuilder {
             formStore.getState().setMasterTypes(options.data.masterTypes);
         }
 
+        // Store masterTypeGroups if provided (for Angular integration)
+        if (options.masterTypeGroups) {
+            // Convert masterTypeGroups to MasterType format for internal use
+            const masterTypes: MasterType[] = options.masterTypeGroups.map(group => ({
+                id: group.id,
+                name: group.displayName.toLowerCase().replace(/\s+/g, '-'), // Generate name from displayName
+                displayName: group.displayName,
+                enumName: group.enumName,
+                indexes: [],
+                active: true
+            }));
+            formStore.getState().setMasterTypes(masterTypes);
+        }
+
+        // Store dropdownOptionsMap if provided
+        if (options.dropdownOptionsMap) {
+            formStore.getState().setDropdownOptionsMap(options.dropdownOptionsMap);
+        }
+
         this.render();
         this.setupSubscriptions();
     }
@@ -113,6 +147,27 @@ export class FormBuilder {
     public updateTemplates(templates: FormSection[]) {
         formStore.getState().setTemplates(templates);
         // Re-render to update the templates tab
+        this.render();
+    }
+
+    public updateDropdownOptionsMap(dropdownOptionsMap: { [groupEnumName: string]: { label: string; value: string }[] }) {
+        formStore.getState().setDropdownOptionsMap(dropdownOptionsMap);
+        // Re-render to update dropdown options
+        this.render();
+    }
+
+    public updateMasterTypeGroups(masterTypeGroups: { id: string; displayName: string; enumName: string }[]) {
+        // Convert masterTypeGroups to MasterType format for internal use
+        const masterTypes: MasterType[] = masterTypeGroups.map(group => ({
+            id: group.id,
+            name: group.displayName.toLowerCase().replace(/\s+/g, '-'), // Generate name from displayName
+            displayName: group.displayName,
+            enumName: group.enumName,
+            indexes: [],
+            active: true
+        }));
+        formStore.getState().setMasterTypes(masterTypes);
+        // Re-render to update Group dropdown
         this.render();
     }
 
@@ -175,11 +230,71 @@ export class FormBuilder {
         const main = createElement('div', { className: 'flex flex-col md:flex-row flex-1 overflow-hidden' });
 
         if (state.isPreviewMode) {
-            const previewContainer = createElement('div', { className: 'flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
-            const inner = createElement('div', { className: 'w-full max-w-3xl' });
-            new FormRenderer(inner, state.schema, (data) => alert(JSON.stringify(data, null, 2)));
-            previewContainer.appendChild(inner);
-            main.appendChild(previewContainer);
+            // Ensure options are populated from master types before rendering preview
+            const masterTypes = state.masterTypes;
+            if (masterTypes && masterTypes.length > 0 && state.schema.sections) {
+                // Helper function to convert master type indexes to options format
+                const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
+                    if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
+                        return [];
+                    }
+                    return indexes.map((item, index) => {
+                        if (typeof item === 'string') {
+                            return { label: item, value: item };
+                        }
+                        if (typeof item === 'object' && item !== null) {
+                            const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
+                            const value = item.value || item.id || item.name || String(index);
+                            return { label, value };
+                        }
+                        return { label: String(item), value: String(item) };
+                    });
+                };
+
+                // Helper function to check if options are default placeholder options
+                const areDefaultOptions = (options: any[]): boolean => {
+                    if (!options || options.length === 0) return true;
+                    return options.every((opt, idx) => 
+                        opt.label === `Option ${idx + 1}` && 
+                        (opt.value === `opt${idx + 1}` || opt.value === `Option ${idx + 1}`)
+                    );
+                };
+
+                // Create a schema with populated options for preview
+                const previewSchema = {
+                    ...state.schema,
+                    sections: state.schema.sections.map(section => ({
+                        ...section,
+                        fields: section.fields.map(field => {
+                            if (field.type === 'select' && field.groupName) {
+                                const masterType = masterTypes.find(mt => 
+                                    mt.active === true && 
+                                    (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                                );
+                                if (masterType && masterType.indexes && masterType.indexes.length > 0) {
+                                    if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
+                                        const options = convertIndexesToOptions(masterType.indexes);
+                                        return { ...field, options };
+                                    }
+                                }
+                            }
+                            return field;
+                        })
+                    }))
+                };
+                
+                const previewContainer = createElement('div', { className: 'flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
+                const inner = createElement('div', { className: 'w-full max-w-3xl' });
+                new FormRenderer(inner, previewSchema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
+                previewContainer.appendChild(inner);
+                main.appendChild(previewContainer);
+            } else {
+                const previewContainer = createElement('div', { className: 'flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
+                const inner = createElement('div', { className: 'w-full max-w-3xl' });
+                new FormRenderer(inner, state.schema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
+                previewContainer.appendChild(inner);
+                main.appendChild(previewContainer);
+            }
         } else {
             // Wrap toolbox for mobile collapsibility
             const toolboxWrapper = createElement('div', { className: 'form-builder-toolbox-wrapper w-full md:w-80 bg-white dark:bg-gray-900 border-r md:border-r border-b md:border-b-0 border-gray-200 dark:border-gray-800' });
@@ -567,6 +682,7 @@ export class FormBuilder {
         if (selectedField.type === 'select') {
             const masterTypes = formStore.getState().masterTypes;
             const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
+            const dropdownOptionsMap = formStore.getState().dropdownOptionsMap;
             
             // Helper function to convert master type indexes to options format
             const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
@@ -596,12 +712,21 @@ export class FormBuilder {
                 const groupNameSelect = createElement('select', {
                     className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
                     onchange: (e: Event) => {
-                        const selectedValue = (e.target as HTMLSelectElement).value;
-                        if (selectedValue) {
-                            const selectedMasterType = activeMasterTypes.find(mt => mt.id === selectedValue || mt.name === selectedValue);
+                        const selectedEnumName = (e.target as HTMLSelectElement).value;
+                        if (selectedEnumName) {
+                            const selectedMasterType = activeMasterTypes.find(mt => mt.enumName === selectedEnumName);
                             if (selectedMasterType) {
-                                // Convert indexes to options format
-                                const options = convertIndexesToOptions(selectedMasterType.indexes || []);
+                                // Check if dropdownOptionsMap has options for this enumName
+                                let options: { label: string; value: string }[] = [];
+                                
+                                if (dropdownOptionsMap && dropdownOptionsMap[selectedEnumName]) {
+                                    // Use options from dropdownOptionsMap (Angular integration)
+                                    options = dropdownOptionsMap[selectedEnumName];
+                                } else if (selectedMasterType.indexes && selectedMasterType.indexes.length > 0) {
+                                    // Fallback to indexes from master type
+                                    options = convertIndexesToOptions(selectedMasterType.indexes);
+                                }
+                                
                                 formStore.getState().updateField(selectedField.id, {
                                     groupName: {
                                         id: selectedMasterType.id,
@@ -609,6 +734,14 @@ export class FormBuilder {
                                     },
                                     options: options.length > 0 ? options : undefined
                                 });
+                                
+                                // Emit groupSelectionChange event (Angular integration)
+                                if (this.options.onGroupSelectionChange) {
+                                    this.options.onGroupSelectionChange({
+                                        fieldId: selectedField.id,
+                                        groupEnumName: selectedEnumName
+                                    });
+                                }
                             }
                         } else {
                             formStore.getState().updateField(selectedField.id, { 
@@ -626,12 +759,14 @@ export class FormBuilder {
                     selected: !selectedField.groupName 
                 }));
                 
-                // Add options from active masterTypes
+                // Add options from active masterTypes - use enumName as value, displayName as text
                 activeMasterTypes.forEach(mt => {
                     const isSelected = selectedField.groupName && 
                         (selectedField.groupName.id === mt.id || selectedField.groupName.name === mt.name);
+                    // Use enumName as value for Angular integration
+                    const optionValue = mt.enumName || mt.id || mt.name;
                     groupNameSelect.appendChild(createElement('option', { 
-                        value: mt.id || mt.name, 
+                        value: optionValue, 
                         text: mt.displayName || mt.name, 
                         selected: !!isSelected 
                     }));
@@ -640,13 +775,22 @@ export class FormBuilder {
                 groupNameGroup.appendChild(groupNameSelect);
                 body.appendChild(groupNameGroup);
                 
-                // If field already has a groupName but no options, populate options from master type
+                // If field already has a groupName but no options, check dropdownOptionsMap first, then master type indexes
                 if (selectedField.groupName && (!selectedField.options || selectedField.options.length === 0)) {
                     const currentMasterType = activeMasterTypes.find(mt => 
                         mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name
                     );
-                    if (currentMasterType && currentMasterType.indexes && currentMasterType.indexes.length > 0) {
-                        const options = convertIndexesToOptions(currentMasterType.indexes);
+                    if (currentMasterType) {
+                        let options: { label: string; value: string }[] = [];
+                        
+                        // Check dropdownOptionsMap first (Angular integration)
+                        if (currentMasterType.enumName && dropdownOptionsMap && dropdownOptionsMap[currentMasterType.enumName]) {
+                            options = dropdownOptionsMap[currentMasterType.enumName];
+                        } else if (currentMasterType.indexes && currentMasterType.indexes.length > 0) {
+                            // Fallback to indexes from master type
+                            options = convertIndexesToOptions(currentMasterType.indexes);
+                        }
+                        
                         if (options.length > 0) {
                             formStore.getState().updateField(selectedField.id, { options });
                         }

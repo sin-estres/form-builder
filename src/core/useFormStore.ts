@@ -21,6 +21,12 @@ interface FormState {
     existingForms: FormSchema[];
     templates: FormSection[];
     masterTypes: MasterType[];
+    dropdownOptionsMap: {
+        [groupEnumName: string]: {
+            label: string;
+            value: string;
+        }[];
+    };
 }
 
 interface FormActions {
@@ -31,6 +37,7 @@ interface FormActions {
     setExistingForms: (forms: FormSchema[]) => void;
     setTemplates: (templates: FormSection[]) => void;
     setMasterTypes: (masterTypes: MasterType[]) => void;
+    setDropdownOptionsMap: (map: { [groupEnumName: string]: { label: string; value: string }[] }) => void;
     loadForm: (formId: string) => void;
     cloneExistingForm: (formId: string) => void;
     importSection: (section: FormSection) => void;
@@ -69,6 +76,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     existingForms: [],
     templates: [],
     masterTypes: [],
+    dropdownOptionsMap: {},
 
     setSchema: (schema) => {
         // Helper function to convert master type indexes to options format
@@ -89,20 +97,53 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             });
         };
 
+        // Helper function to check if options are default placeholder options
+        const areDefaultOptions = (options: any[]): boolean => {
+            if (!options || options.length === 0) return true;
+            // Check if options match default pattern: "Option 1", "Option 2", etc.
+            return options.every((opt, idx) => 
+                opt.label === `Option ${idx + 1}` && 
+                (opt.value === `opt${idx + 1}` || opt.value === `Option ${idx + 1}`)
+            );
+        };
+
         // Populate options for fields with groupName from masterTypes
         const state = get();
         if (state.masterTypes && state.masterTypes.length > 0 && schema.sections) {
             const updatedSections = schema.sections.map(section => ({
                 ...section,
                 fields: section.fields.map(field => {
-                    if (field.type === 'select' && field.groupName && (!field.options || field.options.length === 0)) {
+                    // Always populate options from master types if groupName exists and options are missing or default
+                    if (field.type === 'select' && field.groupName) {
                         const masterType = state.masterTypes.find(mt => 
                             mt.active === true && 
                             (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
                         );
-                        if (masterType && masterType.indexes && masterType.indexes.length > 0) {
-                            const options = convertIndexesToOptions(masterType.indexes);
-                            return { ...field, options };
+                        if (masterType) {
+                            // Check dropdownOptionsMap first (Angular integration)
+                            if (masterType.enumName && state.dropdownOptionsMap && state.dropdownOptionsMap[masterType.enumName]) {
+                                return { ...field, options: state.dropdownOptionsMap[masterType.enumName] };
+                            }
+                            
+                            if (!masterType.indexes || masterType.indexes.length === 0) {
+                                console.warn(`[FormBuilder] Master type "${masterType.displayName}" (${masterType.name}) has empty indexes array. Dropdown will have no options. Please ensure the API returns populated indexes.`, {
+                                    masterTypeId: masterType.id,
+                                    masterTypeName: masterType.name,
+                                    enumName: masterType.enumName,
+                                    indexes: masterType.indexes
+                                });
+                            }
+                            
+                            if (masterType.indexes && masterType.indexes.length > 0) {
+                                // Replace options if they don't exist, are empty, or are default placeholder options
+                                if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
+                                    const options = convertIndexesToOptions(masterType.indexes);
+                                    console.log(`[FormBuilder] Populating ${options.length} options from master type "${masterType.displayName}"`);
+                                    return { ...field, options };
+                                }
+                            }
+                        } else {
+                            console.warn('[FormBuilder] Master type not found for groupName:', field.groupName);
                         }
                     }
                     return field;
@@ -113,37 +154,154 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             set({ schema });
         }
     },
-    togglePreview: () => set((state) => ({ isPreviewMode: !state.isPreviewMode })),
+    togglePreview: () => {
+        const state = get();
+        // Before toggling preview, ensure options are populated for fields with groupName
+        if (state.masterTypes && state.masterTypes.length > 0 && state.schema.sections) {
+            // Helper function to convert master type indexes to options format
+            const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
+                if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
+                    return [];
+                }
+                return indexes.map((item, index) => {
+                    if (typeof item === 'string') {
+                        return { label: item, value: item };
+                    }
+                    if (typeof item === 'object' && item !== null) {
+                        const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
+                        const value = item.value || item.id || item.name || String(index);
+                        return { label, value };
+                    }
+                    return { label: String(item), value: String(item) };
+                });
+            };
+
+            // Helper function to check if options are default placeholder options
+            const areDefaultOptions = (options: any[]): boolean => {
+                if (!options || options.length === 0) return true;
+                // Check if options match default pattern: "Option 1", "Option 2", etc.
+                return options.every((opt, idx) => 
+                    opt.label === `Option ${idx + 1}` && 
+                    (opt.value === `opt${idx + 1}` || opt.value === `Option ${idx + 1}`)
+                );
+            };
+
+            const updatedSections = state.schema.sections.map(section => ({
+                ...section,
+                fields: section.fields.map(field => {
+                    // Always populate options from master types if groupName exists and options are missing or default
+                    if (field.type === 'select' && field.groupName) {
+                        const masterType = state.masterTypes.find(mt => 
+                            mt.active === true && 
+                            (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                        );
+                        if (masterType && masterType.indexes && masterType.indexes.length > 0) {
+                            // Replace options if they don't exist, are empty, or are default placeholder options
+                            if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
+                                const options = convertIndexesToOptions(masterType.indexes);
+                                return { ...field, options };
+                            }
+                        }
+                    }
+                    return field;
+                })
+            }));
+            
+            // Check if any fields were updated
+            const hasChanges = updatedSections.some((section, idx) => 
+                section.fields.some((field, fieldIdx) => 
+                    field !== state.schema.sections[idx]?.fields[fieldIdx]
+                )
+            );
+            
+            if (hasChanges) {
+                set({ 
+                    schema: { ...state.schema, sections: updatedSections },
+                    isPreviewMode: !state.isPreviewMode 
+                });
+            } else {
+                set({ isPreviewMode: !state.isPreviewMode });
+            }
+        } else {
+            set({ isPreviewMode: !state.isPreviewMode });
+        }
+    },
 
     // New Actions
     setExistingForms: (forms) => set({ existingForms: forms }),
     setTemplates: (templates) => set({ templates }),
-    setMasterTypes: (masterTypes) => {
-        set({ masterTypes });
-        // Populate options for fields with groupName when masterTypes are set
+    setDropdownOptionsMap: (map) => {
+        set({ dropdownOptionsMap: map });
+        // Update field options when dropdownOptionsMap changes
         const state = get();
         if (state.schema && state.schema.sections) {
             const updatedSections = state.schema.sections.map(section => ({
                 ...section,
                 fields: section.fields.map(field => {
-                    if (field.type === 'select' && field.groupName && (!field.options || field.options.length === 0)) {
+                    if (field.type === 'select' && field.groupName) {
+                        // Find the master type to get enumName
+                        const masterType = state.masterTypes.find(mt => 
+                            mt.active === true && 
+                            (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                        );
+                        if (masterType && masterType.enumName && map[masterType.enumName]) {
+                            return { ...field, options: map[masterType.enumName] };
+                        }
+                    }
+                    return field;
+                })
+            }));
+            set({ schema: { ...state.schema, sections: updatedSections } });
+        }
+    },
+    setMasterTypes: (masterTypes) => {
+        set({ masterTypes });
+        // Populate options for fields with groupName when masterTypes are set
+        const state = get();
+        if (state.schema && state.schema.sections) {
+            // Helper function to convert master type indexes to options format
+            const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
+                if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
+                    return [];
+                }
+                return indexes.map((item: any, index: number) => {
+                    if (typeof item === 'string') {
+                        return { label: item, value: item };
+                    }
+                    if (typeof item === 'object' && item !== null) {
+                        const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
+                        const value = item.value || item.id || item.name || String(index);
+                        return { label, value };
+                    }
+                    return { label: String(item), value: String(item) };
+                });
+            };
+
+            // Helper function to check if options are default placeholder options
+            const areDefaultOptions = (options: any[]): boolean => {
+                if (!options || options.length === 0) return true;
+                // Check if options match default pattern: "Option 1", "Option 2", etc.
+                return options.every((opt, idx) => 
+                    opt.label === `Option ${idx + 1}` && 
+                    (opt.value === `opt${idx + 1}` || opt.value === `Option ${idx + 1}`)
+                );
+            };
+
+            const updatedSections = state.schema.sections.map(section => ({
+                ...section,
+                fields: section.fields.map(field => {
+                    // Always populate options from master types if groupName exists and options are missing or default
+                    if (field.type === 'select' && field.groupName) {
                         const masterType = masterTypes.find(mt => 
                             mt.active === true && 
                             (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
                         );
                         if (masterType && masterType.indexes && masterType.indexes.length > 0) {
-                            const options = masterType.indexes.map((item: any, index: number) => {
-                                if (typeof item === 'string') {
-                                    return { label: item, value: item };
-                                }
-                                if (typeof item === 'object' && item !== null) {
-                                    const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
-                                    const value = item.value || item.id || item.name || String(index);
-                                    return { label, value };
-                                }
-                                return { label: String(item), value: String(item) };
-                            });
-                            return { ...field, options };
+                            // Replace options if they don't exist, are empty, or are default placeholder options
+                            if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
+                                const options = convertIndexesToOptions(masterType.indexes);
+                                return { ...field, options };
+                            }
                         }
                     }
                     return field;

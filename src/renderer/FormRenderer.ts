@@ -7,11 +7,13 @@ export class FormRenderer {
     private schema: FormSchema;
     private data: Record<string, any> = {};
     private onSubmit?: (data: any) => void;
+    private onDropdownValueChange?: (event: { fieldId: string; value: string }) => void;
 
-    constructor(container: HTMLElement, schema: FormSchema, onSubmit?: (data: any) => void) {
+    constructor(container: HTMLElement, schema: FormSchema, onSubmit?: (data: any) => void, onDropdownValueChange?: (event: { fieldId: string; value: string }) => void) {
         this.container = container;
         this.schema = schema;
         this.onSubmit = onSubmit;
+        this.onDropdownValueChange = onDropdownValueChange;
         this.render();
     }
 
@@ -56,6 +58,13 @@ export class FormRenderer {
 
                 const fieldEl = FieldRenderer.render(field, this.data[field.id], (val) => {
                     this.data[field.id] = val;
+                    // Emit dropdownValueChange event for select fields (Angular integration)
+                    if (field.type === 'select' && this.onDropdownValueChange) {
+                        this.onDropdownValueChange({
+                            fieldId: field.id,
+                            value: val || ''
+                        });
+                    }
                 });
 
                 fieldWrapper.appendChild(fieldEl);
