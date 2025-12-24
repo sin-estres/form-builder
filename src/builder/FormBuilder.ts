@@ -422,7 +422,7 @@ export class FormBuilder {
                 const schema = formStore.getState().schema;
                 console.log('Schema saved:', schema);
 
-                // Call the callback if provided
+                // Call the callback if provided (schema is already cleaned by setSchema)
                 if (this.options.onSave) {
                     this.options.onSave(schema);
                 }
@@ -800,9 +800,6 @@ export class FormBuilder {
         }
 
         // --- Advanced Validation ---
-        const validationHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Validation Rules' });
-        body.appendChild(validationHeader);
-
         const validations = selectedField.validation || [];
         const updateValidation = (rule: any) => {
             // Very basic replacement logic for demo
@@ -815,6 +812,9 @@ export class FormBuilder {
 
         const getRuleValue = (type: string) => validations.find((v: any) => v.type === type)?.value || '';
 
+        // Collect validation rule elements
+        const validationElements: HTMLElement[] = [];
+
         // Min/Max Length (Text/Textarea)
         if (['text', 'textarea', 'email', 'password'].includes(selectedField.type)) {
             const minLenGroup = createElement('div', { className: 'mb-3' });
@@ -826,7 +826,7 @@ export class FormBuilder {
                 placeholder: 'e.g. 3',
                 onchange: (e: Event) => updateValidation({ type: 'minLength', value: parseInt((e.target as HTMLInputElement).value) })
             }));
-            body.appendChild(minLenGroup);
+            validationElements.push(minLenGroup);
 
             const maxLenGroup = createElement('div', { className: 'mb-3' });
             maxLenGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Max Length' }));
@@ -837,7 +837,7 @@ export class FormBuilder {
                 placeholder: 'e.g. 100',
                 onchange: (e: Event) => updateValidation({ type: 'maxLength', value: parseInt((e.target as HTMLInputElement).value) })
             }));
-            body.appendChild(maxLenGroup);
+            validationElements.push(maxLenGroup);
 
             // Regex
             const regexGroup = createElement('div', { className: 'mb-3' });
@@ -857,7 +857,7 @@ export class FormBuilder {
                     formStore.getState().updateField(selectedField.id, { validation: newValidations });
                 }
             }));
-            body.appendChild(regexGroup);
+            validationElements.push(regexGroup);
         }
 
         // Min/Max Value (Number)
@@ -870,7 +870,7 @@ export class FormBuilder {
                 value: getRuleValue('min'),
                 onchange: (e: Event) => updateValidation({ type: 'min', value: parseInt((e.target as HTMLInputElement).value) })
             }));
-            body.appendChild(minValGroup);
+            validationElements.push(minValGroup);
 
             const maxValGroup = createElement('div', { className: 'mb-3' });
             maxValGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Max Value' }));
@@ -880,10 +880,19 @@ export class FormBuilder {
                 value: getRuleValue('max'),
                 onchange: (e: Event) => updateValidation({ type: 'max', value: parseInt((e.target as HTMLInputElement).value) })
             }));
-            body.appendChild(maxValGroup);
+            validationElements.push(maxValGroup);
+        }
+
+        // Only show Validation Rules header and elements if there are validation rules
+        if (validationElements.length > 0) {
+            const validationHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Validation Rules' });
+            body.appendChild(validationHeader);
+            validationElements.forEach(el => body.appendChild(el));
         }
 
         // --- Async Options (Select/Radio) ---
+        // COMMENTED OUT: Options Source and Source Type functionality
+        /*
         if (['select', 'radio'].includes(selectedField.type)) {
             const optionsHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Options Source' });
             body.appendChild(optionsHeader);
@@ -944,6 +953,7 @@ export class FormBuilder {
                 body.appendChild(keysRow);
             }
         }
+        */
 
         panel.appendChild(body);
         return panel;

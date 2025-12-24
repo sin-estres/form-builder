@@ -2,6 +2,7 @@ import { createStore } from 'zustand/vanilla';
 import { FormSchema, FormSection, FormField, FieldType } from './schemaTypes';
 import { generateId, DEFAULT_FIELD_CONFIG } from './constants';
 import { cloneForm, cloneSection, cloneField } from '../utils/clone';
+import { cleanFormSchema } from '../utils/mapper';
 
 export interface MasterType {
     id: string;
@@ -79,6 +80,9 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     dropdownOptionsMap: {},
 
     setSchema: (schema) => {
+        // Clean schema: remove invalid properties and normalize field types
+        const cleanedSchema = cleanFormSchema(schema);
+
         // Helper function to convert master type indexes to options format
         const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
             if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
@@ -109,8 +113,8 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
 
         // Populate options for fields with groupName from masterTypes
         const state = get();
-        if (state.masterTypes && state.masterTypes.length > 0 && schema.sections) {
-            const updatedSections = schema.sections.map(section => ({
+        if (state.masterTypes && state.masterTypes.length > 0 && cleanedSchema.sections) {
+            const updatedSections = cleanedSchema.sections.map(section => ({
                 ...section,
                 fields: section.fields.map(field => {
                     // Always populate options from master types if groupName exists and options are missing or default
@@ -149,9 +153,9 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                     return field;
                 })
             }));
-            set({ schema: { ...schema, sections: updatedSections } });
+            set({ schema: { ...cleanedSchema, sections: updatedSections } });
         } else {
-            set({ schema });
+            set({ schema: cleanedSchema });
         }
     },
     togglePreview: () => {
