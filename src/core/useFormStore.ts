@@ -111,44 +111,137 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             );
         };
 
-        // Populate options for fields with groupName from masterTypes
+        // Populate options for fields with groupName or masterTypeName from masterTypes
         const state = get();
         if (state.masterTypes && state.masterTypes.length > 0 && cleanedSchema.sections) {
             const updatedSections = cleanedSchema.sections.map(section => ({
                 ...section,
                 fields: section.fields.map(field => {
-                    // Always populate options from master types if groupName exists and options are missing or default
-                    if (field.type === 'select' && field.groupName) {
-                        const masterType = state.masterTypes.find(mt => 
-                            mt.active === true && 
-                            (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
-                        );
-                        if (masterType) {
-                            // Check dropdownOptionsMap first (Angular integration)
-                            if (masterType.enumName && state.dropdownOptionsMap && state.dropdownOptionsMap[masterType.enumName]) {
-                                return { ...field, options: state.dropdownOptionsMap[masterType.enumName] };
-                            }
+                    // Hydrate dropdown fields that have masterTypeName or groupName
+                    if (field.type === 'select') {
+                        let masterType: MasterType | undefined;
+                        let updatedField = { ...field };
+
+                        // Case 1: Field has masterTypeName but no groupName - resolve groupName from masterType
+                        if (field.masterTypeName && !field.groupName) {
+                            masterType = state.masterTypes.find(mt => 
+                                mt.active === true && 
+                                mt.enumName === field.masterTypeName
+                            );
                             
-                            if (!masterType.indexes || masterType.indexes.length === 0) {
-                                console.warn(`[FormBuilder] Master type "${masterType.displayName}" (${masterType.name}) has empty indexes array. Dropdown will have no options. Please ensure the API returns populated indexes.`, {
+                            if (masterType) {
+                                // Set groupName from master type to preserve group binding
+                                updatedField = {
+                                    ...updatedField,
+                                    groupName: {
+                                        id: masterType.id,
+                                        name: masterType.name
+                                    }
+                                };
+                                if (process.env.NODE_ENV === 'development') {
+                                    console.log(`[FormBuilder] Hydrating dropdown field "${field.id}": Resolved groupName from masterTypeName "${field.masterTypeName}"`, {
+                                        fieldId: field.id,
+                                        masterTypeName: field.masterTypeName,
+                                        groupName: updatedField.groupName
+                                    });
+                                }
+                            } else {
+                                console.warn(`[FormBuilder] Master type not found for masterTypeName: "${field.masterTypeName}"`, {
+                                    fieldId: field.id,
+                                    masterTypeName: field.masterTypeName
+                                });
+                            }
+                        }
+                        // Case 2: Field has groupName - find master type by groupName
+                        else if (field.groupName) {
+                            masterType = state.masterTypes.find(mt => 
+                                mt.active === true && 
+                                (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                            );
+                            
+                            // If masterTypeName is missing but groupName exists, set masterTypeName from master type
+                            if (masterType && !field.masterTypeName && masterType.enumName) {
+                                updatedField = {
+                                    ...updatedField,
+                                    masterTypeName: masterType.enumName
+                                };
+                            }
+                        }
+                        // Case 3: Field has masterTypeName and groupName - verify they match
+                        else if (field.masterTypeName && field.groupName) {
+                            masterType = state.masterTypes.find(mt => 
+                                mt.active === true && 
+                                mt.enumName === field.masterTypeName &&
+                                (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                            );
+                            
+                            if (!masterType) {
+                                // Try to resolve by masterTypeName only
+                                masterType = state.masterTypes.find(mt => 
+                                    mt.active === true && 
+                                    mt.enumName === field.masterTypeName
+                                );
+                                
+                                if (masterType) {
+                                    // Update groupName to match masterTypeName
+                                    updatedField = {
+                                        ...updatedField,
+                                        groupName: {
+                                            id: masterType.id,
+                                            name: masterType.name
+                                        }
+                                    };
+                                }
+                            }
+                        }
+
+                        // Load options from dropdownOptionsMap or master type indexes
+                        if (masterType) {
+                            let options: { label: string; value: string }[] = [];
+                            
+                            // Priority 1: Check dropdownOptionsMap first (Angular integration)
+                            if (masterType.enumName && state.dropdownOptionsMap && state.dropdownOptionsMap[masterType.enumName]) {
+                                options = state.dropdownOptionsMap[masterType.enumName];
+                                if (process.env.NODE_ENV === 'development') {
+                                    console.log(`[FormBuilder] Hydrating dropdown field "${field.id}": Loaded ${options.length} options from dropdownOptionsMap for "${masterType.enumName}"`);
+                                }
+                            }
+                            // Priority 2: Use master type indexes
+                            else if (masterType.indexes && masterType.indexes.length > 0) {
+                                options = convertIndexesToOptions(masterType.indexes);
+                                if (process.env.NODE_ENV === 'development') {
+                                    console.log(`[FormBuilder] Hydrating dropdown field "${field.id}": Loaded ${options.length} options from master type indexes for "${masterType.displayName}"`);
+                                }
+                            }
+                            // Priority 3: Warn if no options available
+                            else {
+                                console.warn(`[FormBuilder] Master type "${masterType.displayName}" (${masterType.name}) has empty indexes array and no dropdownOptionsMap entry. Dropdown will have no options. Please ensure the API returns populated indexes or provide dropdownOptionsMap.`, {
                                     masterTypeId: masterType.id,
                                     masterTypeName: masterType.name,
                                     enumName: masterType.enumName,
-                                    indexes: masterType.indexes
+                                    indexes: masterType.indexes,
+                                    fieldId: field.id
                                 });
                             }
-                            
-                            if (masterType.indexes && masterType.indexes.length > 0) {
-                                // Replace options if they don't exist, are empty, or are default placeholder options
-                                if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
-                                    const options = convertIndexesToOptions(masterType.indexes);
-                                    console.log(`[FormBuilder] Populating ${options.length} options from master type "${masterType.displayName}"`);
-                                    return { ...field, options };
+
+                            // Update options if they don't exist, are empty, or are default placeholder options
+                            // Always update if we loaded from dropdownOptionsMap or master type indexes
+                            if (options.length > 0) {
+                                if (!updatedField.options || updatedField.options.length === 0 || areDefaultOptions(updatedField.options)) {
+                                    updatedField = {
+                                        ...updatedField,
+                                        options
+                                    };
                                 }
                             }
-                        } else {
-                            console.warn('[FormBuilder] Master type not found for groupName:', field.groupName);
+                        } else if (field.groupName) {
+                            console.warn('[FormBuilder] Master type not found for groupName:', field.groupName, {
+                                fieldId: field.id,
+                                groupName: field.groupName
+                            });
                         }
+
+                        return updatedField;
                     }
                     return field;
                 })
@@ -193,12 +286,25 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             const updatedSections = state.schema.sections.map(section => ({
                 ...section,
                 fields: section.fields.map(field => {
-                    // Always populate options from master types if groupName exists and options are missing or default
-                    if (field.type === 'select' && field.groupName) {
-                        const masterType = state.masterTypes.find(mt => 
-                            mt.active === true && 
-                            (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
-                        );
+                    // Hydrate dropdown fields that have masterTypeName or groupName
+                    if (field.type === 'select') {
+                        let masterType: MasterType | undefined;
+                        
+                        // Check for masterTypeName first
+                        if (field.masterTypeName) {
+                            masterType = state.masterTypes.find(mt => 
+                                mt.active === true && 
+                                mt.enumName === field.masterTypeName
+                            );
+                        }
+                        // Fallback to groupName
+                        else if (field.groupName) {
+                            masterType = state.masterTypes.find(mt => 
+                                mt.active === true && 
+                                (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                            );
+                        }
+                        
                         if (masterType && masterType.indexes && masterType.indexes.length > 0) {
                             // Replace options if they don't exist, are empty, or are default placeholder options
                             if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
@@ -242,12 +348,24 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             const updatedSections = state.schema.sections.map(section => ({
                 ...section,
                 fields: section.fields.map(field => {
-                    if (field.type === 'select' && field.groupName) {
-                        // Find the master type to get enumName
-                        const masterType = state.masterTypes.find(mt => 
-                            mt.active === true && 
-                            (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
-                        );
+                    if (field.type === 'select') {
+                        let masterType: MasterType | undefined;
+                        
+                        // Check for masterTypeName first
+                        if (field.masterTypeName) {
+                            masterType = state.masterTypes.find(mt => 
+                                mt.active === true && 
+                                mt.enumName === field.masterTypeName
+                            );
+                        }
+                        // Fallback to groupName
+                        else if (field.groupName) {
+                            masterType = state.masterTypes.find(mt => 
+                                mt.active === true && 
+                                (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                            );
+                        }
+                        
                         if (masterType && masterType.enumName && map[masterType.enumName]) {
                             return { ...field, options: map[masterType.enumName] };
                         }
@@ -294,19 +412,54 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             const updatedSections = state.schema.sections.map(section => ({
                 ...section,
                 fields: section.fields.map(field => {
-                    // Always populate options from master types if groupName exists and options are missing or default
-                    if (field.type === 'select' && field.groupName) {
-                        const masterType = masterTypes.find(mt => 
-                            mt.active === true && 
-                            (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
-                        );
-                        if (masterType && masterType.indexes && masterType.indexes.length > 0) {
-                            // Replace options if they don't exist, are empty, or are default placeholder options
-                            if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
-                                const options = convertIndexesToOptions(masterType.indexes);
-                                return { ...field, options };
+                    // Hydrate dropdown fields that have masterTypeName or groupName
+                    if (field.type === 'select') {
+                        let masterType: MasterType | undefined;
+                        let updatedField = { ...field };
+                        
+                        // Check for masterTypeName first
+                        if (field.masterTypeName) {
+                            masterType = masterTypes.find(mt => 
+                                mt.active === true && 
+                                mt.enumName === field.masterTypeName
+                            );
+                            
+                            // If masterType found but groupName is missing, set it
+                            if (masterType && !field.groupName) {
+                                updatedField = {
+                                    ...updatedField,
+                                    groupName: {
+                                        id: masterType.id,
+                                        name: masterType.name
+                                    }
+                                };
                             }
                         }
+                        // Fallback to groupName
+                        else if (field.groupName) {
+                            masterType = masterTypes.find(mt => 
+                                mt.active === true && 
+                                (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                            );
+                            
+                            // If masterType found but masterTypeName is missing, set it
+                            if (masterType && !field.masterTypeName && masterType.enumName) {
+                                updatedField = {
+                                    ...updatedField,
+                                    masterTypeName: masterType.enumName
+                                };
+                            }
+                        }
+                        
+                        if (masterType && masterType.indexes && masterType.indexes.length > 0) {
+                            // Replace options if they don't exist, are empty, or are default placeholder options
+                            if (!updatedField.options || updatedField.options.length === 0 || areDefaultOptions(updatedField.options)) {
+                                const options = convertIndexesToOptions(masterType.indexes);
+                                return { ...updatedField, options };
+                            }
+                        }
+                        
+                        return updatedField;
                     }
                     return field;
                 })

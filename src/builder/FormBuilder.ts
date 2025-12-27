@@ -754,17 +754,31 @@ export class FormBuilder {
                     }
                 });
                 
+                // Determine which master type is currently selected
+                // Priority: masterTypeName > groupName
+                let currentMasterType: MasterType | undefined;
+                if (selectedField.masterTypeName) {
+                    currentMasterType = activeMasterTypes.find(mt => mt.enumName === selectedField.masterTypeName);
+                } else if (selectedField.groupName) {
+                    currentMasterType = activeMasterTypes.find(mt => 
+                        mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name
+                    );
+                }
+                
                 // Add empty option for clearing selection
                 groupNameSelect.appendChild(createElement('option', { 
                     value: '', 
                     text: 'None', 
-                    selected: !selectedField.groupName 
+                    selected: !currentMasterType 
                 }));
                 
                 // Add options from active masterTypes - use enumName as value, displayName as text
                 activeMasterTypes.forEach(mt => {
-                    const isSelected = selectedField.groupName && 
-                        (selectedField.groupName.id === mt.id || selectedField.groupName.name === mt.name);
+                    // Check if this master type is selected by comparing enumName or groupName
+                    const isSelected = currentMasterType && (
+                        (selectedField.masterTypeName && mt.enumName === selectedField.masterTypeName) ||
+                        (selectedField.groupName && (mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name))
+                    );
                     // Use enumName as value for Angular integration
                     const optionValue = mt.enumName || mt.id || mt.name;
                     groupNameSelect.appendChild(createElement('option', { 
@@ -777,25 +791,30 @@ export class FormBuilder {
                 groupNameGroup.appendChild(groupNameSelect);
                 body.appendChild(groupNameGroup);
                 
-                // If field already has a groupName but no options, check dropdownOptionsMap first, then master type indexes
-                if (selectedField.groupName && (!selectedField.options || selectedField.options.length === 0)) {
-                    const currentMasterType = activeMasterTypes.find(mt => 
-                        mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name
-                    );
-                    if (currentMasterType) {
-                        let options: { label: string; value: string }[] = [];
-                        
-                        // Check dropdownOptionsMap first (Angular integration)
-                        if (currentMasterType.enumName && dropdownOptionsMap && dropdownOptionsMap[currentMasterType.enumName]) {
-                            options = dropdownOptionsMap[currentMasterType.enumName];
-                        } else if (currentMasterType.indexes && currentMasterType.indexes.length > 0) {
-                            // Fallback to indexes from master type
-                            options = convertIndexesToOptions(currentMasterType.indexes);
-                        }
-                        
-                        if (options.length > 0) {
-                            formStore.getState().updateField(selectedField.id, { options });
-                        }
+                // If field has masterTypeName or groupName but no options, hydrate options
+                if (currentMasterType && (!selectedField.options || selectedField.options.length === 0)) {
+                    let options: { label: string; value: string }[] = [];
+                    
+                    // Check dropdownOptionsMap first (Angular integration)
+                    if (currentMasterType.enumName && dropdownOptionsMap && dropdownOptionsMap[currentMasterType.enumName]) {
+                        options = dropdownOptionsMap[currentMasterType.enumName];
+                    } else if (currentMasterType.indexes && currentMasterType.indexes.length > 0) {
+                        // Fallback to indexes from master type
+                        options = convertIndexesToOptions(currentMasterType.indexes);
+                    }
+                    
+                    if (options.length > 0) {
+                        formStore.getState().updateField(selectedField.id, { options });
+                    }
+                    
+                    // If groupName is missing but masterTypeName exists, set groupName
+                    if (selectedField.masterTypeName && !selectedField.groupName) {
+                        formStore.getState().updateField(selectedField.id, {
+                            groupName: {
+                                id: currentMasterType.id,
+                                name: currentMasterType.name
+                            }
+                        });
                     }
                 }
             }
