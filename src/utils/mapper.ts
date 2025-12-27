@@ -3,8 +3,8 @@ import { FormSchema, FormField } from '../core/schemaTypes';
 /**
  * Cleans a form schema by removing invalid properties and normalizing field types
  * - Converts "decimal" type to "number"
- * - Removes invalid properties like "masterTypeName"
  * - Removes empty options arrays from non-select/radio fields
+ * - Preserves masterTypeName for select fields with groupName
  * @param schema 
  * @returns Cleaned schema
  */
@@ -38,9 +38,11 @@ export const cleanFormSchema = (schema: any): FormSchema => {
         if (field.type === 'select' && field.groupName) {
             cleaned.groupName = field.groupName;
         }
-
-        // Remove invalid properties like masterTypeName
-        // (masterTypeName is not part of FormField interface)
+        
+        // Include masterTypeName for select fields with groupName
+        if (field.type === 'select' && field.masterTypeName !== undefined) {
+            cleaned.masterTypeName = field.masterTypeName;
+        }
 
         return cleaned as FormField;
     };

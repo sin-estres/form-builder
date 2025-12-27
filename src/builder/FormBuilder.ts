@@ -732,6 +732,7 @@ export class FormBuilder {
                                         id: selectedMasterType.id,
                                         name: selectedMasterType.name
                                     },
+                                    masterTypeName: selectedEnumName,
                                     options: options.length > 0 ? options : undefined
                                 });
                                 
@@ -746,6 +747,7 @@ export class FormBuilder {
                         } else {
                             formStore.getState().updateField(selectedField.id, { 
                                 groupName: undefined,
+                                masterTypeName: undefined,
                                 options: undefined // Clear options when groupName is cleared
                             });
                         }
