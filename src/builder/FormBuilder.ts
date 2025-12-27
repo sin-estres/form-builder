@@ -232,6 +232,7 @@ export class FormBuilder {
         if (state.isPreviewMode) {
             // Ensure options are populated from master types before rendering preview
             const masterTypes = state.masterTypes;
+            const dropdownOptionsMap = state.dropdownOptionsMap;
             if (masterTypes && masterTypes.length > 0 && state.schema.sections) {
                 // Helper function to convert master type indexes to options format
                 const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
@@ -266,15 +267,45 @@ export class FormBuilder {
                     sections: state.schema.sections.map(section => ({
                         ...section,
                         fields: section.fields.map(field => {
-                            if (field.type === 'select' && field.groupName) {
-                                const masterType = masterTypes.find(mt => 
-                                    mt.active === true && 
-                                    (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
-                                );
-                                if (masterType && masterType.indexes && masterType.indexes.length > 0) {
-                                    if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
-                                        const options = convertIndexesToOptions(masterType.indexes);
-                                        return { ...field, options };
+                            // Hydrate dropdown fields that have masterTypeName or groupName
+                            if (field.type === 'select') {
+                                let masterType: MasterType | undefined;
+                                
+                                // Case 1: Field has masterTypeName - find master type by enumName
+                                if (field.masterTypeName) {
+                                    masterType = masterTypes.find(mt => 
+                                        mt.active === true && 
+                                        mt.enumName === field.masterTypeName
+                                    );
+                                }
+                                // Case 2: Field has groupName - find master type by groupName
+                                else if (field.groupName) {
+                                    masterType = masterTypes.find(mt => 
+                                        mt.active === true && 
+                                        (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
+                                    );
+                                }
+
+                                if (masterType) {
+                                    let options: { label: string; value: string }[] = [];
+                                    
+                                    // Priority 1: Check dropdownOptionsMap first (Angular integration)
+                                    if (masterType.enumName && dropdownOptionsMap && dropdownOptionsMap[masterType.enumName]) {
+                                        options = dropdownOptionsMap[masterType.enumName];
+                                    }
+                                    // Priority 2: Use master type indexes
+                                    else if (masterType.indexes && masterType.indexes.length > 0) {
+                                        options = convertIndexesToOptions(masterType.indexes);
+                                    }
+                                    
+                                    // For preview, always use master type options if available
+                                    // This ensures dropdowns with masterTypeName show correct options in preview
+                                    if (options.length > 0) {
+                                        // If field has masterTypeName, always use master type options (masterTypeName wins)
+                                        // Otherwise, only update if options are missing, empty, or default
+                                        if (field.masterTypeName || !field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
+                                            return { ...field, options };
+                                        }
                                     }
                                 }
                             }
