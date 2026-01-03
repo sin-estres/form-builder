@@ -220,6 +220,15 @@ export class FormBuilder {
             }
         }
 
+        // Preserve scroll position before clearing DOM
+        // Find scroll container in edit mode (canvasWrapper) or preview mode (previewContainer)
+        // canvasWrapper has unique class 'form-builder-canvas'
+        // previewContainer has 'overflow-y-auto' and 'bg-white' (toolbox/config don't have bg-white on scroll container)
+        const canvasWrapper = this.container.querySelector('.form-builder-canvas') as HTMLElement | null;
+        const previewContainer = this.container.querySelector('.flex-1.overflow-y-auto.bg-white') as HTMLElement | null;
+        const scrollContainer = canvasWrapper || previewContainer;
+        const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
         this.container.innerHTML = '';
 
         const wrapper = createElement('div', { className: 'flex flex-col h-screen ' });
@@ -346,6 +355,22 @@ export class FormBuilder {
         wrapper.appendChild(main);
         this.container.appendChild(wrapper);
 
+        // Restore scroll position after DOM is rebuilt
+        if (savedScrollTop > 0) {
+            // Use requestAnimationFrame to ensure DOM is fully laid out before restoring scroll
+            requestAnimationFrame(() => {
+                // Find the scroll container in the newly rendered DOM
+                // canvasWrapper has unique class 'form-builder-canvas'
+                // previewContainer has 'overflow-y-auto' and 'bg-white' (toolbox/config don't have bg-white on scroll container)
+                const newCanvasWrapper = this.container.querySelector('.form-builder-canvas') as HTMLElement | null;
+                const newPreviewContainer = this.container.querySelector('.flex-1.overflow-y-auto.bg-white') as HTMLElement | null;
+                const newScrollContainer = newCanvasWrapper || newPreviewContainer;
+                if (newScrollContainer) {
+                    newScrollContainer.scrollTop = savedScrollTop;
+                }
+            });
+        }
+
         // Restore focus state after DOM is rebuilt
         if (focusState) {
             // Use setTimeout to ensure DOM is fully rendered
@@ -359,8 +384,6 @@ export class FormBuilder {
                 }
             }, 0);
         }
-
-
 
         // Initialize SortableJS
         if (!state.isPreviewMode) {
