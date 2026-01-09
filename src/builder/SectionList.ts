@@ -21,7 +21,7 @@ export class SectionList {
 
     private render(): HTMLElement {
         const listContainer = createElement('div', {
-            className: 'space-y-6 min-h-[200px] pb-20', // pb-20 for extra scrolling space
+            className: 'space-y-6 min-h-[200px] ', // pb-20 for extra scrolling space
             id: 'sections-list',
             'data-drop-zone': 'sections'
         });

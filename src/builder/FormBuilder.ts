@@ -236,7 +236,7 @@ export class FormBuilder {
         // Toolbar
         wrapper.appendChild(this.renderToolbar(state));
 
-        const main = createElement('div', { className: 'flex flex-col md:flex-row flex-1 overflow-hidden' });
+        const main = createElement('div', { className: 'flex flex-col md:flex-row flex-1 overflow-hidden ' });
 
         if (state.isPreviewMode) {
             // Ensure options are populated from master types before rendering preview
@@ -323,14 +323,14 @@ export class FormBuilder {
                     }))
                 };
                 
-                const previewContainer = createElement('div', { className: 'flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
-                const inner = createElement('div', { className: 'w-full max-w-3xl' });
+                const previewContainer = createElement('div', { className: 'flex-1  p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
+                const inner = createElement('div', { className: 'w-full' });
                 new FormRenderer(inner, previewSchema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
                 previewContainer.appendChild(inner);
                 main.appendChild(previewContainer);
             } else {
                 const previewContainer = createElement('div', { className: 'flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
-                const inner = createElement('div', { className: 'w-full max-w-3xl' });
+                const inner = createElement('div', { className: 'w-full ' });
                 new FormRenderer(inner, state.schema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
                 previewContainer.appendChild(inner);
                 main.appendChild(previewContainer);
@@ -396,7 +396,7 @@ export class FormBuilder {
 
         // Left
         const left = createElement('div', { className: 'flex items-center space-x-2' });
-        left.appendChild(createElement('h1', { className: 'text-xl font-semibold mb-2 text-primary  mr-4', text: 'FormBuilder Pro' }));
+        left.appendChild(createElement('h1', { className: 'text-xl font-semibold mb-2 text-primary hidden  mr-4', text: '' }));
 
         // Form Selection Dropdown
         if (state.existingForms && state.existingForms.length > 0) {
@@ -457,21 +457,21 @@ export class FormBuilder {
         const right = createElement('div', { className: 'flex items-center space-x-2' });
 
         const clearBtn = createElement('button', {
-            className: 'flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors',
+            className: 'flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-red-500 text-white rounded-md transition-colors',
             onclick: () => {
                 if (confirm('Are you sure?')) {
                     formStore.getState().setSchema({ id: 'new', title: 'New Form', formName: 'newForm', sections: [] });
                 }
             }
-        }, [getIcon('Trash2', 16), createElement('span', { className: 'ml-2', text: 'Clear' })]);
+        }, [getIcon('Trash2', 16), createElement('span', { className: '', title:'Clear',  })]);
 
         const previewBtn = createElement('button', {
-            className: `flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"}`,
+            className: `flex items-center px-3 py-2 text-sm bg-[#3b497e] text-white font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 "}`,
             onclick: () => formStore.getState().togglePreview()
-        }, [getIcon('Eye', 16), createElement('span', { className: 'ml-2', text: state.isPreviewMode ? 'Edit' : 'Preview' })]);
+        }, [getIcon('Eye', 16), createElement('span', { className: '', text: state.isPreviewMode ?  '' : '' })]);
 
         const saveBtn = createElement('button', {
-            className: 'flex items-center px-4 py-2 text-sm font-medium text-white bg-[#019FA2] hover:bg-[#3B497E] rounded-md shadow-sm transition-colors',
+            className: 'flex items-center px-3 py-2 text-sm font-medium text-white bg-[#019FA2]  rounded-md shadow-sm transition-colors',
             onclick: () => {
                 const schema = formStore.getState().schema;
                 console.log('Schema saved:', schema);
@@ -481,7 +481,7 @@ export class FormBuilder {
                     this.options.onSave(schema);
                 }
             }
-        }, [getIcon('Save', 16), createElement('span', { className: 'ml-2', text: 'Save' })]);
+        }, [getIcon('Save', 16), createElement('span', { className: '', text: '' })]);
 
         right.appendChild(clearBtn);
         right.appendChild(previewBtn);
@@ -494,7 +494,7 @@ export class FormBuilder {
     private activeTab: 'fields' | 'templates' | 'import' = 'fields';
 
     private renderToolbox(): HTMLElement {
-        const toolbox = createElement('div', { className: 'bg-white dark:bg-gray-900 flex flex-col h-full' });
+        const toolbox = createElement('div', { className: 'bg-[#f8faff] dark:bg-gray-900 flex flex-col h-full' });
 
         // Tabs
         const tabs = createElement('div', { className: 'flex border-b border-gray-200 dark:border-gray-800' });
@@ -521,11 +521,11 @@ export class FormBuilder {
             const list = createElement('div', { className: 'grid grid-cols-2 gap-3', id: 'toolbox-list' });
             FIELD_TYPES.forEach(field => {
                 const item = createElement('div', {
-                    className: 'grid justify-center items-center p-3 bg-[#f2f3f7] dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md cursor-move hover:border-secondary hover:shadow-sm transition-all toolbox-item mt-0',
+                    className: 'grid justify-center items-center p-2 bg-white  dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md cursor-move hover:border-secondary hover:shadow-sm transition-all toolbox-item mt-0',
                     'data-type': field.type
                 });
-                item.appendChild(createElement('span', { className: ' text-gray-500 mb-1 dark:text-gray-400 inline-flex mx-auto bg-[#019FA2] text-white w-9 h-9 rounded-sm p-1 justify-center items-center' }, [getIcon(field.icon, 16)]));
-                item.appendChild(createElement('span', { className: 'text-xs font-semibold text-gray-700 dark:text-gray-200', text: field.label }));
+                item.appendChild(createElement('span', { className: ' text-sm  dark:text-gray-400 inline-flex mx-auto  text-bg-secondary w-8 h-8 rounded-sm p-1 justify-center items-center' }, [getIcon(field.icon, 16)]));
+                item.appendChild(createElement('span', { className: 'text-xs  text-gray-700 dark:text-gray-200', text: field.label }));
                 list.appendChild(item);
             });
             content.appendChild(list);
@@ -608,7 +608,7 @@ export class FormBuilder {
 
     private renderCanvas(state: any): HTMLElement {
         const canvas = createElement('div', {
-            className: 'flex-1 bg-white dark:bg-gray-950 p-4 md:p-8 overflow-y-auto',
+            className: 'flex-1 bg-[#f8faff] dark:bg-gray-950 p-4 md:p-8 overflow-y-auto',
             onclick: (e: Event) => {
                 if (e.target === canvas || e.target === canvas.firstElementChild) {
                     formStore.getState().selectField(null);
@@ -620,7 +620,7 @@ export class FormBuilder {
 
         // Form Name Input
         const formNameInput = createElement('input', {
-            className: 'text-lg border border-gray-200 dark:border-gray-700 rounded-md border-gray-200 p-2 bg-[#f2f3f7]  focus:outline-none focus:ring-0 w-full text-gray-600 dark:text-gray-400 mb-8',
+            className: 'text-base border border-gray-200 dark:border-gray-700 rounded-md border-gray-200 p-2   focus:outline-none focus:ring-0 w-full text-gray-600 dark:text-gray-400 mb-8',
             value: state.schema.formName,
             placeholder: 'formName (e.g., contactForm)',
             'data-focus-id': 'form-name',
@@ -634,7 +634,7 @@ export class FormBuilder {
 
         // Add Section Button
         const addSectionBtn = createElement('button', {
-            className: 'w-full mt-6 py-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-gray-500 hover:border-blue-500 hover:text-blue-500 transition-colors flex items-center justify-center font-medium',
+            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-lg text-gray-500 bg-[#3b497e] text-white transition-colors flex items-center justify-center font-medium',
             onclick: () => formStore.getState().addSection()
         }, [getIcon('Plus', 20), createElement('span', { className: 'ml-2', text: 'Add Section' })]);
 
@@ -644,12 +644,12 @@ export class FormBuilder {
     }
 
     private renderConfigPanel(state: any): HTMLElement {
-        const panel = createElement('div', { className: 'bg-white dark:bg-gray-900 flex flex-col h-full' });
+        const panel = createElement('div', { className: 'bg-[#f8faff]  dark:bg-gray-900 flex flex-col h-full' });
 
         const selectedField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === state.selectedFieldId);
 
         if (!selectedField) {
-            panel.appendChild(createElement('div', { className: 'p-6 text-center text-gray-500', text: 'Select a field to configure' }));
+            panel.appendChild(createElement('div', { className: 'p-4 text-center text-gray-500', text: 'Select a field to configure' }));
             return panel;
         }
 

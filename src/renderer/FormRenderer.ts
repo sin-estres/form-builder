@@ -28,7 +28,7 @@ export class FormRenderer {
         const form = createElement('form', { className: 'space-y-6 md:space-y-8' });
 
         // Title
-        form.appendChild(createElement('h1', { className: 'text-xl md:text-2xl font-bold text-gray-900 dark:text-white', text: this.schema.title }));
+        form.appendChild(createElement('h1', { className: 'text-xl md:text-2xl font-bold text-bg-primary dark:text-white', text: this.schema.title }));
 
         // Sections
         this.schema.sections.forEach(section => {

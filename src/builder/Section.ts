@@ -21,12 +21,12 @@ export class Section {
 
     private render(): HTMLElement {
         const sectionEl = createElement('div', {
-            className: 'mb-6 rounded-lg border bg-white dark:bg-gray-900 shadow-sm transition-all border-gray-200 dark:border-gray-800',
+            className: 'mb-6 rounded-lg border bg-white dark:bg-gray-900 shadow-sm transition-all border-[#e9e9e9] ',
             'data-id': this.section.id
         });
 
         // Header
-        const header = createElement('div', { className: 'flex items-center justify-between  p-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg' });
+        const header = createElement('div', { className: 'flex items-center justify-between  p-2 border-b border-gray-100 bg-white dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg' });
         const headerLeft = createElement('div', { className: 'flex items-center flex-1' });
 
         // Drag Handle for Section

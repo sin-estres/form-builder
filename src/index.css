@@ -119,9 +119,9 @@
 
   /* Grid column spans - explicit !important to override Angular styles */
   .form-builder-field-wrapper.selected-field {
-    border: 2px solid #3b82f6 !important;
+    border: 1px solid  #3b497e !important;
     border-radius: 6px;
-    box-shadow: 0 0 6px rgba(59, 130, 246, 0.5) !important;
+    box-shadow: none;
   }
 
   .form-builder-field-wrapper:hover:not(.selected-field) {
@@ -181,6 +181,19 @@
     display: grid !important;
     grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
     gap: 1rem !important;
+  }
+
+  .form-row label{
+    min-width: 75px;
+    margin-bottom: 0;
+    font-size: 13px;
+  }
+.form-builder-config-wrapper input, .form-builder-config-wrapper select {
+  font-size: 14px;
+  background-color: #fff;
+}
+  .form-row input,  .form-row select, .form-row textarea{
+    font-size: 13px !important;
   }
 
   /* Responsive grid: fewer columns on mobile */

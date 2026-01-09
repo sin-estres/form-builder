@@ -3,7 +3,7 @@ import { createElement } from '../utils/dom';
 
 export class FieldRenderer {
     static render(field: FormField, value?: any, onChange?: (val: any) => void, readOnly: boolean = false): HTMLElement {
-        const wrapper = createElement('div', { className: 'w-full' });
+        const wrapper = createElement('div', { className: 'w-full flex items-center form-row' });
 
         // Check if field is enabled (default to true if not specified)
         const isEnabled = field.enabled !== false && !readOnly;
@@ -35,7 +35,7 @@ export class FieldRenderer {
         switch (field.type) {
             case 'textarea':
                 input = createElement('textarea', {
-                    className: 'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+                    className: 'flex min-h-[30px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                     placeholder: field.placeholder,
                     value: value || '',
                     disabled: !isEnabled,
