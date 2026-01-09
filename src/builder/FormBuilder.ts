@@ -375,8 +375,8 @@ export class FormBuilder {
         if (focusState) {
             // Use setTimeout to ensure DOM is fully rendered
             setTimeout(() => {
-                const elementToFocus = document.querySelector(`[data-focus-id="${focusState.id}"]`) as HTMLInputElement | HTMLTextAreaElement;
-                if (elementToFocus) {
+                const elementToFocus = document.querySelector(`[data-focus-id="${focusState!.id}"]`) as HTMLInputElement | HTMLTextAreaElement;
+                if (elementToFocus && focusState) {
                     elementToFocus.focus();
                     if (focusState.selectionStart !== null && focusState.selectionEnd !== null) {
                         elementToFocus.setSelectionRange(focusState.selectionStart, focusState.selectionEnd);
@@ -874,6 +874,112 @@ export class FormBuilder {
             }
         }
 
+        // --- Custom Options Management (Dropdown, Checkbox, Radio) ---
+        if (['select', 'checkbox', 'radio'].includes(selectedField.type)) {
+            const optionsHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Options' });
+            body.appendChild(optionsHeader);
+
+            // Enable Custom Options checkbox (for dropdown)
+            if (selectedField.type === 'select') {
+                const customOptionsGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+                customOptionsGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Enable Custom Options' }));
+                customOptionsGroup.appendChild(createElement('input', {
+                    type: 'checkbox',
+                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+                    checked: !!selectedField.customOptionsEnabled,
+                    onchange: (e: Event) => {
+                        const enabled = (e.target as HTMLInputElement).checked;
+                        formStore.getState().updateField(selectedField.id, { customOptionsEnabled: enabled });
+                        // Force re-render to show/hide options editor
+                        this.render();
+                    }
+                }));
+                body.appendChild(customOptionsGroup);
+
+                // Multiselect toggle (for dropdown)
+                const multiselectGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+                multiselectGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Multiselect' }));
+                multiselectGroup.appendChild(createElement('input', {
+                    type: 'checkbox',
+                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+                    checked: !!selectedField.multiselect,
+                    onchange: (e: Event) => {
+                        formStore.getState().updateField(selectedField.id, { multiselect: (e.target as HTMLInputElement).checked });
+                    }
+                }));
+                body.appendChild(multiselectGroup);
+            }
+
+            // Show options editor if custom options enabled or if checkbox/radio (always show for these)
+            const shouldShowOptions = selectedField.type === 'select' ? selectedField.customOptionsEnabled : true;
+            
+            if (shouldShowOptions) {
+                const options = selectedField.options || [];
+                
+                const optionsList = createElement('div', { className: 'space-y-2 mb-3' });
+                
+                options.forEach((opt: { label: string; value: string }, index: number) => {
+                    const optionRow = createElement('div', { className: 'flex gap-2 items-center' });
+                    
+                    const labelInput = createElement('input', {
+                        type: 'text',
+                        className: 'flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                        value: opt.label,
+                        placeholder: 'Option label',
+                        'data-focus-id': `field-option-label-${selectedField.id}-${index}`,
+                        oninput: (e: Event) => {
+                            const newOptions = [...options];
+                            newOptions[index] = { ...newOptions[index], label: (e.target as HTMLInputElement).value };
+                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                        }
+                    });
+                    
+                    const valueInput = createElement('input', {
+                        type: 'text',
+                        className: 'flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                        value: opt.value,
+                        placeholder: 'Option value',
+                        'data-focus-id': `field-option-value-${selectedField.id}-${index}`,
+                        oninput: (e: Event) => {
+                            const newOptions = [...options];
+                            newOptions[index] = { ...newOptions[index], value: (e.target as HTMLInputElement).value };
+                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                        }
+                    });
+                    
+                    const deleteBtn = createElement('button', {
+                        className: 'p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors',
+                        title: 'Delete option',
+                        onclick: () => {
+                            const newOptions = options.filter((_: { label: string; value: string }, i: number) => i !== index);
+                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                        }
+                    }, [getIcon('Trash2', 14)]);
+                    
+                    optionRow.appendChild(labelInput);
+                    optionRow.appendChild(valueInput);
+                    optionRow.appendChild(deleteBtn);
+                    optionsList.appendChild(optionRow);
+                });
+                
+                body.appendChild(optionsList);
+                
+                // Add Option button
+                const addOptionBtn = createElement('button', {
+                    type: 'button',
+                    className: 'w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
+                    text: 'Add Option',
+                    onclick: () => {
+                        const newOptions = [...(selectedField.options || []), { label: `Option ${(selectedField.options || []).length + 1}`, value: `opt${(selectedField.options || []).length + 1}` }];
+                        formStore.getState().updateField(selectedField.id, { options: newOptions });
+                        // Force re-render to show new option
+                        this.render();
+                    }
+                });
+                body.appendChild(addOptionBtn);
+            }
+        }
+
         // --- Advanced Validation ---
         const validations = selectedField.validation || [];
         const updateValidation = (rule: any) => {
@@ -914,15 +1020,64 @@ export class FormBuilder {
             }));
             validationElements.push(maxLenGroup);
 
-            // Regex
+            // Regex (with special handling for email fields)
             const regexGroup = createElement('div', { className: 'mb-3' });
             regexGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Regex Pattern' }));
-            regexGroup.appendChild(createElement('input', {
+            
+            const updateEmailExamples = (examplesList: HTMLElement, regex: string) => {
+                examplesList.innerHTML = '';
+                const testEmails = [
+                    { email: 'user@example.com', label: 'Valid' },
+                    { email: 'test.email@domain.co.uk', label: 'Valid' },
+                    { email: 'invalid.email', label: 'Invalid' },
+                    { email: '@domain.com', label: 'Invalid' },
+                    { email: 'user@', label: 'Invalid' }
+                ];
+                
+                let hasError = false;
+                testEmails.forEach(({ email, label }) => {
+                    if (hasError) return;
+                    try {
+                        const regexObj = new RegExp(regex);
+                        const isValid = regexObj.test(email);
+                        const exampleItem = createElement('div', {
+                            className: `text-xs flex items-center gap-2 ${isValid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`
+                        });
+                        exampleItem.appendChild(createElement('span', { text: isValid ? '✓' : '✗', className: 'font-bold' }));
+                        exampleItem.appendChild(createElement('span', { text: `${email} (${label})` }));
+                        examplesList.appendChild(exampleItem);
+                    } catch (err) {
+                        if (!hasError) {
+                            hasError = true;
+                            const exampleItem = createElement('div', {
+                                className: 'text-xs text-yellow-600 dark:text-yellow-400'
+                            });
+                            exampleItem.appendChild(createElement('span', { text: '⚠ Invalid regex pattern' }));
+                            examplesList.appendChild(exampleItem);
+                        }
+                    }
+                });
+            };
+            
+            // Live examples container for email fields
+            let examplesList: HTMLElement | null = null;
+            if (selectedField.type === 'email') {
+                const examplesContainer = createElement('div', { className: 'mt-2 space-y-1' });
+                const examplesLabel = createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Live Examples' });
+                examplesContainer.appendChild(examplesLabel);
+                examplesList = createElement('div', { className: 'space-y-1' });
+                examplesContainer.appendChild(examplesList);
+                regexGroup.appendChild(examplesContainer);
+            }
+            
+            const currentRegex = validations.find((v: any) => v.type === 'pattern')?.regex || '';
+            const regexInput = createElement('input', {
                 type: 'text',
                 className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
-                value: validations.find((v: any) => v.type === 'pattern')?.regex || '',
-                placeholder: 'e.g. ^[A-Z]+$',
-                onchange: (e: Event) => {
+                value: currentRegex,
+                placeholder: selectedField.type === 'email' ? '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$' : 'e.g. ^[A-Z]+$',
+                'data-focus-id': `field-regex-${selectedField.id}`,
+                oninput: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
                     const existing = validations.find((v: any) => v.type === 'pattern');
                     const newValidations = validations.filter((v: any) => v.type !== 'pattern');
@@ -930,8 +1085,20 @@ export class FormBuilder {
                         newValidations.push({ type: 'pattern', regex: val, message: existing?.message || 'Invalid format' });
                     }
                     formStore.getState().updateField(selectedField.id, { validation: newValidations });
+                    
+                    // Update live examples if email field
+                    if (selectedField.type === 'email' && examplesList) {
+                        updateEmailExamples(examplesList, val || '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+                    }
                 }
-            }));
+            });
+            regexGroup.insertBefore(regexInput, regexGroup.firstChild?.nextSibling || null);
+            
+            // Initial render of examples for email fields
+            if (selectedField.type === 'email' && examplesList) {
+                updateEmailExamples(examplesList, currentRegex || '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+            }
+            
             validationElements.push(regexGroup);
         }
 
@@ -956,6 +1123,48 @@ export class FormBuilder {
                 onchange: (e: Event) => updateValidation({ type: 'max', value: parseInt((e.target as HTMLInputElement).value) })
             }));
             validationElements.push(maxValGroup);
+        }
+
+        // Min/Max Date (Date)
+        if (selectedField.type === 'date') {
+            const getDateRuleValue = (type: string) => {
+                const rule = validations.find((v: any) => v.type === type);
+                return rule?.value ? (typeof rule.value === 'string' ? rule.value : String(rule.value)) : '';
+            };
+
+            const minDateGroup = createElement('div', { className: 'mb-3' });
+            minDateGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Minimum Date' }));
+            minDateGroup.appendChild(createElement('input', {
+                type: 'date',
+                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                value: getDateRuleValue('minDate'),
+                onchange: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    const newValidations = validations.filter((v: any) => v.type !== 'minDate');
+                    if (val) {
+                        newValidations.push({ type: 'minDate', value: val, message: 'Date must be after the minimum date' });
+                    }
+                    formStore.getState().updateField(selectedField.id, { validation: newValidations });
+                }
+            }));
+            validationElements.push(minDateGroup);
+
+            const maxDateGroup = createElement('div', { className: 'mb-3' });
+            maxDateGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Maximum Date' }));
+            maxDateGroup.appendChild(createElement('input', {
+                type: 'date',
+                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                value: getDateRuleValue('maxDate'),
+                onchange: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    const newValidations = validations.filter((v: any) => v.type !== 'maxDate');
+                    if (val) {
+                        newValidations.push({ type: 'maxDate', value: val, message: 'Date must be before the maximum date' });
+                    }
+                    formStore.getState().updateField(selectedField.id, { validation: newValidations });
+                }
+            }));
+            validationElements.push(maxDateGroup);
         }
 
         // Only show Validation Rules header and elements if there are validation rules

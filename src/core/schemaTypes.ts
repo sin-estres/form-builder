@@ -16,7 +16,7 @@ export type FieldType =
 export type FieldWidth = '25%' | '33%' | '50%' | '66%' | '75%' | '100%';
 
 export interface ValidationRule {
-    type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'email';
+    type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'email' | 'minDate' | 'maxDate';
     value?: string | number | boolean;
     message?: string;
     // For pattern/regex
@@ -38,7 +38,7 @@ export interface FormField {
     description?: string;
     required?: boolean;
     defaultValue?: any;
-    options?: { label: string; value: string }[]; // For select, radio
+    options?: { label: string; value: string }[]; // For select, radio, checkbox
     optionsSource?: AsyncOptionSource; // For async select
     validation?: ValidationRule[];
     width: FieldWidth;
@@ -48,6 +48,9 @@ export interface FormField {
     masterTypeName?: string; // The enum name of the selected master type group (for Angular integration)
     enabled?: boolean; // Whether the field is enabled/disabled
     visible?: boolean; // Whether the field is visible/hidden
+    // New properties
+    customOptionsEnabled?: boolean; // For dropdown/checkbox/radio - enable custom options editing
+    multiselect?: boolean; // For dropdown - enable multiple selection
 }
 
 export interface FormSection {
