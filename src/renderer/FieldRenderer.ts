@@ -43,8 +43,11 @@ export class FieldRenderer {
         let input: HTMLElement;
         let validationMsg: HTMLElement | null = null;
         
-        // Create validation message container for date/email fields
-        if (field.type === 'date' || field.type === 'email') {
+        // Check if field has pattern validation (for text or email fields)
+        const hasPatternValidation = field.validation?.some(v => v.type === 'pattern');
+        
+        // Create validation message container for date/email/text fields with validation
+        if (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation)) {
             validationMsg = createElement('div', { className: 'text-xs text-red-600 dark:text-red-400 mt-1 hidden', id: `validation-${field.id}` });
         }
         
@@ -73,17 +76,17 @@ export class FieldRenderer {
                 }
             }
             
-            // Email regex validation
-            if (field.type === 'email' && value) {
+            // Pattern/regex validation (for email and text fields)
+            if ((field.type === 'email' || field.type === 'text') && value) {
                 const patternRule = field.validation?.find(v => v.type === 'pattern');
                 if (patternRule?.regex) {
                     try {
                         const regex = new RegExp(patternRule.regex);
                         if (!regex.test(value)) {
-                            errorMessage = patternRule.message || 'Invalid email format';
+                            errorMessage = patternRule.message || 'Invalid format';
                         }
                     } catch (e) {
-                        // Invalid regex pattern
+                        // Invalid regex pattern - don't show error for invalid regex
                     }
                 }
             }
@@ -236,6 +239,10 @@ export class FieldRenderer {
                 break;
 
             default: // text, number, email, date, etc.
+                // Get pattern validation if exists
+                const patternRule = field.validation?.find(v => v.type === 'pattern');
+                const patternRegex = patternRule?.regex;
+                
                 input = createElement('input', {
                     type: field.type === 'phone' ? 'tel' : field.type,
                     className: 'flex min-h-touch w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
@@ -244,18 +251,24 @@ export class FieldRenderer {
                     disabled: !isEnabled,
                     min: field.type === 'date' ? (field.validation?.find(v => v.type === 'minDate')?.value as string) : undefined,
                     max: field.type === 'date' ? (field.validation?.find(v => v.type === 'maxDate')?.value as string) : undefined,
-                    pattern: field.type === 'email' ? (field.validation?.find(v => v.type === 'pattern')?.regex) : undefined,
+                    pattern: patternRegex || undefined, // Apply pattern for both email and text fields
                     oninput: (e: Event) => {
                         const inputValue = (e.target as HTMLInputElement).value;
                         onChange?.(inputValue);
                         
-                        // Validate on input for immediate feedback
-                        if ((field.type === 'date' || field.type === 'email') && validationMsg) {
+                        // Validate on input for immediate feedback (date, email, or text with pattern)
+                        if (validationMsg && (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation))) {
                             validateField(field, inputValue, input as HTMLInputElement, validationMsg);
                         }
                     },
                     onchange: (e: Event) => {
-                        if ((field.type === 'date' || field.type === 'email') && validationMsg) {
+                        if (validationMsg && (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation))) {
+                            validateField(field, (e.target as HTMLInputElement).value, input as HTMLInputElement, validationMsg);
+                        }
+                    },
+                    onblur: (e: Event) => {
+                        // Also validate on blur for better UX
+                        if (validationMsg && (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation))) {
                             validateField(field, (e.target as HTMLInputElement).value, input as HTMLInputElement, validationMsg);
                         }
                     }
@@ -264,7 +277,7 @@ export class FieldRenderer {
 
         wrapper.appendChild(input);
         
-        // Append validation message after input for date/email fields
+        // Append validation message after input for date/email/text fields with validation
         if (validationMsg) {
             wrapper.appendChild(validationMsg);
         }

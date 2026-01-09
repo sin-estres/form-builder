@@ -79,7 +79,104 @@ export class FormRenderer {
 
         form.onsubmit = (e) => {
             e.preventDefault();
-            this.onSubmit?.(this.data);
+            
+            // Validate all fields before submission
+            let isValid = true;
+            const invalidFields: HTMLElement[] = [];
+            
+            // Validate each field
+            this.schema.sections.forEach(section => {
+                section.fields.forEach(field => {
+                    if (field.visible === false) return;
+                    
+                    const fieldValue = this.data[field.id];
+                    const fieldElement = form.querySelector(`input[id*="${field.id}"], textarea[id*="${field.id}"], select[id*="${field.id}"]`) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+                    
+                    if (!fieldElement) {
+                        // Try alternative selector
+                        const altElement = Array.from(form.querySelectorAll('input, textarea, select')).find(el => {
+                            const wrapper = el.closest('div');
+                            return wrapper && wrapper.textContent?.includes(field.label);
+                        }) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+                        if (altElement) {
+                            // Validate required fields
+                            if (field.required && (!fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0))) {
+                                isValid = false;
+                                altElement.setCustomValidity('This field is required');
+                                altElement.reportValidity();
+                                invalidFields.push(altElement);
+                            } else {
+                                altElement.setCustomValidity('');
+                            }
+                            
+                            // Check pattern validation for text and email fields
+                            if ((field.type === 'text' || field.type === 'email') && fieldValue) {
+                                const patternRule = field.validation?.find(v => v.type === 'pattern');
+                                if (patternRule?.regex) {
+                                    try {
+                                        const regex = new RegExp(patternRule.regex);
+                                        if (!regex.test(String(fieldValue))) {
+                                            isValid = false;
+                                            altElement.setCustomValidity(patternRule.message || 'Invalid format');
+                                            altElement.reportValidity();
+                                            invalidFields.push(altElement);
+                                        } else {
+                                            altElement.setCustomValidity('');
+                                        }
+                                    } catch (e) {
+                                        // Invalid regex - skip
+                                    }
+                                }
+                            }
+                        }
+                        return;
+                    }
+                    
+                    // Check required validation
+                    if (field.required && (!fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0))) {
+                        isValid = false;
+                        fieldElement.setCustomValidity('This field is required');
+                        fieldElement.reportValidity();
+                        invalidFields.push(fieldElement);
+                    } else {
+                        fieldElement.setCustomValidity('');
+                    }
+                    
+                    // Check pattern validation for text and email fields
+                    if ((field.type === 'text' || field.type === 'email') && fieldValue) {
+                        const patternRule = field.validation?.find(v => v.type === 'pattern');
+                        if (patternRule?.regex) {
+                            try {
+                                const regex = new RegExp(patternRule.regex);
+                                if (!regex.test(String(fieldValue))) {
+                                    isValid = false;
+                                    fieldElement.setCustomValidity(patternRule.message || 'Invalid format');
+                                    fieldElement.reportValidity();
+                                    invalidFields.push(fieldElement);
+                                } else {
+                                    fieldElement.setCustomValidity('');
+                                }
+                            } catch (e) {
+                                // Invalid regex - skip
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Focus first invalid field
+            if (invalidFields.length > 0) {
+                invalidFields[0].focus();
+            }
+            
+            // Also check HTML5 native validation
+            if (form.checkValidity() === false) {
+                isValid = false;
+            }
+            
+            if (isValid) {
+                this.onSubmit?.(this.data);
+            }
         };
 
         const btnWrapper = createElement('div', { className: 'pt-4 flex justify-center sm:justify-start' });

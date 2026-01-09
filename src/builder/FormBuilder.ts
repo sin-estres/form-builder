@@ -1,6 +1,6 @@
 import { formStore } from '../core/useFormStore';
 import { createElement, getIcon } from '../utils/dom';
-import { FIELD_TYPES } from '../core/constants';
+import { FIELD_TYPES, REGEX_PRESETS, RegexPreset } from '../core/constants';
 import { FormRenderer } from '../renderer/FormRenderer';
 import { FormSchema, FormSection, parseWidth, FieldWidth } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
@@ -1133,31 +1133,46 @@ export class FormBuilder {
             }));
             validationElements.push(maxLenGroup);
 
-            // Regex (with special handling for email fields)
+            // Regex (with preset support for text fields, special handling for email fields)
             const regexGroup = createElement('div', { className: 'mb-3' });
             regexGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Regex Pattern' }));
 
-            const updateEmailExamples = (examplesList: HTMLElement, regex: string) => {
+            // Helper function to update examples based on preset or custom regex
+            const updateExamples = (examplesList: HTMLElement, regex: string, preset?: RegexPreset) => {
                 examplesList.innerHTML = '';
-                const testEmails = [
-                    { email: 'user@example.com', label: 'Valid' },
-                    { email: 'test.email@domain.co.uk', label: 'Valid' },
-                    { email: 'invalid.email', label: 'Invalid' },
-                    { email: '@domain.com', label: 'Invalid' },
-                    { email: 'user@', label: 'Invalid' }
-                ];
+
+                let testCases: { value: string; label: string }[] = [];
+
+                if (preset) {
+                    // Use preset examples
+                    testCases = [
+                        ...preset.validExamples.map(v => ({ value: v, label: 'Valid' })),
+                        ...preset.invalidExamples.map(v => ({ value: v, label: 'Invalid' }))
+                    ];
+                } else if (selectedField.type === 'email') {
+                    // Default email examples
+                    testCases = [
+                        { value: 'user@example.com', label: 'Valid' },
+                        { value: 'test.email@domain.co.uk', label: 'Valid' },
+                        { value: 'invalid.email', label: 'Invalid' },
+                        { value: '@domain.com', label: 'Invalid' },
+                        { value: 'user@', label: 'Invalid' }
+                    ];
+                }
+
+                if (testCases.length === 0) return;
 
                 let hasError = false;
-                testEmails.forEach(({ email, label }) => {
+                testCases.forEach(({ value, label }) => {
                     if (hasError) return;
                     try {
                         const regexObj = new RegExp(regex);
-                        const isValid = regexObj.test(email);
+                        const isValid = regexObj.test(value);
                         const exampleItem = createElement('div', {
                             className: `text-xs flex items-center gap-2 ${isValid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`
                         });
                         exampleItem.appendChild(createElement('span', { text: isValid ? '✓' : '✗', className: 'font-bold' }));
-                        exampleItem.appendChild(createElement('span', { text: `${email} (${label})` }));
+                        exampleItem.appendChild(createElement('span', { text: `${value} (${label})` }));
                         examplesList.appendChild(exampleItem);
                     } catch (err) {
                         if (!hasError) {
@@ -1172,9 +1187,10 @@ export class FormBuilder {
                 });
             };
 
-            // Live examples container for email fields
+            // Live examples container (for text fields with presets or email fields)
             let examplesList: HTMLElement | null = null;
-            if (selectedField.type === 'email') {
+            const shouldShowExamples = selectedField.type === 'text' || selectedField.type === 'email';
+            if (shouldShowExamples) {
                 const examplesContainer = createElement('div', { className: 'mt-2 space-y-1' });
                 const examplesLabel = createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Live Examples' });
                 examplesContainer.appendChild(examplesLabel);
@@ -1184,7 +1200,78 @@ export class FormBuilder {
             }
 
             const currentRegex = validations.find((v: any) => v.type === 'pattern')?.regex || '';
-            const regexInput = createElement('input', {
+
+            // Find current preset based on regex pattern
+            const findPresetByRegex = (regex: string): RegexPreset | undefined => {
+                return REGEX_PRESETS.find(preset => preset.pattern === regex);
+            };
+
+            let currentPreset: RegexPreset | undefined = currentRegex ? findPresetByRegex(currentRegex) : undefined;
+            let selectedPresetId: string = currentPreset?.id || '';
+
+            // Declare regexInput variable first so it can be referenced in presetSelect handler
+            let regexInput: HTMLElement;
+
+            // Regex Presets dropdown (only for text fields)
+            if (selectedField.type === 'text') {
+                const presetGroup = createElement('div', { className: 'mb-2' });
+                presetGroup.appendChild(createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Regex Presets (Optional)' }));
+
+                const presetSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                    value: selectedPresetId,
+                    onchange: (e: Event) => {
+                        const presetId = (e.target as HTMLSelectElement).value;
+                        selectedPresetId = presetId;
+                        const preset = REGEX_PRESETS.find(p => p.id === presetId);
+
+                        if (preset) {
+                            const newValidations = validations.filter((v: any) => v.type !== 'pattern');
+                            newValidations.push({
+                                type: 'pattern',
+                                regex: preset.pattern,
+                                message: preset.errorMessage
+                            });
+                            formStore.getState().updateField(selectedField.id, { validation: newValidations });
+
+                            // Update regex input
+                            (regexInput as HTMLInputElement).value = preset.pattern;
+
+                            // Update examples
+                            currentPreset = preset;
+                            if (examplesList) {
+                                updateExamples(examplesList, preset.pattern, preset);
+                            }
+                        } else {
+                            // Clear preset selection
+                            currentPreset = undefined;
+                            if (examplesList && currentRegex) {
+                                updateExamples(examplesList, currentRegex);
+                            }
+                        }
+                    }
+                });
+
+                // Add "None" option
+                const noneOption = createElement('option', { value: '', text: 'None (Custom Regex)' });
+                presetSelect.appendChild(noneOption);
+
+                // Add preset options
+                REGEX_PRESETS.forEach(preset => {
+                    const option = createElement('option', {
+                        value: preset.id,
+                        text: preset.label,
+                        title: preset.description,
+                        selected: selectedPresetId === preset.id
+                    });
+                    presetSelect.appendChild(option);
+                });
+
+                presetGroup.appendChild(presetSelect);
+                regexGroup.appendChild(presetGroup);
+            }
+
+            regexInput = createElement('input', {
                 type: 'text',
                 className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
                 value: currentRegex,
@@ -1194,22 +1281,61 @@ export class FormBuilder {
                     const val = (e.target as HTMLInputElement).value;
                     const existing = validations.find((v: any) => v.type === 'pattern');
                     const newValidations = validations.filter((v: any) => v.type !== 'pattern');
+
+                    // Check if the new regex matches a preset (only for text fields)
+                    if (selectedField.type === 'text') {
+                        const matchingPreset = val ? findPresetByRegex(val) : undefined;
+                        if (matchingPreset) {
+                            currentPreset = matchingPreset;
+                            selectedPresetId = matchingPreset.id;
+                            // Update preset dropdown if it exists
+                            const presetSelectEl = regexGroup.querySelector('select');
+                            if (presetSelectEl) {
+                                (presetSelectEl as HTMLSelectElement).value = matchingPreset.id;
+                            }
+                        } else {
+                            currentPreset = undefined;
+                            selectedPresetId = '';
+                            // Clear preset dropdown if it exists
+                            const presetSelectEl = regexGroup.querySelector('select');
+                            if (presetSelectEl) {
+                                (presetSelectEl as HTMLSelectElement).value = '';
+                            }
+                        }
+                    }
+
                     if (val) {
-                        newValidations.push({ type: 'pattern', regex: val, message: existing?.message || 'Invalid format' });
+                        newValidations.push({
+                            type: 'pattern',
+                            regex: val,
+                            message: existing?.message || currentPreset?.errorMessage || 'Invalid format'
+                        });
                     }
                     formStore.getState().updateField(selectedField.id, { validation: newValidations });
 
-                    // Update live examples if email field
-                    if (selectedField.type === 'email' && examplesList) {
-                        updateEmailExamples(examplesList, val || '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+                    // Update live examples
+                    if (examplesList) {
+                        if (currentPreset) {
+                            updateExamples(examplesList, val, currentPreset);
+                        } else if (selectedField.type === 'email') {
+                            updateExamples(examplesList, val || '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+                        } else if (val) {
+                            updateExamples(examplesList, val);
+                        }
                     }
                 }
             });
             regexGroup.insertBefore(regexInput, regexGroup.firstChild?.nextSibling || null);
 
-            // Initial render of examples for email fields
-            if (selectedField.type === 'email' && examplesList) {
-                updateEmailExamples(examplesList, currentRegex || '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+            // Initial render of examples
+            if (examplesList && currentRegex) {
+                if (currentPreset) {
+                    updateExamples(examplesList, currentRegex, currentPreset);
+                } else if (selectedField.type === 'email') {
+                    updateExamples(examplesList, currentRegex || '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+                } else {
+                    updateExamples(examplesList, currentRegex);
+                }
             }
 
             validationElements.push(regexGroup);
