@@ -1,4 +1,4 @@
-import { FormSchema } from '../core/schemaTypes';
+import { FormSchema, getColSpanFromWidth } from '../core/schemaTypes';
 import { FieldRenderer } from './FieldRenderer';
 import { createElement } from '../utils/dom';
 
@@ -40,19 +40,14 @@ export class FormRenderer {
             section.fields.forEach(field => {
                 // Check if field is visible (default to true if not specified)
                 const isVisible = field.visible !== false;
-                
+
                 if (!isVisible) {
                     return; // Skip rendering hidden fields
                 }
 
                 const fieldWrapper = createElement('div');
-                // Grid span logic (12 Cols)
-                let spanClass = 'col-span-12';
-                if (field.width === '50%') spanClass = 'col-span-6';
-                else if (field.width === '33%') spanClass = 'col-span-4';
-                else if (field.width === '25%') spanClass = 'col-span-3';
-                else if (field.width === '66%') spanClass = 'col-span-8';
-                else if (field.width === '75%') spanClass = 'col-span-9';
+                // Grid span logic - use the helper function for consistent calculation
+                const spanClass = getColSpanFromWidth(field.width);
 
                 fieldWrapper.className = spanClass;
 

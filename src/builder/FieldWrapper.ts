@@ -1,6 +1,5 @@
-import { FormField } from '../core/schemaTypes';
+import { FormField, getColSpanFromWidth } from '../core/schemaTypes';
 import { createElement, getIcon } from '../utils/dom';
-import { FIELD_TYPES } from '../core/constants';
 import { FieldRenderer } from '../renderer/FieldRenderer';
 import { formStore } from '../core/useFormStore';
 
@@ -9,13 +8,8 @@ export class FieldWrapper {
         // Check if field is visible (default to true if not specified)
         const isVisible = field.visible !== false;
 
-        // Grid Span Logic (12 Cols Base)
-        let spanClass = 'col-span-12';
-        if (field.width === '50%') spanClass = 'col-span-6';
-        else if (field.width === '33%') spanClass = 'col-span-4';
-        else if (field.width === '25%') spanClass = 'col-span-3';
-        else if (field.width === '66%') spanClass = 'col-span-8';
-        else if (field.width === '75%') spanClass = 'col-span-9';
+        // Grid Span Logic - use the helper function for consistent calculation
+        const spanClass = getColSpanFromWidth(field.width);
 
         const fieldWrapper = createElement('div', {
             className: `form-builder-field-wrapper ${isSelected ? 'selected-field' : ''} ${spanClass} relative group border border-gray-200 hover:border-blue-200 rounded-md transition-all ${!isVisible ? 'hidden' : ''}`,
@@ -28,7 +22,7 @@ export class FieldWrapper {
 
         // Add visual indicator of selected state
         if (isSelected) {
-            fieldWrapper.classList.add('ring-2',  'bg-[#acbdfe33]', 'dark:bg-blue-900/20');
+            fieldWrapper.classList.add('ring-2', 'bg-[#acbdfe33]', 'dark:bg-blue-900/20');
         }
 
         // Drag Handle

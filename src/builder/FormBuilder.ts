@@ -2,7 +2,7 @@ import { formStore } from '../core/useFormStore';
 import { createElement, getIcon } from '../utils/dom';
 import { FIELD_TYPES } from '../core/constants';
 import { FormRenderer } from '../renderer/FormRenderer';
-import { FormSchema, FormSection } from '../core/schemaTypes';
+import { FormSchema, FormSection, parseWidth, FieldWidth } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
 import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
@@ -264,8 +264,8 @@ export class FormBuilder {
                 // Helper function to check if options are default placeholder options
                 const areDefaultOptions = (options: any[]): boolean => {
                     if (!options || options.length === 0) return true;
-                    return options.every((opt, idx) => 
-                        opt.label === `Option ${idx + 1}` && 
+                    return options.every((opt, idx) =>
+                        opt.label === `Option ${idx + 1}` &&
                         (opt.value === `opt${idx + 1}` || opt.value === `Option ${idx + 1}`)
                     );
                 };
@@ -279,25 +279,25 @@ export class FormBuilder {
                             // Hydrate dropdown fields that have masterTypeName or groupName
                             if (field.type === 'select') {
                                 let masterType: MasterType | undefined;
-                                
+
                                 // Case 1: Field has masterTypeName - find master type by enumName
                                 if (field.masterTypeName) {
-                                    masterType = masterTypes.find(mt => 
-                                        mt.active === true && 
+                                    masterType = masterTypes.find(mt =>
+                                        mt.active === true &&
                                         mt.enumName === field.masterTypeName
                                     );
                                 }
                                 // Case 2: Field has groupName - find master type by groupName
                                 else if (field.groupName) {
-                                    masterType = masterTypes.find(mt => 
-                                        mt.active === true && 
+                                    masterType = masterTypes.find(mt =>
+                                        mt.active === true &&
                                         (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
                                     );
                                 }
 
                                 if (masterType) {
                                     let options: { label: string; value: string }[] = [];
-                                    
+
                                     // Priority 1: Check dropdownOptionsMap first (Angular integration)
                                     if (masterType.enumName && dropdownOptionsMap && dropdownOptionsMap[masterType.enumName]) {
                                         options = dropdownOptionsMap[masterType.enumName];
@@ -306,7 +306,7 @@ export class FormBuilder {
                                     else if (masterType.indexes && masterType.indexes.length > 0) {
                                         options = convertIndexesToOptions(masterType.indexes);
                                     }
-                                    
+
                                     // For preview, always use master type options if available
                                     // This ensures dropdowns with masterTypeName show correct options in preview
                                     if (options.length > 0) {
@@ -322,7 +322,7 @@ export class FormBuilder {
                         })
                     }))
                 };
-                
+
                 const previewContainer = createElement('div', { className: 'flex-1  p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
                 const inner = createElement('div', { className: 'w-full' });
                 new FormRenderer(inner, previewSchema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
@@ -463,12 +463,12 @@ export class FormBuilder {
                     formStore.getState().setSchema({ id: 'new', title: 'New Form', formName: 'newForm', sections: [] });
                 }
             }
-        }, [getIcon('Trash2', 16), createElement('span', { className: '', title:'Clear',  })]);
+        }, [getIcon('Trash2', 16), createElement('span', { className: '', title: 'Clear', })]);
 
         const previewBtn = createElement('button', {
             className: `flex items-center px-3 py-2 text-sm bg-[#3b497e] text-white font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 "}`,
             onclick: () => formStore.getState().togglePreview()
-        }, [getIcon('Eye', 16), createElement('span', { className: '', text: state.isPreviewMode ?  '' : '' })]);
+        }, [getIcon('Eye', 16), createElement('span', { className: '', text: state.isPreviewMode ? '' : '' })]);
 
         const saveBtn = createElement('button', {
             className: 'flex items-center px-3 py-2 text-sm font-medium text-white bg-[#019FA2]  rounded-md shadow-sm transition-colors',
@@ -686,17 +686,130 @@ export class FormBuilder {
         }));
         body.appendChild(placeholderGroup);
 
-        // Width
-        const widthGroup = createElement('div');
-        widthGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Width' }));
-        const widthSelect = createElement('select', {
-            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
-            onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { width: (e.target as HTMLSelectElement).value as any })
+        // Width Slider
+        const widthGroup = createElement('div', { className: 'width-slider-group' });
+
+        // Label with current value display
+        const widthLabelRow = createElement('div', { className: 'flex items-center justify-between mb-2' });
+        widthLabelRow.appendChild(createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300', text: 'Width' }));
+
+        // Get current width as number
+        const currentWidth = parseWidth(selectedField.width);
+
+        // Value display badge
+        const widthValueDisplay = createElement('span', {
+            className: 'width-value-badge px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded-full',
+            text: `${currentWidth}%`,
+            id: `width-value-${selectedField.id}`
         });
-        ['25%', '33%', '50%', '66%', '75%', '100%'].forEach(w => {
-            widthSelect.appendChild(createElement('option', { value: w, text: w, selected: selectedField.width === w }));
+        widthLabelRow.appendChild(widthValueDisplay);
+        widthGroup.appendChild(widthLabelRow);
+
+        // Slider container with breakpoint markers
+        const sliderContainer = createElement('div', { className: 'relative mt-1' });
+
+        // Breakpoint markers
+        const breakpoints = [25, 33, 50, 66, 75, 100];
+        const markersContainer = createElement('div', { className: 'width-slider-markers flex justify-between absolute w-full pointer-events-none', style: { top: '-4px', left: '0', right: '0' } });
+
+        // Calculate marker positions (10-100 range maps to 0-100% of slider)
+        breakpoints.forEach(bp => {
+            const position = ((bp - 10) / 90) * 100; // Map 10-100 to 0-100%
+            const marker = createElement('div', {
+                className: `width-slider-marker absolute w-1 h-1 rounded-full ${currentWidth === bp ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`,
+                style: { left: `${position}%`, transform: 'translateX(-50%)' },
+                title: `${bp}%`
+            });
+            markersContainer.appendChild(marker);
         });
-        widthGroup.appendChild(widthSelect);
+        sliderContainer.appendChild(markersContainer);
+
+        // Range slider input
+        const widthSlider = createElement('input', {
+            type: 'range',
+            min: '10',
+            max: '100',
+            value: String(currentWidth),
+            className: 'width-slider w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer',
+            'aria-label': 'Field width percentage',
+            'data-focus-id': `field-width-${selectedField.id}`,
+            oninput: (e: Event) => {
+                const value = parseInt((e.target as HTMLInputElement).value);
+
+                // Update the display immediately
+                const display = document.getElementById(`width-value-${selectedField.id}`);
+                if (display) {
+                    display.textContent = `${value}%`;
+                }
+            },
+            onchange: (e: Event) => {
+                let value = parseInt((e.target as HTMLInputElement).value);
+
+                // Snap to nearest breakpoint if within 3% range (optional snapping)
+                const snapThreshold = 3;
+                for (const bp of breakpoints) {
+                    if (Math.abs(value - bp) <= snapThreshold) {
+                        value = bp;
+                        (e.target as HTMLInputElement).value = String(value);
+                        break;
+                    }
+                }
+
+                // Update the display
+                const display = document.getElementById(`width-value-${selectedField.id}`);
+                if (display) {
+                    display.textContent = `${value}%`;
+                }
+
+                // Update the field with numeric width
+                formStore.getState().updateField(selectedField.id, { width: value as FieldWidth });
+            },
+            onkeydown: (e: KeyboardEvent) => {
+                const slider = e.target as HTMLInputElement;
+                const currentVal = parseInt(slider.value);
+                const step = e.shiftKey ? 5 : 1; // Shift+Arrow for larger steps
+
+                if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const newVal = Math.min(100, currentVal + step);
+                    slider.value = String(newVal);
+                    slider.dispatchEvent(new Event('input'));
+                    slider.dispatchEvent(new Event('change'));
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const newVal = Math.max(10, currentVal - step);
+                    slider.value = String(newVal);
+                    slider.dispatchEvent(new Event('input'));
+                    slider.dispatchEvent(new Event('change'));
+                }
+            }
+        });
+        sliderContainer.appendChild(widthSlider);
+
+        // Breakpoint labels below slider
+        const labelsContainer = createElement('div', { className: 'flex justify-between mt-1 text-xs text-gray-400 dark:text-gray-500' });
+        labelsContainer.appendChild(createElement('span', { text: '10%' }));
+        labelsContainer.appendChild(createElement('span', { text: '100%' }));
+        sliderContainer.appendChild(labelsContainer);
+
+        widthGroup.appendChild(sliderContainer);
+
+        // Quick preset buttons
+        const presetsContainer = createElement('div', { className: 'flex flex-wrap gap-1 mt-3' });
+        breakpoints.forEach(bp => {
+            const isActive = currentWidth === bp;
+            const presetBtn = createElement('button', {
+                type: 'button',
+                className: `width-preset-btn px-2 py-1 text-xs rounded transition-colors ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
+                text: `${bp}%`,
+                onclick: () => {
+                    formStore.getState().updateField(selectedField.id, { width: bp as FieldWidth });
+                }
+            });
+            presetsContainer.appendChild(presetBtn);
+        });
+        widthGroup.appendChild(presetsContainer);
+
         body.appendChild(widthGroup);
 
         // Required
@@ -737,13 +850,13 @@ export class FormBuilder {
             const masterTypes = formStore.getState().masterTypes;
             const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
             const dropdownOptionsMap = formStore.getState().dropdownOptionsMap;
-            
+
             // Helper function to convert master type indexes to options format
             const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
                 if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
                     return [];
                 }
-                
+
                 return indexes.map((item, index) => {
                     // If item is a string, use it as both label and value
                     if (typeof item === 'string') {
@@ -759,7 +872,7 @@ export class FormBuilder {
                     return { label: String(item), value: String(item) };
                 });
             };
-            
+
             if (activeMasterTypes.length > 0) {
                 const groupNameGroup = createElement('div', { className: 'mb-4' });
                 groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Group Name' }));
@@ -772,7 +885,7 @@ export class FormBuilder {
                             if (selectedMasterType) {
                                 // Check if dropdownOptionsMap has options for this enumName
                                 let options: { label: string; value: string }[] = [];
-                                
+
                                 if (dropdownOptionsMap && dropdownOptionsMap[selectedEnumName]) {
                                     // Use options from dropdownOptionsMap (Angular integration)
                                     options = dropdownOptionsMap[selectedEnumName];
@@ -780,7 +893,7 @@ export class FormBuilder {
                                     // Fallback to indexes from master type
                                     options = convertIndexesToOptions(selectedMasterType.indexes);
                                 }
-                                
+
                                 formStore.getState().updateField(selectedField.id, {
                                     groupName: {
                                         id: selectedMasterType.id,
@@ -789,7 +902,7 @@ export class FormBuilder {
                                     masterTypeName: selectedEnumName,
                                     options: options.length > 0 ? options : undefined
                                 });
-                                
+
                                 // Emit groupSelectionChange event (Angular integration)
                                 if (this.options.onGroupSelectionChange) {
                                     this.options.onGroupSelectionChange({
@@ -799,7 +912,7 @@ export class FormBuilder {
                                 }
                             }
                         } else {
-                            formStore.getState().updateField(selectedField.id, { 
+                            formStore.getState().updateField(selectedField.id, {
                                 groupName: undefined,
                                 masterTypeName: undefined,
                                 options: undefined // Clear options when groupName is cleared
@@ -807,25 +920,25 @@ export class FormBuilder {
                         }
                     }
                 });
-                
+
                 // Determine which master type is currently selected
                 // Priority: masterTypeName > groupName
                 let currentMasterType: MasterType | undefined;
                 if (selectedField.masterTypeName) {
                     currentMasterType = activeMasterTypes.find(mt => mt.enumName === selectedField.masterTypeName);
                 } else if (selectedField.groupName) {
-                    currentMasterType = activeMasterTypes.find(mt => 
+                    currentMasterType = activeMasterTypes.find(mt =>
                         mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name
                     );
                 }
-                
+
                 // Add empty option for clearing selection
-                groupNameSelect.appendChild(createElement('option', { 
-                    value: '', 
-                    text: 'None', 
-                    selected: !currentMasterType 
+                groupNameSelect.appendChild(createElement('option', {
+                    value: '',
+                    text: 'None',
+                    selected: !currentMasterType
                 }));
-                
+
                 // Add options from active masterTypes - use enumName as value, displayName as text
                 activeMasterTypes.forEach(mt => {
                     // Check if this master type is selected by comparing enumName or groupName
@@ -835,20 +948,20 @@ export class FormBuilder {
                     );
                     // Use enumName as value for Angular integration
                     const optionValue = mt.enumName || mt.id || mt.name;
-                    groupNameSelect.appendChild(createElement('option', { 
-                        value: optionValue, 
-                        text: mt.displayName || mt.name, 
-                        selected: !!isSelected 
+                    groupNameSelect.appendChild(createElement('option', {
+                        value: optionValue,
+                        text: mt.displayName || mt.name,
+                        selected: !!isSelected
                     }));
                 });
-                
+
                 groupNameGroup.appendChild(groupNameSelect);
                 body.appendChild(groupNameGroup);
-                
+
                 // If field has masterTypeName or groupName but no options, hydrate options
                 if (currentMasterType && (!selectedField.options || selectedField.options.length === 0)) {
                     let options: { label: string; value: string }[] = [];
-                    
+
                     // Check dropdownOptionsMap first (Angular integration)
                     if (currentMasterType.enumName && dropdownOptionsMap && dropdownOptionsMap[currentMasterType.enumName]) {
                         options = dropdownOptionsMap[currentMasterType.enumName];
@@ -856,11 +969,11 @@ export class FormBuilder {
                         // Fallback to indexes from master type
                         options = convertIndexesToOptions(currentMasterType.indexes);
                     }
-                    
+
                     if (options.length > 0) {
                         formStore.getState().updateField(selectedField.id, { options });
                     }
-                    
+
                     // If groupName is missing but masterTypeName exists, set groupName
                     if (selectedField.masterTypeName && !selectedField.groupName) {
                         formStore.getState().updateField(selectedField.id, {
@@ -912,15 +1025,15 @@ export class FormBuilder {
 
             // Show options editor if custom options enabled or if checkbox/radio (always show for these)
             const shouldShowOptions = selectedField.type === 'select' ? selectedField.customOptionsEnabled : true;
-            
+
             if (shouldShowOptions) {
                 const options = selectedField.options || [];
-                
+
                 const optionsList = createElement('div', { className: 'space-y-2 mb-3' });
-                
+
                 options.forEach((opt: { label: string; value: string }, index: number) => {
                     const optionRow = createElement('div', { className: 'flex gap-2 items-center' });
-                    
+
                     const labelInput = createElement('input', {
                         type: 'text',
                         className: 'flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
@@ -933,7 +1046,7 @@ export class FormBuilder {
                             formStore.getState().updateField(selectedField.id, { options: newOptions });
                         }
                     });
-                    
+
                     const valueInput = createElement('input', {
                         type: 'text',
                         className: 'flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
@@ -946,7 +1059,7 @@ export class FormBuilder {
                             formStore.getState().updateField(selectedField.id, { options: newOptions });
                         }
                     });
-                    
+
                     const deleteBtn = createElement('button', {
                         className: 'p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors',
                         title: 'Delete option',
@@ -955,15 +1068,15 @@ export class FormBuilder {
                             formStore.getState().updateField(selectedField.id, { options: newOptions });
                         }
                     }, [getIcon('Trash2', 14)]);
-                    
+
                     optionRow.appendChild(labelInput);
                     optionRow.appendChild(valueInput);
                     optionRow.appendChild(deleteBtn);
                     optionsList.appendChild(optionRow);
                 });
-                
+
                 body.appendChild(optionsList);
-                
+
                 // Add Option button
                 const addOptionBtn = createElement('button', {
                     type: 'button',
@@ -1023,7 +1136,7 @@ export class FormBuilder {
             // Regex (with special handling for email fields)
             const regexGroup = createElement('div', { className: 'mb-3' });
             regexGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Regex Pattern' }));
-            
+
             const updateEmailExamples = (examplesList: HTMLElement, regex: string) => {
                 examplesList.innerHTML = '';
                 const testEmails = [
@@ -1033,7 +1146,7 @@ export class FormBuilder {
                     { email: '@domain.com', label: 'Invalid' },
                     { email: 'user@', label: 'Invalid' }
                 ];
-                
+
                 let hasError = false;
                 testEmails.forEach(({ email, label }) => {
                     if (hasError) return;
@@ -1058,7 +1171,7 @@ export class FormBuilder {
                     }
                 });
             };
-            
+
             // Live examples container for email fields
             let examplesList: HTMLElement | null = null;
             if (selectedField.type === 'email') {
@@ -1069,7 +1182,7 @@ export class FormBuilder {
                 examplesContainer.appendChild(examplesList);
                 regexGroup.appendChild(examplesContainer);
             }
-            
+
             const currentRegex = validations.find((v: any) => v.type === 'pattern')?.regex || '';
             const regexInput = createElement('input', {
                 type: 'text',
@@ -1085,7 +1198,7 @@ export class FormBuilder {
                         newValidations.push({ type: 'pattern', regex: val, message: existing?.message || 'Invalid format' });
                     }
                     formStore.getState().updateField(selectedField.id, { validation: newValidations });
-                    
+
                     // Update live examples if email field
                     if (selectedField.type === 'email' && examplesList) {
                         updateEmailExamples(examplesList, val || '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
@@ -1093,12 +1206,12 @@ export class FormBuilder {
                 }
             });
             regexGroup.insertBefore(regexInput, regexGroup.firstChild?.nextSibling || null);
-            
+
             // Initial render of examples for email fields
             if (selectedField.type === 'email' && examplesList) {
                 updateEmailExamples(examplesList, currentRegex || '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
             }
-            
+
             validationElements.push(regexGroup);
         }
 
