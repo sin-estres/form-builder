@@ -323,13 +323,13 @@ export class FormBuilder {
                     }))
                 };
 
-                const previewContainer = createElement('div', { className: 'flex-1  p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
+                const previewContainer = createElement('div', { className: 'flex-1  p-4 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
                 const inner = createElement('div', { className: 'w-full' });
                 new FormRenderer(inner, previewSchema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
                 previewContainer.appendChild(inner);
                 main.appendChild(previewContainer);
             } else {
-                const previewContainer = createElement('div', { className: 'flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
+                const previewContainer = createElement('div', { className: 'flex-1 p-4 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
                 const inner = createElement('div', { className: 'w-full ' });
                 new FormRenderer(inner, state.schema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
                 previewContainer.appendChild(inner);
@@ -395,7 +395,7 @@ export class FormBuilder {
         const toolbar = createElement('div', { className: 'flex items-center justify-between p-4 border-b bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' });
 
         // Left
-        const left = createElement('div', { className: 'flex items-center space-x-2' });
+        const left = createElement('div', { className: 'flex items-center ' });
         left.appendChild(createElement('h1', { className: 'text-xl font-semibold mb-2 text-primary hidden  mr-4', text: '' }));
 
         // Form Selection Dropdown
@@ -466,7 +466,7 @@ export class FormBuilder {
         }, [getIcon('Trash2', 16), createElement('span', { className: '', title: 'Clear', })]);
 
         const previewBtn = createElement('button', {
-            className: `flex items-center px-3 py-2 text-sm bg-[#3b497e] text-white font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 "}`,
+            className: `flex items-center px-3 py-2 text-sm bg-[#3b497e] text-white font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-[#019FA2] text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 "}`,
             onclick: () => formStore.getState().togglePreview()
         }, [getIcon('Eye', 16), createElement('span', { className: '', text: state.isPreviewMode ? '' : '' })]);
 
@@ -698,7 +698,7 @@ export class FormBuilder {
 
         // Value display badge
         const widthValueDisplay = createElement('span', {
-            className: 'width-value-badge px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded-full',
+            className: 'width-value-badge px-2 py-0.5 text-xs font-semibold bg-[#019FA2] text-white dark:bg-blue-900 dark:text-blue-200 rounded-full',
             text: `${currentWidth}%`,
             id: `width-value-${selectedField.id}`
         });
@@ -716,7 +716,7 @@ export class FormBuilder {
         breakpoints.forEach(bp => {
             const position = ((bp - 10) / 90) * 100; // Map 10-100 to 0-100%
             const marker = createElement('div', {
-                className: `width-slider-marker absolute w-1 h-1 rounded-full ${currentWidth === bp ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`,
+                className: `width-slider-marker absolute w-1 h-1 rounded-full ${currentWidth === bp ? 'bg-[#019FA2]' : 'bg-gray-300 dark:bg-gray-600'}`,
                 style: { left: `${position}%`, transform: 'translateX(-50%)' },
                 title: `${bp}%`
             });
@@ -800,7 +800,7 @@ export class FormBuilder {
             const isActive = currentWidth === bp;
             const presetBtn = createElement('button', {
                 type: 'button',
-                className: `width-preset-btn px-2 py-1 text-xs rounded transition-colors ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
+                className: `width-preset-btn px-2 py-1 text-xs rounded transition-colors ${isActive ? 'bg-[#019FA2] text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
                 text: `${bp}%`,
                 onclick: () => {
                     formStore.getState().updateField(selectedField.id, { width: bp as FieldWidth });

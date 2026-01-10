@@ -71,13 +71,13 @@ export class Section {
 
         // Fields Grid (Sortable Area)
         const fieldsGrid = createElement('div', {
-            className: 'form-builder-grid p-4 min-h-[100px] fields-list',
+            className: 'form-builder-grid p-4 min-h-[100px] fields-list !gap-4',
             'data-section-id': this.section.id
         });
 
         if (this.section.fields.length === 0) {
             fieldsGrid.classList.add('flex', 'justify-center', 'items-center', 'border-2', 'border-dashed', 'border-gray-100', 'dark:border-gray-800', 'm-4', 'rounded');
-            fieldsGrid.appendChild(createElement('div', { className: 'text-gray-400 text-sm py-4', text: 'Drop fields here' }));
+            fieldsGrid.appendChild(createElement('div', { className: 'text-gray-400 text-sm py-4 w-[300px]', text: 'Drop fields here' }));
         }
 
         this.section.fields.forEach((field: FormField) => {

@@ -28,12 +28,12 @@ export class FormRenderer {
         const form = createElement('form', { className: 'space-y-6 md:space-y-8' });
 
         // Title
-        form.appendChild(createElement('h1', { className: 'text-xl md:text-2xl font-bold text-bg-primary dark:text-white', text: this.schema.title }));
+        form.appendChild(createElement('h1', { className: 'text-2xl font-semibold mb-2 text-[#3b497e] ', text: this.schema.title }));
 
         // Sections
         this.schema.sections.forEach(section => {
-            const sectionEl = createElement('div', { className: 'space-y-3 md:space-y-4' });
-            sectionEl.appendChild(createElement('h2', { className: 'text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-200 border-b pb-2', text: section.title }));
+            const sectionEl = createElement('div', { className: 'space-y-3 md:space-y-4 !m-0' });
+            sectionEl.appendChild(createElement('h2', { className: 'text-xl  font-semibold text-[#3b497e] dark:text-gray-200 border-b pb-2', text: section.title }));
 
             const grid = createElement('div', { className: 'form-builder-grid' });
 
@@ -73,7 +73,7 @@ export class FormRenderer {
         // Submit Button
         const submitBtn = createElement('button', {
             type: 'submit',
-            className: 'w-full sm:w-auto px-6 py-3 min-h-touch bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors',
+            className: 'w-full sm:w-auto px-6 py-3 min-h-touch !bg-[#019FA2]  text-white font-semibold p-3 flex items-center justify-center text-sm h-10 rounded-md hover:bg-primary cursor-pointer transition transition-colors',
             text: 'Submit'
         });
 
@@ -179,7 +179,7 @@ export class FormRenderer {
             }
         };
 
-        const btnWrapper = createElement('div', { className: 'pt-4 flex justify-center sm:justify-start' });
+        const btnWrapper = createElement('div', { className: 'pt-2 flex justify-center sm:justify-start' });
         btnWrapper.appendChild(submitBtn);
         form.appendChild(btnWrapper);
 
