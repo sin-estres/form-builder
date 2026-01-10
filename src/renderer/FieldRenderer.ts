@@ -4,7 +4,7 @@ import { COUNTRY_CODES, getCountryByDialCode, getDefaultCountry, CountryCode } f
 
 export class FieldRenderer {
     static render(field: FormField, value?: any, onChange?: (val: any) => void, readOnly: boolean = false): HTMLElement {
-        const wrapper = createElement('div', { className: 'w-full flex items-center form-row' });
+        const wrapper = createElement('div', { className: 'w-full form-row' });
 
         // Check if field is enabled (default to true if not specified)
         const isEnabled = field.enabled !== false && !readOnly;
@@ -274,7 +274,7 @@ export class FieldRenderer {
                     onchange: (e: Event) => onChange?.((e.target as HTMLInputElement).checked)
                 });
                 const toggleSlider = createElement('div', {
-                    className: `w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}`
+                    className: `w-11 h-6 bg-gray-200 peer-focus:outline-none shadow-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#019FA2] ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}`
                 });
                 toggleLabel.appendChild(toggleInput);
                 toggleLabel.appendChild(toggleSlider);
@@ -312,6 +312,8 @@ export class FieldRenderer {
                 input = createElement('input', {
                     type: field.type,
                     className: 'flex min-h-touch w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+                    // type: field.type === 'phone' ? 'tel' : field.type,
+                    // className: 'flex min-h-touch w-full rounded-md border border-gray-300 bg-background px-3 py-2 text-sm sm:text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none   disabled:cursor-not-allowed disabled:opacity-50',
                     placeholder: field.placeholder,
                     value: value || '',
                     disabled: !isEnabled,

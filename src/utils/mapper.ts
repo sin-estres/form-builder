@@ -6,18 +6,18 @@ import { FormSchema, FormField, ValidationRule, ValidationObject, FieldWidth, pa
  * @param validationObj 
  * @returns Array of ValidationRule objects
  */
-function convertValidationObjectToArray(validationObj: ValidationObject | ValidationRule[] | undefined): ValidationRule[] {
+export function convertValidationObjectToArray(validationObj: ValidationObject | ValidationRule[] | undefined): ValidationRule[] {
     if (!validationObj) return [];
-    
+
     // If it's already an array, return as is
     if (Array.isArray(validationObj)) {
         return validationObj;
     }
-    
+
     // Convert object to array
     const rules: ValidationRule[] = [];
     const obj = validationObj as ValidationObject;
-    
+
     // Check if any validation property exists (excluding required itself)
     const hasValidationProperties = !!(
         obj.regex ||
@@ -27,14 +27,14 @@ function convertValidationObjectToArray(validationObj: ValidationObject | Valida
         obj.minSelected !== undefined ||
         obj.maxSelected !== undefined
     );
-    
+
     // Auto-set required to true if any validation property exists
     const isRequired = obj.required === true || (hasValidationProperties && obj.required !== false);
-    
+
     if (isRequired) {
         rules.push({ type: 'required', value: true });
     }
-    
+
     if (obj.regex) {
         rules.push({
             type: 'pattern',
@@ -42,23 +42,23 @@ function convertValidationObjectToArray(validationObj: ValidationObject | Valida
             message: obj.regexMessage || 'Invalid format'
         });
     }
-    
+
     if (obj.minLength !== undefined) {
         rules.push({ type: 'minLength', value: obj.minLength });
     }
-    
+
     if (obj.maxLength !== undefined) {
         rules.push({ type: 'maxLength', value: obj.maxLength });
     }
-    
+
     if (obj.minSelected !== undefined) {
         rules.push({ type: 'minSelected', value: obj.minSelected });
     }
-    
+
     if (obj.maxSelected !== undefined) {
         rules.push({ type: 'maxSelected', value: obj.maxSelected });
     }
-    
+
     return rules;
 }
 
@@ -92,7 +92,7 @@ function transformField(field: any): FormField {
         type: field.type === 'decimal' ? 'number' : field.type,
         label: field.label,
     };
-    
+
     // Handle layout: prefer layout.span, fallback to width conversion
     if (field.layout?.span !== undefined) {
         // Use layout.span directly
@@ -122,10 +122,10 @@ function transformField(field: any): FormField {
         };
         transformed.width = 100; // Default
     }
-    
+
     // Preserve order if it exists, otherwise set to 0
     transformed.order = field.order !== undefined ? field.order : 0;
-    
+
     // Handle validation: support both object and array formats
     // Keep validation as object format internally (standard), but also support array for backward compatibility
     if (field.validation) {
@@ -164,7 +164,7 @@ function transformField(field: any): FormField {
         // Create validation object with required flag
         transformed.validation = { required: field.required };
     }
-    
+
     // Handle multiSelect for select fields - REQUIRED property
     // multiSelect determines if dropdown is single or multi-select
     // Standard: use multiSelect (not multiselect)
@@ -183,7 +183,7 @@ function transformField(field: any): FormField {
             transformed.multiSelect = false;
         }
     }
-    
+
     // Handle optionSource - REQUIRED for select/radio/checkbox
     // STATIC = custom options, MASTER = from master types
     if (['select', 'radio', 'checkbox'].includes(field.type)) {
@@ -199,7 +199,7 @@ function transformField(field: any): FormField {
             }
         }
     }
-    
+
     // Copy other optional properties
     if (field.placeholder !== undefined) transformed.placeholder = field.placeholder;
     if (field.description !== undefined) transformed.description = field.description;
@@ -214,12 +214,12 @@ function transformField(field: any): FormField {
     if (field.customOptionsEnabled !== undefined) transformed.customOptionsEnabled = field.customOptionsEnabled;
     if (field.groupName !== undefined) transformed.groupName = field.groupName;
     if (field.masterTypeName !== undefined) transformed.masterTypeName = field.masterTypeName;
-    
+
     // Only include options for select/radio/checkbox
     if ((field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && field.options) {
         transformed.options = field.options;
     }
-    
+
     return transformed as FormField;
 }
 
@@ -269,7 +269,7 @@ export const cleanFormSchema = (schema: any): FormSchema => {
 function convertValidationArrayToObject(validation: ValidationRule[] | ValidationObject | undefined): ValidationObject | undefined {
     if (!validation) return undefined;
     if (!Array.isArray(validation)) return validation as ValidationObject;
-    
+
     const obj: ValidationObject = {};
     validation.forEach((rule: ValidationRule) => {
         if (rule.type === 'required') {
@@ -318,7 +318,7 @@ function fieldToPayload(field: FormField): any {
         label: field.label,
         order: field.order !== undefined ? field.order : 0
     };
-    
+
     // Layout (required) - prefer layout.span, fallback to width conversion
     if (field.layout?.span !== undefined) {
         payload.layout = {
@@ -341,18 +341,18 @@ function fieldToPayload(field: FormField): any {
             span: 12
         };
     }
-    
+
     // Validation (object format)
     payload.validation = convertValidationArrayToObject(field.validation);
     if (payload.validation?.required) {
         payload.required = true;
     }
-    
+
     // Multi-select (standard: multiSelect, not multiselect)
     if (field.type === 'select') {
         payload.multiSelect = field.multiSelect !== undefined ? field.multiSelect : false;
     }
-    
+
     // Copy other optional properties
     if (field.placeholder !== undefined) payload.placeholder = field.placeholder;
     if (field.description !== undefined) payload.description = field.description;
@@ -364,12 +364,12 @@ function fieldToPayload(field: FormField): any {
     if (field.groupName !== undefined) payload.groupName = field.groupName;
     if (field.masterTypeName !== undefined) payload.masterTypeName = field.masterTypeName;
     if (field.isd !== undefined) payload.isd = field.isd;
-    
+
     // Options for select/radio/checkbox
     if ((field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && field.options) {
         payload.options = field.options;
     }
-    
+
     return payload;
 }
 

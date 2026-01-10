@@ -329,13 +329,13 @@ export class FormBuilder {
                     }))
                 };
 
-                const previewContainer = createElement('div', { className: 'flex-1  p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
+                const previewContainer = createElement('div', { className: 'flex-1  p-4 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
                 const inner = createElement('div', { className: 'w-full' });
                 new FormRenderer(inner, previewSchema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
                 previewContainer.appendChild(inner);
                 main.appendChild(previewContainer);
             } else {
-                const previewContainer = createElement('div', { className: 'flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
+                const previewContainer = createElement('div', { className: 'flex-1 p-4 overflow-y-auto bg-white dark:bg-gray-900 flex justify-center' });
                 const inner = createElement('div', { className: 'w-full ' });
                 new FormRenderer(inner, state.schema, (data) => alert(JSON.stringify(data, null, 2)), this.options.onDropdownValueChange);
                 previewContainer.appendChild(inner);
@@ -411,7 +411,7 @@ export class FormBuilder {
         const toolbar = createElement('div', { className: 'flex items-center justify-between p-4 border-b bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' });
 
         // Left
-        const left = createElement('div', { className: 'flex items-center space-x-2' });
+        const left = createElement('div', { className: 'flex items-center ' });
         left.appendChild(createElement('h1', { className: 'text-xl font-semibold mb-2 text-primary hidden  mr-4', text: '' }));
 
         // Form Selection Dropdown
@@ -482,7 +482,7 @@ export class FormBuilder {
         }, [getIcon('Trash2', 16), createElement('span', { className: '', title: 'Clear', })]);
 
         const previewBtn = createElement('button', {
-            className: `flex items-center px-3 py-2 text-sm bg-[#3b497e] text-white font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 "}`,
+            className: `flex items-center px-3 py-2 text-sm bg-[#3b497e] text-white font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-[#019FA2] text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 "}`,
             onclick: () => formStore.getState().togglePreview()
         }, [getIcon('Eye', 16), createElement('span', { className: '', text: state.isPreviewMode ? '' : '' })]);
 
@@ -714,8 +714,8 @@ export class FormBuilder {
         layoutLabelRow.appendChild(createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300', text: 'Grid Span' }));
 
         // Get current span from layout, fallback to width conversion
-        const currentSpan = selectedField.layout?.span !== undefined 
-            ? selectedField.layout.span 
+        const currentSpan = selectedField.layout?.span !== undefined
+            ? selectedField.layout.span
             : Math.max(1, Math.min(12, Math.round((parseWidth(selectedField.width || '100%') / 100) * 12)));
 
         // Value display badge
@@ -723,6 +723,10 @@ export class FormBuilder {
             className: 'span-value-badge px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded-full',
             text: `${currentSpan}/12`,
             id: `span-value-${selectedField.id}`
+            // const widthValueDisplay = createElement('span', {
+            //     className: 'width-value-badge px-2 py-0.5 text-xs font-semibold bg-[#019FA2] text-white dark:bg-blue-900 dark:text-blue-200 rounded-full',
+            //     text: `${currentWidth}%`,
+            //     id: `width-value-${selectedField.id}`
         });
         layoutLabelRow.appendChild(spanValueDisplay);
         layoutGroup.appendChild(layoutLabelRow);
@@ -738,7 +742,7 @@ export class FormBuilder {
                 title: `${span} column${span > 1 ? 's' : ''} (${Math.round((span / 12) * 100)}%)`,
                 onclick: () => {
                     const layout = selectedField.layout || { row: 0, column: 0 };
-                    formStore.getState().updateField(selectedField.id, { 
+                    formStore.getState().updateField(selectedField.id, {
                         layout: { ...layout, span: span },
                         // Also update width for backward compatibility
                         width: Math.round((span / 12) * 100) as FieldWidth
@@ -1151,7 +1155,7 @@ export class FormBuilder {
                 return obj;
             })()
             : (selectedField.validation as ValidationObject) || {};
-        
+
         const updateValidation = (updates: Partial<ValidationObject>) => {
             const newValidation: ValidationObject = { ...validationObj, ...updates };
             // Remove undefined values
