@@ -43,15 +43,17 @@ export interface ValidationRule {
     regex?: string;
 }
 
-// New validation object format (from payload)
+// New validation object format (from payload) - this is the standard format
 export interface ValidationObject {
     required?: boolean;
     regex?: string;
     regexMessage?: string;
     minLength?: number;
     maxLength?: number;
-    minSelected?: number; // For checkbox groups
-    maxSelected?: number; // For checkbox groups
+    minSelected?: number; // For checkbox/select groups
+    maxSelected?: number; // For checkbox/select groups
+    minDate?: string; // ISO date string
+    maxDate?: string; // ISO date string
 }
 
 export interface AsyncOptionSource {
@@ -72,21 +74,34 @@ export interface FormField {
     options?: { label: string; value: string }[]; // For select, radio, checkbox
     optionsSource?: AsyncOptionSource; // For async select
     validation?: ValidationRule[] | ValidationObject; // Support both array and object formats
-    width: FieldWidth;
+    width?: FieldWidth; // Legacy support - prefer layout.span
     hidden?: boolean; // For conditional logic later
-    position?: { row: number; column: number }; // Future proofing for strict grid, currently width-based
-    layout?: { row?: number; column?: number; span?: number }; // New layout format from payload
+    position?: { row: number; column: number }; // Legacy - use layout instead
+    layout?: { row?: number; column?: number; span?: number }; // Grid layout format from payload (required)
     groupName?: { id: string; name: string }; // For dropdown fields - mapped from masterTypes
     masterTypeName?: string; // The enum name of the selected master type group (for Angular integration)
     enabled?: boolean; // Whether the field is enabled/disabled
     visible?: boolean; // Whether the field is visible/hidden
-    order?: number; // Field order in section
+    order?: number; // Field order in section (required for drag-and-drop persistence)
     css?: { class?: string; style?: Record<string, string> }; // CSS styling from payload
     // New properties
     customOptionsEnabled?: boolean; // For dropdown/checkbox/radio - enable custom options editing (UI only)
-    multiselect?: boolean; // For dropdown - enable multiple selection (legacy)
+    multiselect?: boolean; // For dropdown - enable multiple selection (legacy - use multiSelect instead)
     multiSelect?: boolean; // Multi-select for dropdown (required: true | false, not optional)
     optionSource?: 'STATIC' | 'MASTER'; // Option source type: STATIC = custom options, MASTER = from master types
+    // Phone field ISD configuration
+    isd?: ISDConfig;
+}
+
+/**
+ * ISD (International Subscriber Dialing) configuration for phone fields
+ */
+export interface ISDConfig {
+    enabled: boolean;           // Whether ISD selector is enabled (always true for phone)
+    defaultCode: string;        // Default dial code, e.g., "+91"
+    showFlag: boolean;          // Show country flag emoji in dropdown
+    showCountryName: boolean;   // Show full country name in dropdown
+    allowCustomCode: boolean;   // Allow manual ISD code entry (future feature)
 }
 
 export interface FormSection {
@@ -94,9 +109,9 @@ export interface FormSection {
     title: string;
     fields: FormField[];
     isExpanded?: boolean;
-    columns?: 1 | 2 | 3; // Grid columns layout
-    order?: number; // Section order
-    layout?: { type?: string; columns?: number; gap?: string }; // Section layout from payload
+    columns?: 1 | 2 | 3; // Legacy grid columns layout - prefer layout.columns
+    order?: number; // Section order (required for drag-and-drop persistence)
+    layout?: { type?: string; columns?: number; gap?: string }; // Section layout from payload (required)
     css?: { class?: string; style?: Record<string, string> }; // CSS styling from payload
 }
 

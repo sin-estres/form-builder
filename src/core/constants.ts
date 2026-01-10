@@ -21,7 +21,20 @@ export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
     textarea: { label: 'Text Area', placeholder: 'Enter description...', width: '100%', enabled: true, visible: true },
     number: { label: 'Number', placeholder: '0', width: '50%', enabled: true, visible: true },
     email: { label: 'Email', placeholder: 'example@email.com', width: '100%', validation: [{ type: 'pattern', regex: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$', message: 'Invalid email format' }], enabled: true, visible: true },
-    phone: { label: 'Phone', placeholder: '+1 234 567 8900', width: '100%', enabled: true, visible: true },
+    phone: {
+        label: 'Phone',
+        placeholder: 'Enter phone number',
+        width: '100%',
+        enabled: true,
+        visible: true,
+        isd: {
+            enabled: true,
+            defaultCode: '+91',
+            showFlag: true,
+            showCountryName: false,
+            allowCustomCode: false
+        }
+    },
     date: { label: 'Date', width: '50%', enabled: true, visible: true },
     select: { label: 'Dropdown', options: [], width: '100%', enabled: true, visible: true, optionSource: 'STATIC' as const },
     checkbox: { label: 'Checkbox', options: [], width: '100%', enabled: true, visible: true },

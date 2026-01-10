@@ -80,6 +80,9 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     dropdownOptionsMap: {},
 
     setSchema: (schema) => {
+        // Log the incoming form payload schema
+        console.log('[Form Builder] Incoming Form Payload Schema:', JSON.stringify(schema, null, 2));
+        
         // Clean schema: remove invalid properties and normalize field types
         const cleanedSchema = cleanFormSchema(schema);
 
@@ -487,7 +490,9 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             id: generateId(),
             title: `Section ${schema.sections.length + 1}`,
             fields: [],
-            columns: 1 // Default to 1 column
+            columns: 1, // Legacy - prefer layout.columns
+            layout: { type: 'grid', columns: 12, gap: '16px' },
+            order: schema.sections.length // Set order based on current section count
         };
         const newSchema = { ...schema, sections: [...schema.sections, newSection] };
 
@@ -531,6 +536,13 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         const newSections = [...schema.sections];
         const [movedSection] = newSections.splice(oldIndex, 1);
         newSections.splice(newIndex, 0, movedSection);
+        
+        // Update order for all sections
+        newSections.forEach((section, index) => {
+            if (section.order !== index) {
+                section.order = index;
+            }
+        });
 
         const newSchema = { ...schema, sections: newSections };
         set({
@@ -542,11 +554,23 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
 
     addField: (sectionId, type, index) => {
         const { schema, history, historyIndex } = get();
-        const newField: FormField = {
+        const baseField = {
             id: generateId(),
             type,
             ...DEFAULT_FIELD_CONFIG[type],
         } as FormField;
+        
+        // Ensure layout is set (convert width to layout.span if needed)
+        let newField: FormField = { ...baseField };
+        if (!newField.layout) {
+            const widthNum = typeof baseField.width === 'number' ? baseField.width : parseInt(baseField.width || '100') || 100;
+            const span = Math.max(1, Math.min(12, Math.round((widthNum / 100) * 12)));
+            newField.layout = {
+                row: 0,
+                column: 0,
+                span: span
+            };
+        }
 
         let newSections = [...schema.sections];
 
@@ -556,7 +580,9 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                 id: generateId(),
                 title: 'Default Section',
                 fields: [],
-                columns: 1
+                columns: 1,
+                layout: { type: 'grid', columns: 12, gap: '16px' },
+                order: 0
             };
             newSections.push(defaultSection);
             sectionId = defaultSection.id;
@@ -567,6 +593,18 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         if (sectionIndex !== -1) {
             const section = newSections[sectionIndex];
             const newFields = [...section.fields];
+            const insertIndex = typeof index === 'number' ? index : newFields.length;
+            
+            // Set order based on insertion index
+            newField.order = insertIndex;
+            
+            // Update order for existing fields after insertion point
+            newFields.forEach((field, idx) => {
+                if (idx >= insertIndex) {
+                    field.order = idx + 1;
+                }
+            });
+            
             if (typeof index === 'number') {
                 newFields.splice(index, 0, newField);
             } else {
@@ -578,8 +616,10 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             const defaultSection: FormSection = {
                 id: generateId(),
                 title: 'Default Section',
-                fields: [newField],
-                columns: 1
+                fields: [{ ...newField, order: 0 }],
+                columns: 1,
+                layout: { type: 'grid', columns: 12, gap: '16px' },
+                order: 0
             };
             newSections.push(defaultSection);
         }
@@ -695,6 +735,12 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                 field = s.fields[fIndex];
                 const newFields = [...s.fields];
                 newFields.splice(fIndex, 1);
+                // Update order for remaining fields
+                newFields.forEach((f, idx) => {
+                    if (f.order !== idx) {
+                        f.order = idx;
+                    }
+                });
                 return { ...s, fields: newFields };
             }
             return s;
@@ -708,7 +754,9 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                 id: generateId(),
                 title: 'Default Section',
                 fields: [],
-                columns: 1
+                columns: 1,
+                layout: { type: 'grid', columns: 12, gap: '16px' },
+                order: 0
             };
             newSections.push(defaultSection);
             targetSectionId = defaultSection.id;
@@ -719,6 +767,19 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         if (targetSectionIndex !== -1) {
             const targetSection = newSections[targetSectionIndex];
             const newFields = [...targetSection.fields];
+            
+            // Set order for moved field
+            field.order = newIndex;
+            
+            // Update order for existing fields after insertion point
+            newFields.forEach((f, idx) => {
+                if (idx >= newIndex) {
+                    f.order = idx + 1;
+                } else {
+                    f.order = idx;
+                }
+            });
+            
             newFields.splice(newIndex, 0, field);
             newSections[targetSectionIndex] = { ...targetSection, fields: newFields };
         }

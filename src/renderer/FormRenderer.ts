@@ -1,6 +1,23 @@
-import { FormSchema, getColSpanFromWidth } from '../core/schemaTypes';
+import { FormSchema, getColSpanFromWidth, ValidationObject, ValidationRule } from '../core/schemaTypes';
 import { FieldRenderer } from './FieldRenderer';
 import { createElement } from '../utils/dom';
+
+// Helper function to convert validation object to array format for validation logic
+function convertValidationToArray(validation: ValidationRule[] | ValidationObject | undefined): ValidationRule[] {
+    if (!validation) return [];
+    if (Array.isArray(validation)) return validation;
+    const obj = validation as ValidationObject;
+    const rules: ValidationRule[] = [];
+    if (obj.required) rules.push({ type: 'required', value: true });
+    if (obj.regex) rules.push({ type: 'pattern', regex: obj.regex, message: obj.regexMessage });
+    if (obj.minLength !== undefined) rules.push({ type: 'minLength', value: obj.minLength });
+    if (obj.maxLength !== undefined) rules.push({ type: 'maxLength', value: obj.maxLength });
+    if (obj.minSelected !== undefined) rules.push({ type: 'minSelected', value: obj.minSelected });
+    if (obj.maxSelected !== undefined) rules.push({ type: 'maxSelected', value: obj.maxSelected });
+    if (obj.minDate) rules.push({ type: 'minDate', value: obj.minDate });
+    if (obj.maxDate) rules.push({ type: 'maxDate', value: obj.maxDate });
+    return rules;
+}
 
 export class FormRenderer {
     private container: HTMLElement;
@@ -120,9 +137,7 @@ export class FormRenderer {
                             // Check pattern validation for text and email fields
                             if ((field.type === 'text' || field.type === 'email') && fieldValue) {
                                 // Handle both array and object validation formats
-                                const validationArray = Array.isArray(field.validation) 
-                                    ? field.validation 
-                                    : [];
+                                const validationArray = convertValidationToArray(field.validation);
                                 const patternRule = validationArray.find((v: any) => v.type === 'pattern');
                                 if (patternRule?.regex) {
                                     try {
@@ -143,9 +158,7 @@ export class FormRenderer {
                             
                             // Check minSelected/maxSelected validation for checkbox fields
                             if (field.type === 'checkbox' && Array.isArray(fieldValue)) {
-                                const validationArray = Array.isArray(field.validation) 
-                                    ? field.validation 
-                                    : [];
+                                const validationArray = convertValidationToArray(field.validation);
                                 const minSelectedRule = validationArray.find((v: any) => v.type === 'minSelected');
                                 const maxSelectedRule = validationArray.find((v: any) => v.type === 'maxSelected');
                                 const selectedCount = fieldValue.length;
@@ -184,9 +197,7 @@ export class FormRenderer {
                     // Check pattern validation for text and email fields
                     if ((field.type === 'text' || field.type === 'email') && fieldValue) {
                         // Handle both array and object validation formats
-                        const validationArray = Array.isArray(field.validation) 
-                            ? field.validation 
-                            : [];
+                        const validationArray = convertValidationToArray(field.validation);
                         const patternRule = validationArray.find((v: any) => v.type === 'pattern');
                         if (patternRule?.regex) {
                             try {
@@ -207,9 +218,7 @@ export class FormRenderer {
                     
                     // Check minSelected/maxSelected validation for checkbox fields
                     if (field.type === 'checkbox' && Array.isArray(fieldValue)) {
-                        const validationArray = Array.isArray(field.validation) 
-                            ? field.validation 
-                            : [];
+                        const validationArray = convertValidationToArray(field.validation);
                         const minSelectedRule = validationArray.find((v: any) => v.type === 'minSelected');
                         const maxSelectedRule = validationArray.find((v: any) => v.type === 'maxSelected');
                         const selectedCount = fieldValue.length;

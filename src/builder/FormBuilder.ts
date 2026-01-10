@@ -2,7 +2,7 @@ import { formStore } from '../core/useFormStore';
 import { createElement, getIcon } from '../utils/dom';
 import { FIELD_TYPES, REGEX_PRESETS, RegexPreset } from '../core/constants';
 import { FormRenderer } from '../renderer/FormRenderer';
-import { FormSchema, FormSection, parseWidth, FieldWidth } from '../core/schemaTypes';
+import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
 import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
@@ -491,6 +491,9 @@ export class FormBuilder {
             onclick: () => {
                 const schema = formStore.getState().schema;
 
+                // Log what we are sending to the app using this npm package
+                console.log('[Form Builder] Schema being sent to app:', JSON.stringify(schema, null, 2));
+
                 // Call the callback if provided (schema is already cleaned by setSchema)
                 if (this.options.onSave) {
                     this.options.onSave(schema);
@@ -703,131 +706,50 @@ export class FormBuilder {
         }));
         body.appendChild(placeholderGroup);
 
-        // Width Slider
-        const widthGroup = createElement('div', { className: 'width-slider-group' });
+        // Grid Span Selector (replaces width slider)
+        const layoutGroup = createElement('div', { className: 'layout-span-group' });
 
         // Label with current value display
-        const widthLabelRow = createElement('div', { className: 'flex items-center justify-between mb-2' });
-        widthLabelRow.appendChild(createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300', text: 'Width' }));
+        const layoutLabelRow = createElement('div', { className: 'flex items-center justify-between mb-2' });
+        layoutLabelRow.appendChild(createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300', text: 'Grid Span' }));
 
-        // Get current width as number
-        const currentWidth = parseWidth(selectedField.width);
+        // Get current span from layout, fallback to width conversion
+        const currentSpan = selectedField.layout?.span !== undefined 
+            ? selectedField.layout.span 
+            : Math.max(1, Math.min(12, Math.round((parseWidth(selectedField.width || '100%') / 100) * 12)));
 
         // Value display badge
-        const widthValueDisplay = createElement('span', {
-            className: 'width-value-badge px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded-full',
-            text: `${currentWidth}%`,
-            id: `width-value-${selectedField.id}`
+        const spanValueDisplay = createElement('span', {
+            className: 'span-value-badge px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded-full',
+            text: `${currentSpan}/12`,
+            id: `span-value-${selectedField.id}`
         });
-        widthLabelRow.appendChild(widthValueDisplay);
-        widthGroup.appendChild(widthLabelRow);
+        layoutLabelRow.appendChild(spanValueDisplay);
+        layoutGroup.appendChild(layoutLabelRow);
 
-        // Slider container with breakpoint markers
-        const sliderContainer = createElement('div', { className: 'relative mt-1' });
-
-        // Breakpoint markers
-        const breakpoints = [25, 33, 50, 66, 75, 100];
-        const markersContainer = createElement('div', { className: 'width-slider-markers flex justify-between absolute w-full pointer-events-none', style: { top: '-4px', left: '0', right: '0' } });
-
-        // Calculate marker positions (10-100 range maps to 0-100% of slider)
-        breakpoints.forEach(bp => {
-            const position = ((bp - 10) / 90) * 100; // Map 10-100 to 0-100%
-            const marker = createElement('div', {
-                className: `width-slider-marker absolute w-1 h-1 rounded-full ${currentWidth === bp ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`,
-                style: { left: `${position}%`, transform: 'translateX(-50%)' },
-                title: `${bp}%`
-            });
-            markersContainer.appendChild(marker);
-        });
-        sliderContainer.appendChild(markersContainer);
-
-        // Range slider input
-        const widthSlider = createElement('input', {
-            type: 'range',
-            min: '10',
-            max: '100',
-            value: String(currentWidth),
-            className: 'width-slider w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer',
-            'aria-label': 'Field width percentage',
-            'data-focus-id': `field-width-${selectedField.id}`,
-            oninput: (e: Event) => {
-                const value = parseInt((e.target as HTMLInputElement).value);
-
-                // Update the display immediately
-                const display = document.getElementById(`width-value-${selectedField.id}`);
-                if (display) {
-                    display.textContent = `${value}%`;
-                }
-            },
-            onchange: (e: Event) => {
-                let value = parseInt((e.target as HTMLInputElement).value);
-
-                // Snap to nearest breakpoint if within 3% range (optional snapping)
-                const snapThreshold = 3;
-                for (const bp of breakpoints) {
-                    if (Math.abs(value - bp) <= snapThreshold) {
-                        value = bp;
-                        (e.target as HTMLInputElement).value = String(value);
-                        break;
-                    }
-                }
-
-                // Update the display
-                const display = document.getElementById(`width-value-${selectedField.id}`);
-                if (display) {
-                    display.textContent = `${value}%`;
-                }
-
-                // Update the field with numeric width
-                formStore.getState().updateField(selectedField.id, { width: value as FieldWidth });
-            },
-            onkeydown: (e: KeyboardEvent) => {
-                const slider = e.target as HTMLInputElement;
-                const currentVal = parseInt(slider.value);
-                const step = e.shiftKey ? 5 : 1; // Shift+Arrow for larger steps
-
-                if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    const newVal = Math.min(100, currentVal + step);
-                    slider.value = String(newVal);
-                    slider.dispatchEvent(new Event('input'));
-                    slider.dispatchEvent(new Event('change'));
-                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    const newVal = Math.max(10, currentVal - step);
-                    slider.value = String(newVal);
-                    slider.dispatchEvent(new Event('input'));
-                    slider.dispatchEvent(new Event('change'));
-                }
-            }
-        });
-        sliderContainer.appendChild(widthSlider);
-
-        // Breakpoint labels below slider
-        const labelsContainer = createElement('div', { className: 'flex justify-between mt-1 text-xs text-gray-400 dark:text-gray-500' });
-        labelsContainer.appendChild(createElement('span', { text: '10%' }));
-        labelsContainer.appendChild(createElement('span', { text: '100%' }));
-        sliderContainer.appendChild(labelsContainer);
-
-        widthGroup.appendChild(sliderContainer);
-
-        // Quick preset buttons
-        const presetsContainer = createElement('div', { className: 'flex flex-wrap gap-1 mt-3' });
-        breakpoints.forEach(bp => {
-            const isActive = currentWidth === bp;
-            const presetBtn = createElement('button', {
+        // Grid span selector buttons (1-12 columns)
+        const spanButtonsContainer = createElement('div', { className: 'grid grid-cols-6 gap-2 mt-2' });
+        for (let span = 1; span <= 12; span++) {
+            const isActive = currentSpan === span;
+            const spanBtn = createElement('button', {
                 type: 'button',
-                className: `width-preset-btn px-2 py-1 text-xs rounded transition-colors ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
-                text: `${bp}%`,
+                className: `span-preset-btn px-2 py-1.5 text-xs rounded transition-colors ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
+                text: `${span}`,
+                title: `${span} column${span > 1 ? 's' : ''} (${Math.round((span / 12) * 100)}%)`,
                 onclick: () => {
-                    formStore.getState().updateField(selectedField.id, { width: bp as FieldWidth });
+                    const layout = selectedField.layout || { row: 0, column: 0 };
+                    formStore.getState().updateField(selectedField.id, { 
+                        layout: { ...layout, span: span },
+                        // Also update width for backward compatibility
+                        width: Math.round((span / 12) * 100) as FieldWidth
+                    });
                 }
             });
-            presetsContainer.appendChild(presetBtn);
-        });
-        widthGroup.appendChild(presetsContainer);
+            spanButtonsContainer.appendChild(spanBtn);
+        }
+        layoutGroup.appendChild(spanButtonsContainer);
 
-        body.appendChild(widthGroup);
+        body.appendChild(layoutGroup);
 
         // Required
         const requiredGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
@@ -861,6 +783,60 @@ export class FormBuilder {
             onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { visible: (e.target as HTMLInputElement).checked })
         }));
         body.appendChild(visibleGroup);
+
+        // --- Phone ISD Configuration (Phone fields only) ---
+        if (selectedField.type === 'phone') {
+            const isdHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Phone ISD Settings' });
+            body.appendChild(isdHeader);
+
+            // Get current ISD config with defaults
+            const isdConfig = selectedField.isd || {
+                enabled: true,
+                defaultCode: '+91',
+                showFlag: true,
+                showCountryName: false,
+                allowCustomCode: false
+            };
+
+            // Show Flag toggle
+            const showFlagGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+            showFlagGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Show Flag' }));
+            showFlagGroup.appendChild(createElement('input', {
+                type: 'checkbox',
+                className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+                checked: isdConfig.showFlag !== false,
+                onchange: (e: Event) => formStore.getState().updateField(selectedField.id, {
+                    isd: { ...isdConfig, showFlag: (e.target as HTMLInputElement).checked }
+                })
+            }));
+            body.appendChild(showFlagGroup);
+
+            // Allow Country Change toggle
+            const allowCountryChangeGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+            allowCountryChangeGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Allow Country Change' }));
+            allowCountryChangeGroup.appendChild(createElement('input', {
+                type: 'checkbox',
+                className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+                checked: isdConfig.enabled !== false,
+                onchange: (e: Event) => formStore.getState().updateField(selectedField.id, {
+                    isd: { ...isdConfig, enabled: (e.target as HTMLInputElement).checked }
+                })
+            }));
+            body.appendChild(allowCountryChangeGroup);
+
+            // Show Country Name toggle
+            const showCountryNameGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+            showCountryNameGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Show Country Name' }));
+            showCountryNameGroup.appendChild(createElement('input', {
+                type: 'checkbox',
+                className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+                checked: isdConfig.showCountryName === true,
+                onchange: (e: Event) => formStore.getState().updateField(selectedField.id, {
+                    isd: { ...isdConfig, showCountryName: (e.target as HTMLInputElement).checked }
+                })
+            }));
+            body.appendChild(showCountryNameGroup);
+        }
 
         // --- Group Name (Select/Dropdown only) ---
         if (selectedField.type === 'select') {
@@ -1155,19 +1131,45 @@ export class FormBuilder {
 
         // --- Advanced Validation ---
         // Handle both array and object validation formats
-        const validations = Array.isArray(selectedField.validation)
-            ? selectedField.validation
-            : [];
-        const updateValidation = (rule: any) => {
-            // Very basic replacement logic for demo
-            const newValidations = validations.filter((v: any) => v.type !== rule.type);
-            if (rule.value !== undefined && rule.value !== '') {
-                newValidations.push(rule);
-            }
-            formStore.getState().updateField(selectedField.id, { validation: newValidations });
+        // Convert to object format (standard)
+        const validationObj: ValidationObject = Array.isArray(selectedField.validation)
+            ? (() => {
+                const obj: ValidationObject = {};
+                selectedField.validation.forEach((rule: any) => {
+                    if (rule.type === 'required') obj.required = true;
+                    else if (rule.type === 'pattern' && rule.regex) {
+                        obj.regex = rule.regex;
+                        obj.regexMessage = rule.message;
+                    }
+                    else if (rule.type === 'minLength' && typeof rule.value === 'number') obj.minLength = rule.value;
+                    else if (rule.type === 'maxLength' && typeof rule.value === 'number') obj.maxLength = rule.value;
+                    else if (rule.type === 'minSelected' && typeof rule.value === 'number') obj.minSelected = rule.value;
+                    else if (rule.type === 'maxSelected' && typeof rule.value === 'number') obj.maxSelected = rule.value;
+                    else if (rule.type === 'minDate' && typeof rule.value === 'string') obj.minDate = rule.value;
+                    else if (rule.type === 'maxDate' && typeof rule.value === 'string') obj.maxDate = rule.value;
+                });
+                return obj;
+            })()
+            : (selectedField.validation as ValidationObject) || {};
+        
+        const updateValidation = (updates: Partial<ValidationObject>) => {
+            const newValidation: ValidationObject = { ...validationObj, ...updates };
+            // Remove undefined values
+            Object.keys(newValidation).forEach(key => {
+                if (newValidation[key as keyof ValidationObject] === undefined) {
+                    delete newValidation[key as keyof ValidationObject];
+                }
+            });
+            formStore.getState().updateField(selectedField.id, { validation: newValidation });
         };
 
-        const getRuleValue = (type: string) => validations.find((v: any) => v.type === type)?.value || '';
+        const getRuleValue = (key: keyof ValidationObject): string => {
+            const value = validationObj[key];
+            if (value === undefined || value === null) return '';
+            if (typeof value === 'number') return String(value);
+            if (typeof value === 'boolean') return String(value);
+            return String(value);
+        };
 
         // Collect validation rule elements
         const validationElements: HTMLElement[] = [];
@@ -1179,9 +1181,12 @@ export class FormBuilder {
             minLenGroup.appendChild(createElement('input', {
                 type: 'number',
                 className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
-                value: getRuleValue('minLength'),
+                value: getRuleValue('minLength') || '',
                 placeholder: 'e.g. 3',
-                onchange: (e: Event) => updateValidation({ type: 'minLength', value: parseInt((e.target as HTMLInputElement).value) })
+                onchange: (e: Event) => {
+                    const value = (e.target as HTMLInputElement).value;
+                    updateValidation({ minLength: value ? parseInt(value) : undefined });
+                }
             }));
             validationElements.push(minLenGroup);
 
@@ -1190,9 +1195,12 @@ export class FormBuilder {
             maxLenGroup.appendChild(createElement('input', {
                 type: 'number',
                 className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
-                value: getRuleValue('maxLength'),
+                value: getRuleValue('maxLength') || '',
                 placeholder: 'e.g. 100',
-                onchange: (e: Event) => updateValidation({ type: 'maxLength', value: parseInt((e.target as HTMLInputElement).value) })
+                onchange: (e: Event) => {
+                    const value = (e.target as HTMLInputElement).value;
+                    updateValidation({ maxLength: value ? parseInt(value) : undefined });
+                }
             }));
             validationElements.push(maxLenGroup);
 
@@ -1262,7 +1270,7 @@ export class FormBuilder {
                 regexGroup.appendChild(examplesContainer);
             }
 
-            const currentRegex = validations.find((v: any) => v.type === 'pattern')?.regex || '';
+            const currentRegex = validationObj.regex || '';
 
             // Find current preset based on regex pattern
             const findPresetByRegex = (regex: string): RegexPreset | undefined => {
@@ -1289,13 +1297,10 @@ export class FormBuilder {
                         const preset = REGEX_PRESETS.find(p => p.id === presetId);
 
                         if (preset) {
-                            const newValidations = validations.filter((v: any) => v.type !== 'pattern');
-                            newValidations.push({
-                                type: 'pattern',
+                            updateValidation({
                                 regex: preset.pattern,
-                                message: preset.errorMessage
+                                regexMessage: preset.errorMessage
                             });
-                            formStore.getState().updateField(selectedField.id, { validation: newValidations });
 
                             // Update regex input
                             (regexInput as HTMLInputElement).value = preset.pattern;
@@ -1342,8 +1347,6 @@ export class FormBuilder {
                 'data-focus-id': `field-regex-${selectedField.id}`,
                 oninput: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    const existing = validations.find((v: any) => v.type === 'pattern');
-                    const newValidations = validations.filter((v: any) => v.type !== 'pattern');
 
                     // Check if the new regex matches a preset (only for text fields)
                     if (selectedField.type === 'text') {
@@ -1367,14 +1370,10 @@ export class FormBuilder {
                         }
                     }
 
-                    if (val) {
-                        newValidations.push({
-                            type: 'pattern',
-                            regex: val,
-                            message: existing?.message || currentPreset?.errorMessage || 'Invalid format'
-                        });
-                    }
-                    formStore.getState().updateField(selectedField.id, { validation: newValidations });
+                    updateValidation({
+                        regex: val || undefined,
+                        regexMessage: currentPreset?.errorMessage || validationObj.regexMessage || 'Invalid format'
+                    });
 
                     // Update live examples
                     if (examplesList) {
@@ -1404,28 +1403,9 @@ export class FormBuilder {
             validationElements.push(regexGroup);
         }
 
-        // Min/Max Value (Number)
-        if (selectedField.type === 'number') {
-            const minValGroup = createElement('div', { className: 'mb-3' });
-            minValGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Min Value' }));
-            minValGroup.appendChild(createElement('input', {
-                type: 'number',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
-                value: getRuleValue('min'),
-                onchange: (e: Event) => updateValidation({ type: 'min', value: parseInt((e.target as HTMLInputElement).value) })
-            }));
-            validationElements.push(minValGroup);
-
-            const maxValGroup = createElement('div', { className: 'mb-3' });
-            maxValGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Max Value' }));
-            maxValGroup.appendChild(createElement('input', {
-                type: 'number',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
-                value: getRuleValue('max'),
-                onchange: (e: Event) => updateValidation({ type: 'max', value: parseInt((e.target as HTMLInputElement).value) })
-            }));
-            validationElements.push(maxValGroup);
-        }
+        // Min/Max Value (Number) - Note: Number fields don't have min/max in validation object format
+        // These are typically handled via HTML5 min/max attributes, but we can add them if needed
+        // For now, skipping as they're not in the standard validation object
 
         // Min/Max Selected (Checkbox)
         if (selectedField.type === 'checkbox') {
@@ -1439,7 +1419,7 @@ export class FormBuilder {
                 min: '0',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    updateValidation({ type: 'minSelected', value: val ? parseInt(val) : undefined });
+                    updateValidation({ minSelected: val ? parseInt(val) : undefined });
                 }
             }));
             validationElements.push(minSelectedGroup);
@@ -1454,7 +1434,7 @@ export class FormBuilder {
                 min: '1',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    updateValidation({ type: 'maxSelected', value: val ? parseInt(val) : undefined });
+                    updateValidation({ maxSelected: val ? parseInt(val) : undefined });
                 }
             }));
             validationElements.push(maxSelectedGroup);
@@ -1462,24 +1442,15 @@ export class FormBuilder {
 
         // Min/Max Date (Date)
         if (selectedField.type === 'date') {
-            const getDateRuleValue = (type: string) => {
-                const rule = validations.find((v: any) => v.type === type);
-                return rule?.value ? (typeof rule.value === 'string' ? rule.value : String(rule.value)) : '';
-            };
-
             const minDateGroup = createElement('div', { className: 'mb-3' });
             minDateGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Minimum Date' }));
             minDateGroup.appendChild(createElement('input', {
                 type: 'date',
                 className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
-                value: getDateRuleValue('minDate'),
+                value: validationObj.minDate || '',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    const newValidations = validations.filter((v: any) => v.type !== 'minDate');
-                    if (val) {
-                        newValidations.push({ type: 'minDate', value: val, message: 'Date must be after the minimum date' });
-                    }
-                    formStore.getState().updateField(selectedField.id, { validation: newValidations });
+                    updateValidation({ minDate: val || undefined });
                 }
             }));
             validationElements.push(minDateGroup);
@@ -1489,14 +1460,10 @@ export class FormBuilder {
             maxDateGroup.appendChild(createElement('input', {
                 type: 'date',
                 className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
-                value: getDateRuleValue('maxDate'),
+                value: validationObj.maxDate || '',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    const newValidations = validations.filter((v: any) => v.type !== 'maxDate');
-                    if (val) {
-                        newValidations.push({ type: 'maxDate', value: val, message: 'Date must be before the maximum date' });
-                    }
-                    formStore.getState().updateField(selectedField.id, { validation: newValidations });
+                    updateValidation({ maxDate: val || undefined });
                 }
             }));
             validationElements.push(maxDateGroup);
@@ -1532,7 +1499,7 @@ export class FormBuilder {
             } else {
                 delete newStyle[prop];
             }
-            
+
             // IMPORTANT: Only pass 'style' in the update, NOT the entire CSS object
             // This allows updateField to preserve the existing CSS class automatically
             // and prevents double-merging of styles
@@ -1542,7 +1509,7 @@ export class FormBuilder {
                     // Do NOT spread freshField.css here - let updateField preserve class
                 }
             };
-            
+
             state.updateField(selectedField.id, updatePayload);
         };
 
@@ -1637,7 +1604,7 @@ export class FormBuilder {
                 const state = formStore.getState();
                 const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
                 if (!freshField) return;
-                
+
                 // IMPORTANT: Only pass 'class' in the update, NOT 'style'
                 // This allows updateField to preserve the existing style automatically
                 state.updateField(selectedField.id, {
@@ -1682,11 +1649,11 @@ export class FormBuilder {
         advancedPanel.appendChild(createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Raw CSS Style (JSON)' }));
 
         const cssStyleId = `field-css-style-${selectedField.id}`;
-        
+
         // Always get the freshest field data from store to ensure we have the latest CSS style
         const freshState = formStore.getState();
         const freshFieldForInit = freshState.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
-        
+
         // Use fresh field data if available, otherwise fall back to selectedField
         const fieldForCssStyle = freshFieldForInit || selectedField;
         let initialCssStyleValue = fieldForCssStyle.css?.style ? JSON.stringify(fieldForCssStyle.css.style, null, 2) : '';
@@ -1694,7 +1661,7 @@ export class FormBuilder {
         if (preservedValue !== undefined) {
             initialCssStyleValue = preservedValue;
         }
-        
+
 
         const cssStyleTextarea = createElement('textarea', {
             className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-xs font-mono',
@@ -1704,14 +1671,14 @@ export class FormBuilder {
             'data-was-focused': 'false',
             onfocus: (e: Event) => {
                 const textarea = e.target as HTMLTextAreaElement;
-                
+
                 // Mark that this textarea has received genuine user focus
                 textarea.setAttribute('data-was-focused', 'true');
-                
+
                 // DEBUG: Log when CSS style textarea gets focus
                 const state = formStore.getState();
                 const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
-                
+
                 // Safety check: If textarea is empty but store has CSS style, restore it
                 if (!textarea.value.trim() && freshField?.css?.style && Object.keys(freshField.css.style).length > 0) {
                     const styleString = JSON.stringify(freshField.css.style, null, 2);
@@ -1724,7 +1691,7 @@ export class FormBuilder {
                 const state = formStore.getState();
                 const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
                 if (!freshField) return;
-                
+
                 try {
                     if (styleText.trim()) {
                         const styleObj = JSON.parse(styleText);
@@ -1798,11 +1765,11 @@ export class FormBuilder {
                 }, 0); // Defer to next event loop tick to allow click events to fire first
             }
         });
-        
+
         // Set textarea value directly (textarea needs property, not attribute)
         // This must be done after createElement because textarea.value is a property, not an attribute
         cssStyleTextarea.value = initialCssStyleValue;
-        
+
         advancedPanel.appendChild(cssStyleTextarea);
         body.appendChild(advancedPanel);
 

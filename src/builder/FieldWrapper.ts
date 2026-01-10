@@ -8,8 +8,14 @@ export class FieldWrapper {
         // Check if field is visible (default to true if not specified)
         const isVisible = field.visible !== false;
 
-        // Grid Span Logic - use the helper function for consistent calculation
-        const spanClass = getColSpanFromWidth(field.width);
+        // Grid Span Logic - prioritize layout.span, fallback to width
+        let spanClass: string;
+        if (field.layout?.span !== undefined) {
+            const span = Math.max(1, Math.min(12, field.layout.span));
+            spanClass = `col-span-${span}`;
+        } else {
+            spanClass = getColSpanFromWidth(field.width || '100%');
+        }
 
         const fieldWrapper = createElement('div', {
             className: `form-builder-field-wrapper ${isSelected ? 'selected-field' : ''} ${spanClass} relative group border border-gray-200 hover:border-blue-200 rounded-md transition-all ${!isVisible ? 'hidden' : ''}`,

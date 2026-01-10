@@ -70,15 +70,22 @@ export class Section {
         sectionEl.appendChild(header);
 
         // Fields Grid (Sortable Area)
-        // Apply section columns setting: 1, 2, or 3 columns
-        const columns = this.section.columns || 1;
+        // Apply section columns setting: prefer layout.columns, fallback to columns (legacy)
+        const layoutColumns = this.section.layout?.columns || this.section.columns || 12;
+        const columns = layoutColumns > 3 ? 12 : (layoutColumns as 1 | 2 | 3); // For legacy compatibility
         const fieldsGrid = createElement('div', {
             className: 'form-builder-grid p-4 min-h-[100px] fields-list',
             'data-section-id': this.section.id
         });
 
-        // Apply columns dynamically - this overrides the default 12-column grid
-        fieldsGrid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+        // Apply columns dynamically - use layout.columns if available, otherwise use legacy columns
+        const gridColumns = this.section.layout?.columns || columns || 12;
+        fieldsGrid.style.gridTemplateColumns = `repeat(${gridColumns}, minmax(0, 1fr))`;
+        
+        // Apply section layout gap if specified
+        if (this.section.layout?.gap) {
+            fieldsGrid.style.gap = this.section.layout.gap;
+        }
 
         // Apply section-level CSS class
         if (this.section.css?.class) {
@@ -99,7 +106,14 @@ export class Section {
             fieldsGrid.appendChild(createElement('div', { className: 'text-gray-400 text-sm py-4', text: 'Drop fields here' }));
         }
 
-        this.section.fields.forEach((field: FormField) => {
+        // Sort fields by order before rendering
+        const sortedFields = [...this.section.fields].sort((a, b) => {
+            const orderA = a.order !== undefined ? a.order : 0;
+            const orderB = b.order !== undefined ? b.order : 0;
+            return orderA - orderB;
+        });
+        
+        sortedFields.forEach((field: FormField) => {
             const isSelected = this.isSelectedField(field.id);
             fieldsGrid.appendChild(FieldWrapper.render(field, isSelected));
         });
@@ -160,6 +174,16 @@ export class Section {
                 const fieldId = item.getAttribute('data-id');
                 if (fieldId && evt.newIndex !== undefined) {
                     formStore.getState().moveField(fieldId, this.section.id, evt.newIndex);
+                    // Update order for all fields in the section
+                    const state = formStore.getState();
+                    const section = state.schema.sections.find(s => s.id === this.section.id);
+                    if (section) {
+                        section.fields.forEach((field, index) => {
+                            if (field.order !== index) {
+                                state.updateField(field.id, { order: index });
+                            }
+                        });
+                    }
                 }
             },
         });

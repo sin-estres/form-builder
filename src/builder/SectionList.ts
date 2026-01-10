@@ -40,7 +40,14 @@ export class SectionList {
             listContainer.appendChild(placeholder);
         }
 
-        this.schema.sections.forEach(section => {
+        // Sort sections by order before rendering
+        const sortedSections = [...this.schema.sections].sort((a, b) => {
+            const orderA = a.order !== undefined ? a.order : 0;
+            const orderB = b.order !== undefined ? b.order : 0;
+            return orderA - orderB;
+        });
+        
+        sortedSections.forEach(section => {
             const sectionComponent = new Section(section, (id) => id === this.selectedFieldId);
             listContainer.appendChild(sectionComponent.getElement());
         });
