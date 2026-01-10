@@ -105,8 +105,8 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         const areDefaultOptions = (options: any[]): boolean => {
             if (!options || options.length === 0) return true;
             // Check if options match default pattern: "Option 1", "Option 2", etc.
-            return options.every((opt, idx) => 
-                opt.label === `Option ${idx + 1}` && 
+            return options.every((opt, idx) =>
+                opt.label === `Option ${idx + 1}` &&
                 (opt.value === `opt${idx + 1}` || opt.value === `Option ${idx + 1}`)
             );
         };
@@ -124,11 +124,11 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
 
                         // Case 1: Field has masterTypeName but no groupName - resolve groupName from masterType
                         if (field.masterTypeName && !field.groupName) {
-                            masterType = state.masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = state.masterTypes.find(mt =>
+                                mt.active === true &&
                                 mt.enumName === field.masterTypeName
                             );
-                            
+
                             if (masterType) {
                                 // Set groupName from master type to preserve group binding
                                 updatedField = {
@@ -138,27 +138,15 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                                         name: masterType.name
                                     }
                                 };
-                                if (process.env.NODE_ENV === 'development') {
-                                    console.log(`[FormBuilder] Hydrating dropdown field "${field.id}": Resolved groupName from masterTypeName "${field.masterTypeName}"`, {
-                                        fieldId: field.id,
-                                        masterTypeName: field.masterTypeName,
-                                        groupName: updatedField.groupName
-                                    });
-                                }
-                            } else {
-                                console.warn(`[FormBuilder] Master type not found for masterTypeName: "${field.masterTypeName}"`, {
-                                    fieldId: field.id,
-                                    masterTypeName: field.masterTypeName
-                                });
                             }
                         }
                         // Case 2: Field has groupName - find master type by groupName
                         else if (field.groupName) {
-                            masterType = state.masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = state.masterTypes.find(mt =>
+                                mt.active === true &&
                                 (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
                             );
-                            
+
                             // If masterTypeName is missing but groupName exists, set masterTypeName from master type
                             if (masterType && !field.masterTypeName && masterType.enumName) {
                                 updatedField = {
@@ -169,19 +157,19 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                         }
                         // Case 3: Field has masterTypeName and groupName - verify they match
                         else if (field.masterTypeName && field.groupName) {
-                            masterType = state.masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = state.masterTypes.find(mt =>
+                                mt.active === true &&
                                 mt.enumName === field.masterTypeName &&
                                 (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
                             );
-                            
+
                             if (!masterType) {
                                 // Try to resolve by masterTypeName only
-                                masterType = state.masterTypes.find(mt => 
-                                    mt.active === true && 
+                                masterType = state.masterTypes.find(mt =>
+                                    mt.active === true &&
                                     mt.enumName === field.masterTypeName
                                 );
-                                
+
                                 if (masterType) {
                                     // Update groupName to match masterTypeName
                                     updatedField = {
@@ -198,31 +186,16 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                         // Load options from dropdownOptionsMap or master type indexes
                         if (masterType) {
                             let options: { label: string; value: string }[] = [];
-                            
+
                             // Priority 1: Check dropdownOptionsMap first (Angular integration)
                             if (masterType.enumName && state.dropdownOptionsMap && state.dropdownOptionsMap[masterType.enumName]) {
                                 options = state.dropdownOptionsMap[masterType.enumName];
-                                if (process.env.NODE_ENV === 'development') {
-                                    console.log(`[FormBuilder] Hydrating dropdown field "${field.id}": Loaded ${options.length} options from dropdownOptionsMap for "${masterType.enumName}"`);
-                                }
                             }
                             // Priority 2: Use master type indexes
                             else if (masterType.indexes && masterType.indexes.length > 0) {
                                 options = convertIndexesToOptions(masterType.indexes);
-                                if (process.env.NODE_ENV === 'development') {
-                                    console.log(`[FormBuilder] Hydrating dropdown field "${field.id}": Loaded ${options.length} options from master type indexes for "${masterType.displayName}"`);
-                                }
                             }
-                            // Priority 3: Warn if no options available
-                            else {
-                                console.warn(`[FormBuilder] Master type "${masterType.displayName}" (${masterType.name}) has empty indexes array and no dropdownOptionsMap entry. Dropdown will have no options. Please ensure the API returns populated indexes or provide dropdownOptionsMap.`, {
-                                    masterTypeId: masterType.id,
-                                    masterTypeName: masterType.name,
-                                    enumName: masterType.enumName,
-                                    indexes: masterType.indexes,
-                                    fieldId: field.id
-                                });
-                            }
+                            // Priority 3: No options available - options array remains empty
 
                             // Update options if they don't exist, are empty, or are default placeholder options
                             // Always update if we loaded from dropdownOptionsMap or master type indexes
@@ -234,11 +207,6 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                                     };
                                 }
                             }
-                        } else if (field.groupName) {
-                            console.warn('[FormBuilder] Master type not found for groupName:', field.groupName, {
-                                fieldId: field.id,
-                                groupName: field.groupName
-                            });
                         }
 
                         return updatedField;
@@ -277,8 +245,8 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             const areDefaultOptions = (options: any[]): boolean => {
                 if (!options || options.length === 0) return true;
                 // Check if options match default pattern: "Option 1", "Option 2", etc.
-                return options.every((opt, idx) => 
-                    opt.label === `Option ${idx + 1}` && 
+                return options.every((opt, idx) =>
+                    opt.label === `Option ${idx + 1}` &&
                     (opt.value === `opt${idx + 1}` || opt.value === `Option ${idx + 1}`)
                 );
             };
@@ -289,22 +257,22 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                     // Hydrate dropdown fields that have masterTypeName or groupName
                     if (field.type === 'select') {
                         let masterType: MasterType | undefined;
-                        
+
                         // Check for masterTypeName first
                         if (field.masterTypeName) {
-                            masterType = state.masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = state.masterTypes.find(mt =>
+                                mt.active === true &&
                                 mt.enumName === field.masterTypeName
                             );
                         }
                         // Fallback to groupName
                         else if (field.groupName) {
-                            masterType = state.masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = state.masterTypes.find(mt =>
+                                mt.active === true &&
                                 (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
                             );
                         }
-                        
+
                         if (masterType && masterType.indexes && masterType.indexes.length > 0) {
                             // Replace options if they don't exist, are empty, or are default placeholder options
                             if (!field.options || field.options.length === 0 || areDefaultOptions(field.options)) {
@@ -316,18 +284,18 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                     return field;
                 })
             }));
-            
+
             // Check if any fields were updated
-            const hasChanges = updatedSections.some((section, idx) => 
-                section.fields.some((field, fieldIdx) => 
+            const hasChanges = updatedSections.some((section, idx) =>
+                section.fields.some((field, fieldIdx) =>
                     field !== state.schema.sections[idx]?.fields[fieldIdx]
                 )
             );
-            
+
             if (hasChanges) {
-                set({ 
+                set({
                     schema: { ...state.schema, sections: updatedSections },
-                    isPreviewMode: !state.isPreviewMode 
+                    isPreviewMode: !state.isPreviewMode
                 });
             } else {
                 set({ isPreviewMode: !state.isPreviewMode });
@@ -350,22 +318,22 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                 fields: section.fields.map(field => {
                     if (field.type === 'select') {
                         let masterType: MasterType | undefined;
-                        
+
                         // Check for masterTypeName first
                         if (field.masterTypeName) {
-                            masterType = state.masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = state.masterTypes.find(mt =>
+                                mt.active === true &&
                                 mt.enumName === field.masterTypeName
                             );
                         }
                         // Fallback to groupName
                         else if (field.groupName) {
-                            masterType = state.masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = state.masterTypes.find(mt =>
+                                mt.active === true &&
                                 (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
                             );
                         }
-                        
+
                         if (masterType && masterType.enumName && map[masterType.enumName]) {
                             return { ...field, options: map[masterType.enumName] };
                         }
@@ -403,8 +371,8 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             const areDefaultOptions = (options: any[]): boolean => {
                 if (!options || options.length === 0) return true;
                 // Check if options match default pattern: "Option 1", "Option 2", etc.
-                return options.every((opt, idx) => 
-                    opt.label === `Option ${idx + 1}` && 
+                return options.every((opt, idx) =>
+                    opt.label === `Option ${idx + 1}` &&
                     (opt.value === `opt${idx + 1}` || opt.value === `Option ${idx + 1}`)
                 );
             };
@@ -416,14 +384,14 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                     if (field.type === 'select') {
                         let masterType: MasterType | undefined;
                         let updatedField = { ...field };
-                        
+
                         // Check for masterTypeName first
                         if (field.masterTypeName) {
-                            masterType = masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = masterTypes.find(mt =>
+                                mt.active === true &&
                                 mt.enumName === field.masterTypeName
                             );
-                            
+
                             // If masterType found but groupName is missing, set it
                             if (masterType && !field.groupName) {
                                 updatedField = {
@@ -437,11 +405,11 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                         }
                         // Fallback to groupName
                         else if (field.groupName) {
-                            masterType = masterTypes.find(mt => 
-                                mt.active === true && 
+                            masterType = masterTypes.find(mt =>
+                                mt.active === true &&
                                 (mt.id === field.groupName?.id || mt.name === field.groupName?.name)
                             );
-                            
+
                             // If masterType found but masterTypeName is missing, set it
                             if (masterType && !field.masterTypeName && masterType.enumName) {
                                 updatedField = {
@@ -450,7 +418,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                                 };
                             }
                         }
-                        
+
                         if (masterType && masterType.indexes && masterType.indexes.length > 0) {
                             // Replace options if they don't exist, are empty, or are default placeholder options
                             if (!updatedField.options || updatedField.options.length === 0 || areDefaultOptions(updatedField.options)) {
@@ -458,15 +426,15 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
                                 return { ...updatedField, options };
                             }
                         }
-                        
+
                         return updatedField;
                     }
                     return field;
                 })
             }));
             // Check if any fields were updated
-            const hasChanges = updatedSections.some((section, idx) => 
-                section.fields.some((field, fieldIdx) => 
+            const hasChanges = updatedSections.some((section, idx) =>
+                section.fields.some((field, fieldIdx) =>
                     field !== state.schema.sections[idx]?.fields[fieldIdx]
                 )
             );
@@ -581,7 +549,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         } as FormField;
 
         let newSections = [...schema.sections];
-        
+
         // If no sections exist or sectionId is null, create a default section
         if (newSections.length === 0 || sectionId === null) {
             const defaultSection: FormSection = {
@@ -652,7 +620,59 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             ...schema,
             sections: schema.sections.map((s) => ({
                 ...s,
-                fields: s.fields.map((f) => (f.id === fieldId ? { ...f, ...updates } : f)),
+                fields: s.fields.map((f) => {
+                    if (f.id !== fieldId) return f;
+
+                    // Deep merge css object to preserve existing values
+                    let mergedUpdates = { ...updates };
+                    if (updates.css !== undefined) {
+                        // Check if 'style' key was explicitly passed (even if undefined)
+                        const styleKeyPassed = updates.css && 'style' in updates.css;
+
+                        let newStyle: Record<string, string> | undefined;
+                        if (styleKeyPassed) {
+                            if (updates.css.style === undefined || updates.css.style === null) {
+                                // Explicitly clearing style
+                                newStyle = undefined;
+                            } else if (typeof updates.css.style === 'object') {
+                                // Check if only 'style' is in the update (no 'class')
+                                // This indicates it's from updateStyleProp which provides the complete style object
+                                // In this case, we should REPLACE, not merge
+                                const onlyStyleInUpdate = !('class' in updates.css) || updates.css.class === undefined;
+                                if (onlyStyleInUpdate) {
+                                    // Replace style completely (from updateStyleProp)
+                                    newStyle = updates.css.style;
+                                } else {
+                                    // Merge with existing style (from other sources like CSS textarea)
+                                    newStyle = { ...(f.css?.style || {}), ...updates.css.style };
+                                }
+                            } else {
+                                newStyle = updates.css.style;
+                            }
+                        } else {
+                            // style key not passed, preserve existing
+                            newStyle = f.css?.style;
+                        }
+
+                        mergedUpdates.css = {
+                            ...(f.css || {}),
+                            ...updates.css,
+                            style: newStyle
+                        };
+
+                        // Clean up undefined/empty values
+                        if (!mergedUpdates.css.class) delete mergedUpdates.css.class;
+                        if (!mergedUpdates.css.style || Object.keys(mergedUpdates.css.style).length === 0) {
+                            delete mergedUpdates.css.style;
+                        }
+                        // Remove css entirely if empty
+                        if (Object.keys(mergedUpdates.css).length === 0) {
+                            mergedUpdates.css = undefined;
+                        }
+                    }
+
+                    return { ...f, ...mergedUpdates };
+                }),
             })),
         };
         set({

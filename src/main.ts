@@ -10,7 +10,7 @@ async function loadTemplates(): Promise<FormSection[]> {
             return await response.json();
         }
     } catch (error) {
-        console.warn('Could not load section templates:', error);
+        // Could not load section templates
     }
     return [];
 }
@@ -22,8 +22,6 @@ loadTemplates().then((sectionTemplates) => {
         new FormBuilder(root, {
             reusableSections: sectionTemplates,
             onSave: (schema) => {
-                console.log('Form saved with schema:', schema);
-                console.log('Form name:', schema.formName);
                 // You can now use schema.formName and the complete schema JSON
             }
         });

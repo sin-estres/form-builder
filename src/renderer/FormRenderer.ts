@@ -46,8 +46,16 @@ export class FormRenderer {
                 }
 
                 const fieldWrapper = createElement('div');
-                // Grid span logic - use the helper function for consistent calculation
-                const spanClass = getColSpanFromWidth(field.width);
+                // Grid span logic - prioritize layout.span if available, otherwise use width
+                let spanClass: string;
+                if (field.layout?.span !== undefined) {
+                    // Use layout.span directly (clamp between 1-12)
+                    const span = Math.max(1, Math.min(12, field.layout.span));
+                    spanClass = `col-span-${span}`;
+                } else {
+                    // Fallback to width-based calculation
+                    spanClass = getColSpanFromWidth(field.width);
+                }
 
                 fieldWrapper.className = spanClass;
 
@@ -111,7 +119,11 @@ export class FormRenderer {
                             
                             // Check pattern validation for text and email fields
                             if ((field.type === 'text' || field.type === 'email') && fieldValue) {
-                                const patternRule = field.validation?.find(v => v.type === 'pattern');
+                                // Handle both array and object validation formats
+                                const validationArray = Array.isArray(field.validation) 
+                                    ? field.validation 
+                                    : [];
+                                const patternRule = validationArray.find((v: any) => v.type === 'pattern');
                                 if (patternRule?.regex) {
                                     try {
                                         const regex = new RegExp(patternRule.regex);
@@ -126,6 +138,33 @@ export class FormRenderer {
                                     } catch (e) {
                                         // Invalid regex - skip
                                     }
+                                }
+                            }
+                            
+                            // Check minSelected/maxSelected validation for checkbox fields
+                            if (field.type === 'checkbox' && Array.isArray(fieldValue)) {
+                                const validationArray = Array.isArray(field.validation) 
+                                    ? field.validation 
+                                    : [];
+                                const minSelectedRule = validationArray.find((v: any) => v.type === 'minSelected');
+                                const maxSelectedRule = validationArray.find((v: any) => v.type === 'maxSelected');
+                                const selectedCount = fieldValue.length;
+                                
+                                const minSelected = typeof minSelectedRule?.value === 'number' ? minSelectedRule.value : undefined;
+                                const maxSelected = typeof maxSelectedRule?.value === 'number' ? maxSelectedRule.value : undefined;
+                                
+                                if (minSelected !== undefined && selectedCount < minSelected) {
+                                    isValid = false;
+                                    altElement.setCustomValidity(`Please select at least ${minSelected} option(s)`);
+                                    altElement.reportValidity();
+                                    invalidFields.push(altElement);
+                                } else if (maxSelected !== undefined && selectedCount > maxSelected) {
+                                    isValid = false;
+                                    altElement.setCustomValidity(`Please select at most ${maxSelected} option(s)`);
+                                    altElement.reportValidity();
+                                    invalidFields.push(altElement);
+                                } else {
+                                    altElement.setCustomValidity('');
                                 }
                             }
                         }
@@ -144,7 +183,11 @@ export class FormRenderer {
                     
                     // Check pattern validation for text and email fields
                     if ((field.type === 'text' || field.type === 'email') && fieldValue) {
-                        const patternRule = field.validation?.find(v => v.type === 'pattern');
+                        // Handle both array and object validation formats
+                        const validationArray = Array.isArray(field.validation) 
+                            ? field.validation 
+                            : [];
+                        const patternRule = validationArray.find((v: any) => v.type === 'pattern');
                         if (patternRule?.regex) {
                             try {
                                 const regex = new RegExp(patternRule.regex);
@@ -159,6 +202,33 @@ export class FormRenderer {
                             } catch (e) {
                                 // Invalid regex - skip
                             }
+                        }
+                    }
+                    
+                    // Check minSelected/maxSelected validation for checkbox fields
+                    if (field.type === 'checkbox' && Array.isArray(fieldValue)) {
+                        const validationArray = Array.isArray(field.validation) 
+                            ? field.validation 
+                            : [];
+                        const minSelectedRule = validationArray.find((v: any) => v.type === 'minSelected');
+                        const maxSelectedRule = validationArray.find((v: any) => v.type === 'maxSelected');
+                        const selectedCount = fieldValue.length;
+                        
+                        const minSelected = typeof minSelectedRule?.value === 'number' ? minSelectedRule.value : undefined;
+                        const maxSelected = typeof maxSelectedRule?.value === 'number' ? maxSelectedRule.value : undefined;
+                        
+                        if (minSelected !== undefined && selectedCount < minSelected) {
+                            isValid = false;
+                            fieldElement.setCustomValidity(`Please select at least ${minSelected} option(s)`);
+                            fieldElement.reportValidity();
+                            invalidFields.push(fieldElement);
+                        } else if (maxSelected !== undefined && selectedCount > maxSelected) {
+                            isValid = false;
+                            fieldElement.setCustomValidity(`Please select at most ${maxSelected} option(s)`);
+                            fieldElement.reportValidity();
+                            invalidFields.push(fieldElement);
+                        } else {
+                            fieldElement.setCustomValidity('');
                         }
                     }
                 });

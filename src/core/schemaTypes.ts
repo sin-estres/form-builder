@@ -36,11 +36,22 @@ export function getColSpanFromWidth(width: FieldWidth): string {
 }
 
 export interface ValidationRule {
-    type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'email' | 'minDate' | 'maxDate';
+    type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'email' | 'minDate' | 'maxDate' | 'minSelected' | 'maxSelected';
     value?: string | number | boolean;
     message?: string;
     // For pattern/regex
     regex?: string;
+}
+
+// New validation object format (from payload)
+export interface ValidationObject {
+    required?: boolean;
+    regex?: string;
+    regexMessage?: string;
+    minLength?: number;
+    maxLength?: number;
+    minSelected?: number; // For checkbox groups
+    maxSelected?: number; // For checkbox groups
 }
 
 export interface AsyncOptionSource {
@@ -60,17 +71,22 @@ export interface FormField {
     defaultValue?: any;
     options?: { label: string; value: string }[]; // For select, radio, checkbox
     optionsSource?: AsyncOptionSource; // For async select
-    validation?: ValidationRule[];
+    validation?: ValidationRule[] | ValidationObject; // Support both array and object formats
     width: FieldWidth;
     hidden?: boolean; // For conditional logic later
     position?: { row: number; column: number }; // Future proofing for strict grid, currently width-based
+    layout?: { row?: number; column?: number; span?: number }; // New layout format from payload
     groupName?: { id: string; name: string }; // For dropdown fields - mapped from masterTypes
     masterTypeName?: string; // The enum name of the selected master type group (for Angular integration)
     enabled?: boolean; // Whether the field is enabled/disabled
     visible?: boolean; // Whether the field is visible/hidden
+    order?: number; // Field order in section
+    css?: { class?: string; style?: Record<string, string> }; // CSS styling from payload
     // New properties
-    customOptionsEnabled?: boolean; // For dropdown/checkbox/radio - enable custom options editing
-    multiselect?: boolean; // For dropdown - enable multiple selection
+    customOptionsEnabled?: boolean; // For dropdown/checkbox/radio - enable custom options editing (UI only)
+    multiselect?: boolean; // For dropdown - enable multiple selection (legacy)
+    multiSelect?: boolean; // Multi-select for dropdown (required: true | false, not optional)
+    optionSource?: 'STATIC' | 'MASTER'; // Option source type: STATIC = custom options, MASTER = from master types
 }
 
 export interface FormSection {
@@ -79,6 +95,9 @@ export interface FormSection {
     fields: FormField[];
     isExpanded?: boolean;
     columns?: 1 | 2 | 3; // Grid columns layout
+    order?: number; // Section order
+    layout?: { type?: string; columns?: number; gap?: string }; // Section layout from payload
+    css?: { class?: string; style?: Record<string, string> }; // CSS styling from payload
 }
 
 export interface FormSchema {
@@ -86,6 +105,7 @@ export interface FormSchema {
     title: string;
     formName: string;
     sections: FormSection[];
+    layout?: { type?: string; columns?: number; gap?: string }; // Form-level layout from payload
 }
 
 // Zod schema for validation (optional, but good for runtime checks if needed)

@@ -43,8 +43,13 @@ export class FieldRenderer {
         let input: HTMLElement;
         let validationMsg: HTMLElement | null = null;
         
+        // Handle both array and object validation formats
+        const validationArray = Array.isArray(field.validation) 
+            ? field.validation 
+            : [];
+        
         // Check if field has pattern validation (for text or email fields)
-        const hasPatternValidation = field.validation?.some(v => v.type === 'pattern');
+        const hasPatternValidation = validationArray.some((v: any) => v.type === 'pattern');
         
         // Create validation message container for date/email/text fields with validation
         if (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation)) {
@@ -55,10 +60,15 @@ export class FieldRenderer {
         const validateField = (field: FormField, value: string, inputElement: HTMLInputElement, validationMsg: HTMLElement) => {
             let errorMessage = '';
             
+            // Handle both array and object validation formats
+            const validationArray = Array.isArray(field.validation) 
+                ? field.validation 
+                : [];
+            
             // Date validation
             if (field.type === 'date' && value) {
-                const minDateRule = field.validation?.find(v => v.type === 'minDate');
-                const maxDateRule = field.validation?.find(v => v.type === 'maxDate');
+                const minDateRule = validationArray.find((v: any) => v.type === 'minDate');
+                const maxDateRule = validationArray.find((v: any) => v.type === 'maxDate');
                 const inputDate = new Date(value);
                 
                 if (minDateRule?.value) {
@@ -78,7 +88,7 @@ export class FieldRenderer {
             
             // Pattern/regex validation (for email and text fields)
             if ((field.type === 'email' || field.type === 'text') && value) {
-                const patternRule = field.validation?.find(v => v.type === 'pattern');
+                const patternRule = validationArray.find((v: any) => v.type === 'pattern');
                 if (patternRule?.regex) {
                     try {
                         const regex = new RegExp(patternRule.regex);
@@ -240,7 +250,10 @@ export class FieldRenderer {
 
             default: // text, number, email, date, etc.
                 // Get pattern validation if exists
-                const patternRule = field.validation?.find(v => v.type === 'pattern');
+                const fieldValidationArray = Array.isArray(field.validation) 
+                    ? field.validation 
+                    : [];
+                const patternRule = fieldValidationArray.find((v: any) => v.type === 'pattern');
                 const patternRegex = patternRule?.regex;
                 
                 input = createElement('input', {
@@ -249,8 +262,8 @@ export class FieldRenderer {
                     placeholder: field.placeholder,
                     value: value || '',
                     disabled: !isEnabled,
-                    min: field.type === 'date' ? (field.validation?.find(v => v.type === 'minDate')?.value as string) : undefined,
-                    max: field.type === 'date' ? (field.validation?.find(v => v.type === 'maxDate')?.value as string) : undefined,
+                    min: field.type === 'date' ? (fieldValidationArray.find((v: any) => v.type === 'minDate')?.value as string) : undefined,
+                    max: field.type === 'date' ? (fieldValidationArray.find((v: any) => v.type === 'maxDate')?.value as string) : undefined,
                     pattern: patternRegex || undefined, // Apply pattern for both email and text fields
                     oninput: (e: Event) => {
                         const inputValue = (e.target as HTMLInputElement).value;

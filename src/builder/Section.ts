@@ -70,10 +70,29 @@ export class Section {
         sectionEl.appendChild(header);
 
         // Fields Grid (Sortable Area)
+        // Apply section columns setting: 1, 2, or 3 columns
+        const columns = this.section.columns || 1;
         const fieldsGrid = createElement('div', {
             className: 'form-builder-grid p-4 min-h-[100px] fields-list',
             'data-section-id': this.section.id
         });
+
+        // Apply columns dynamically - this overrides the default 12-column grid
+        fieldsGrid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+
+        // Apply section-level CSS class
+        if (this.section.css?.class) {
+            this.section.css.class.split(' ').forEach(cls => {
+                if (cls.trim()) fieldsGrid.classList.add(cls.trim());
+            });
+        }
+
+        // Apply section-level CSS style
+        if (this.section.css?.style) {
+            Object.entries(this.section.css.style).forEach(([prop, value]) => {
+                (fieldsGrid.style as any)[prop] = value;
+            });
+        }
 
         if (this.section.fields.length === 0) {
             fieldsGrid.classList.add('flex', 'justify-center', 'items-center', 'border-2', 'border-dashed', 'border-gray-100', 'dark:border-gray-800', 'm-4', 'rounded');
@@ -105,7 +124,7 @@ export class Section {
             onAdd: (evt) => {
                 const item = evt.item;
                 const type = item.getAttribute('data-type');
-                const fromSectionId = evt.from.getAttribute('data-section-id'); // ID of source section (if moving)
+                const _fromSectionId = evt.from.getAttribute('data-section-id'); // ID of source section (if moving)
                 const toSectionId = this.section.id;
 
                 // If dropped from toolbox (new field) or template

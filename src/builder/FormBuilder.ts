@@ -8,6 +8,9 @@ import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
 import { MasterType } from '../core/useFormStore';
 
+// Module-level state to track which fields have their Advanced CSS panel expanded
+const advancedCssPanelState: Map<string, boolean> = new Map();
+
 
 export interface FormBuilderOptions {
     existingForms?: FormSchema[];
@@ -205,9 +208,9 @@ export class FormBuilder {
     private render() {
         const state = formStore.getState();
 
-        // Preserve focus state before clearing DOM
+        // Preserve focus state and input values before clearing DOM
         const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
-        let focusState: { id: string; selectionStart: number | null; selectionEnd: number | null } | null = null;
+        let focusState: { id: string; selectionStart: number | null; selectionEnd: number | null; value?: string } | null = null;
 
         if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
             const focusId = activeElement.getAttribute('data-focus-id');
@@ -215,7 +218,8 @@ export class FormBuilder {
                 focusState = {
                     id: focusId,
                     selectionStart: activeElement.selectionStart,
-                    selectionEnd: activeElement.selectionEnd
+                    selectionEnd: activeElement.selectionEnd,
+                    value: activeElement.value // Preserve the current value
                 };
             }
         }
@@ -226,8 +230,10 @@ export class FormBuilder {
         // previewContainer has 'overflow-y-auto' and 'bg-white' (toolbox/config don't have bg-white on scroll container)
         const canvasWrapper = this.container.querySelector('.form-builder-canvas') as HTMLElement | null;
         const previewContainer = this.container.querySelector('.flex-1.overflow-y-auto.bg-white') as HTMLElement | null;
+        const configPanel = this.container.querySelector('#config-panel-body') as HTMLElement | null;
         const scrollContainer = canvasWrapper || previewContainer;
         const savedScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+        const savedConfigScrollTop = configPanel ? configPanel.scrollTop : 0;
 
         this.container.innerHTML = '';
 
@@ -347,29 +353,35 @@ export class FormBuilder {
             main.appendChild(canvasWrapper);
 
             // Wrap config panel for mobile collapsibility
-            const configWrapper = createElement('div', { className: 'form-builder-config-wrapper w-full md:w-80 bg-white dark:bg-gray-900 border-l md:border-l border-t md:border-t-0 border-gray-200 dark:border-gray-800' });
-            configWrapper.appendChild(this.renderConfigPanel(state));
+            const configWrapper = createElement('div', { className: 'form-builder-config-wrapper w-full md:w-80 bg-white dark:bg-gray-900 border-l md:border-l border-t md:border-t-0 border-gray-200 dark:border-gray-800 overflow-hidden' });
+            configWrapper.appendChild(this.renderConfigPanel(state, focusState));
             main.appendChild(configWrapper);
         }
 
         wrapper.appendChild(main);
         this.container.appendChild(wrapper);
 
+
         // Restore scroll position after DOM is rebuilt
-        if (savedScrollTop > 0) {
-            // Use requestAnimationFrame to ensure DOM is fully laid out before restoring scroll
+        // Always run this, even if scroll is 0, to ensure we don't lose position
+        // Use double requestAnimationFrame for more reliable timing after layout
+        requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                // Find the scroll container in the newly rendered DOM
-                // canvasWrapper has unique class 'form-builder-canvas'
-                // previewContainer has 'overflow-y-auto' and 'bg-white' (toolbox/config don't have bg-white on scroll container)
+                // Restore canvas/preview scroll position
                 const newCanvasWrapper = this.container.querySelector('.form-builder-canvas') as HTMLElement | null;
                 const newPreviewContainer = this.container.querySelector('.flex-1.overflow-y-auto.bg-white') as HTMLElement | null;
                 const newScrollContainer = newCanvasWrapper || newPreviewContainer;
-                if (newScrollContainer) {
+                if (newScrollContainer && savedScrollTop > 0) {
                     newScrollContainer.scrollTop = savedScrollTop;
                 }
+
+                // Restore config panel scroll position
+                const newConfigPanel = this.container.querySelector('#config-panel-body') as HTMLElement | null;
+                if (newConfigPanel && savedConfigScrollTop > 0) {
+                    newConfigPanel.scrollTop = savedConfigScrollTop;
+                }
             });
-        }
+        });
 
         // Restore focus state after DOM is rebuilt
         if (focusState) {
@@ -377,6 +389,10 @@ export class FormBuilder {
             setTimeout(() => {
                 const elementToFocus = document.querySelector(`[data-focus-id="${focusState!.id}"]`) as HTMLInputElement | HTMLTextAreaElement;
                 if (elementToFocus && focusState) {
+                    // Restore value if it exists (for textareas/inputs that might have unsaved changes)
+                    if (focusState.value !== undefined) {
+                        elementToFocus.value = focusState.value;
+                    }
                     elementToFocus.focus();
                     if (focusState.selectionStart !== null && focusState.selectionEnd !== null) {
                         elementToFocus.setSelectionRange(focusState.selectionStart, focusState.selectionEnd);
@@ -474,7 +490,6 @@ export class FormBuilder {
             className: 'flex items-center px-3 py-2 text-sm font-medium text-white bg-[#019FA2]  rounded-md shadow-sm transition-colors',
             onclick: () => {
                 const schema = formStore.getState().schema;
-                console.log('Schema saved:', schema);
 
                 // Call the callback if provided (schema is already cleaned by setSchema)
                 if (this.options.onSave) {
@@ -643,15 +658,17 @@ export class FormBuilder {
         return canvas;
     }
 
-    private renderConfigPanel(state: any): HTMLElement {
-        const panel = createElement('div', { className: 'bg-[#f8faff]  dark:bg-gray-900 flex flex-col h-full' });
+    private renderConfigPanel(state: any, focusState: { id: string; selectionStart: number | null; selectionEnd: number | null; value?: string } | null = null): HTMLElement {
+        const panel = createElement('div', { className: 'bg-[#f8faff]  dark:bg-gray-900 flex flex-col h-full overflow-y-auto' });
 
+        // Get the latest field from state to ensure we have the most up-to-date data
         const selectedField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === state.selectedFieldId);
 
         if (!selectedField) {
             panel.appendChild(createElement('div', { className: 'p-4 text-center text-gray-500', text: 'Select a field to configure' }));
             return panel;
         }
+
 
         // Header
         const header = createElement('div', { className: 'flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800' });
@@ -662,7 +679,7 @@ export class FormBuilder {
         }, [getIcon('X', 20)]));
         panel.appendChild(header);
 
-        const body = createElement('div', { className: 'flex-1 overflow-y-auto p-4 space-y-6' });
+        const body = createElement('div', { className: 'flex-1 overflow-y-auto p-4 space-y-6', id: 'config-panel-body' });
 
         // Label
         const labelGroup = createElement('div');
@@ -987,13 +1004,65 @@ export class FormBuilder {
             }
         }
 
+        // --- Option Source (Select, Radio, Checkbox) ---
+        if (['select', 'checkbox', 'radio'].includes(selectedField.type)) {
+            const optionSourceHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Option Source' });
+            body.appendChild(optionSourceHeader);
+
+            const optionSourceGroup = createElement('div', { className: 'mb-4' });
+            optionSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Source Type' }));
+            const optionSourceSelect = createElement('select', {
+                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.optionSource || 'STATIC',
+                onchange: (e: Event) => {
+                    const source = (e.target as HTMLSelectElement).value as 'STATIC' | 'MASTER';
+                    const updates: any = { optionSource: source };
+
+                    // If switching to MASTER and no masterTypeName/groupName exists, keep existing or clear options
+                    if (source === 'MASTER' && !selectedField.masterTypeName && !selectedField.groupName) {
+                        // Don't clear options yet - user needs to select a master type
+                    } else if (source === 'STATIC') {
+                        // When switching to STATIC, ensure customOptionsEnabled is true
+                        updates.customOptionsEnabled = true;
+                    }
+
+                    formStore.getState().updateField(selectedField.id, updates);
+                    // Force re-render to update UI
+                    this.render();
+                }
+            });
+            optionSourceSelect.appendChild(createElement('option', { value: 'STATIC', text: 'STATIC (Custom Options)', selected: (selectedField.optionSource || 'STATIC') === 'STATIC' }));
+            optionSourceSelect.appendChild(createElement('option', { value: 'MASTER', text: 'MASTER (From Master Types)', selected: selectedField.optionSource === 'MASTER' }));
+            optionSourceGroup.appendChild(optionSourceSelect);
+            body.appendChild(optionSourceGroup);
+        }
+
+        // --- Multi-Select (Select fields only) ---
+        if (selectedField.type === 'select') {
+            const multiSelectGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+            multiSelectGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Multi-Select' }));
+            multiSelectGroup.appendChild(createElement('input', {
+                type: 'checkbox',
+                className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+                checked: selectedField.multiSelect === true || selectedField.multiselect === true,
+                onchange: (e: Event) => {
+                    const isMulti = (e.target as HTMLInputElement).checked;
+                    formStore.getState().updateField(selectedField.id, {
+                        multiSelect: isMulti,
+                        multiselect: isMulti // Also update legacy property
+                    });
+                }
+            }));
+            body.appendChild(multiSelectGroup);
+        }
+
         // --- Custom Options Management (Dropdown, Checkbox, Radio) ---
         if (['select', 'checkbox', 'radio'].includes(selectedField.type)) {
             const optionsHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Options' });
             body.appendChild(optionsHeader);
 
-            // Enable Custom Options checkbox (for dropdown)
-            if (selectedField.type === 'select') {
+            // Enable Custom Options checkbox (for dropdown) - only shown for STATIC optionSource
+            if (selectedField.type === 'select' && (selectedField.optionSource === 'STATIC' || !selectedField.optionSource)) {
                 const customOptionsGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
                 customOptionsGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Enable Custom Options' }));
                 customOptionsGroup.appendChild(createElement('input', {
@@ -1008,23 +1077,14 @@ export class FormBuilder {
                     }
                 }));
                 body.appendChild(customOptionsGroup);
-
-                // Multiselect toggle (for dropdown)
-                const multiselectGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-                multiselectGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Multiselect' }));
-                multiselectGroup.appendChild(createElement('input', {
-                    type: 'checkbox',
-                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-                    checked: !!selectedField.multiselect,
-                    onchange: (e: Event) => {
-                        formStore.getState().updateField(selectedField.id, { multiselect: (e.target as HTMLInputElement).checked });
-                    }
-                }));
-                body.appendChild(multiselectGroup);
             }
 
-            // Show options editor if custom options enabled or if checkbox/radio (always show for these)
-            const shouldShowOptions = selectedField.type === 'select' ? selectedField.customOptionsEnabled : true;
+            // Show options editor if:
+            // - For select: customOptionsEnabled is true AND optionSource is STATIC
+            // - For checkbox/radio: always show (they always use STATIC)
+            const shouldShowOptions = selectedField.type === 'select'
+                ? (selectedField.customOptionsEnabled && (selectedField.optionSource === 'STATIC' || !selectedField.optionSource))
+                : true;
 
             if (shouldShowOptions) {
                 const options = selectedField.options || [];
@@ -1085,7 +1145,7 @@ export class FormBuilder {
                     onclick: () => {
                         const newOptions = [...(selectedField.options || []), { label: `Option ${(selectedField.options || []).length + 1}`, value: `opt${(selectedField.options || []).length + 1}` }];
                         formStore.getState().updateField(selectedField.id, { options: newOptions });
-                        // Force re-render to show new option
+                        // Force re-render to show new option (scroll position will be preserved)
                         this.render();
                     }
                 });
@@ -1094,7 +1154,10 @@ export class FormBuilder {
         }
 
         // --- Advanced Validation ---
-        const validations = selectedField.validation || [];
+        // Handle both array and object validation formats
+        const validations = Array.isArray(selectedField.validation)
+            ? selectedField.validation
+            : [];
         const updateValidation = (rule: any) => {
             // Very basic replacement logic for demo
             const newValidations = validations.filter((v: any) => v.type !== rule.type);
@@ -1364,6 +1427,39 @@ export class FormBuilder {
             validationElements.push(maxValGroup);
         }
 
+        // Min/Max Selected (Checkbox)
+        if (selectedField.type === 'checkbox') {
+            const minSelectedGroup = createElement('div', { className: 'mb-3' });
+            minSelectedGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Min Selected' }));
+            minSelectedGroup.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                value: getRuleValue('minSelected'),
+                placeholder: 'e.g. 1',
+                min: '0',
+                onchange: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidation({ type: 'minSelected', value: val ? parseInt(val) : undefined });
+                }
+            }));
+            validationElements.push(minSelectedGroup);
+
+            const maxSelectedGroup = createElement('div', { className: 'mb-3' });
+            maxSelectedGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Max Selected' }));
+            maxSelectedGroup.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                value: getRuleValue('maxSelected'),
+                placeholder: 'e.g. 2',
+                min: '1',
+                onchange: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidation({ type: 'maxSelected', value: val ? parseInt(val) : undefined });
+                }
+            }));
+            validationElements.push(maxSelectedGroup);
+        }
+
         // Min/Max Date (Date)
         if (selectedField.type === 'date') {
             const getDateRuleValue = (type: string) => {
@@ -1412,6 +1508,303 @@ export class FormBuilder {
             body.appendChild(validationHeader);
             validationElements.forEach(el => body.appendChild(el));
         }
+
+        // --- CSS Styling (Field Level) ---
+        const cssHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Styling' });
+        body.appendChild(cssHeader);
+
+        // Helper to get current style value
+        const getStyleValue = (prop: string): string => selectedField.css?.style?.[prop] || '';
+
+        // Helper to update a single style property - gets fresh state from store each time
+        const updateStyleProp = (prop: string, value: string) => {
+            // Get fresh field state from store to prevent stale closure issues
+            const state = formStore.getState();
+            const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
+            if (!freshField) {
+                return;
+            }
+
+            const currentStyle = freshField.css?.style || {};
+            const newStyle = { ...currentStyle };
+            if (value) {
+                newStyle[prop] = value;
+            } else {
+                delete newStyle[prop];
+            }
+            
+            // IMPORTANT: Only pass 'style' in the update, NOT the entire CSS object
+            // This allows updateField to preserve the existing CSS class automatically
+            // and prevents double-merging of styles
+            const updatePayload = {
+                css: {
+                    style: Object.keys(newStyle).length > 0 ? newStyle : undefined
+                    // Do NOT spread freshField.css here - let updateField preserve class
+                }
+            };
+            
+            state.updateField(selectedField.id, updatePayload);
+        };
+
+        // Padding dropdown
+        const paddingGroup = createElement('div', { className: 'mb-3' });
+        paddingGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Padding' }));
+        const paddingSelect = createElement('select', {
+            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-sm',
+            onchange: (e: Event) => {
+                updateStyleProp('padding', (e.target as HTMLSelectElement).value);
+            }
+        });
+        const paddingOptions = [
+            { value: '', label: 'None' },
+            { value: '4px', label: '4px - Tight' },
+            { value: '8px', label: '8px - Normal' },
+            { value: '12px', label: '12px - Comfortable' },
+            { value: '16px', label: '16px - Spacious' },
+            { value: '24px', label: '24px - Large' }
+        ];
+        paddingOptions.forEach(opt => {
+            paddingSelect.appendChild(createElement('option', { value: opt.value, text: opt.label, selected: getStyleValue('padding') === opt.value }));
+        });
+        paddingGroup.appendChild(paddingSelect);
+        body.appendChild(paddingGroup);
+
+        // Background Color picker
+        const bgColorGroup = createElement('div', { className: 'mb-3' });
+        bgColorGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Background Color' }));
+        const bgColorRow = createElement('div', { className: 'flex items-center gap-2' });
+        const bgColorInput = createElement('input', {
+            type: 'color',
+            className: 'w-10 h-10 rounded border border-gray-300 cursor-pointer',
+            value: getStyleValue('backgroundColor') || '#ffffff',
+            onchange: (e: Event) => {
+                const color = (e.target as HTMLInputElement).value;
+                updateStyleProp('backgroundColor', color === '#ffffff' ? '' : color);
+            }
+        });
+        const bgColorClear = createElement('button', {
+            type: 'button',
+            className: 'px-2 py-1 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded',
+            text: 'Clear',
+            onclick: () => {
+                (bgColorInput as HTMLInputElement).value = '#ffffff';
+                updateStyleProp('backgroundColor', '');
+            }
+        });
+        bgColorRow.appendChild(bgColorInput);
+        bgColorRow.appendChild(bgColorClear);
+        bgColorGroup.appendChild(bgColorRow);
+        body.appendChild(bgColorGroup);
+
+        // Text Alignment buttons
+        const alignGroup = createElement('div', { className: 'mb-3' });
+        alignGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Text Alignment' }));
+        const alignButtonsRow = createElement('div', { className: 'flex gap-1' });
+        const alignments = [
+            { value: 'left', icon: 'AlignLeft' },
+            { value: 'center', icon: 'AlignCenter' },
+            { value: 'right', icon: 'AlignRight' }
+        ];
+        const currentAlign = getStyleValue('textAlign') || 'left';
+        alignments.forEach(align => {
+            const isActive = currentAlign === align.value;
+            const btn = createElement('button', {
+                type: 'button',
+                className: `p-2 rounded border ${isActive ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`,
+                title: `Align ${align.value}`,
+                onclick: () => {
+                    const newValue = align.value === 'left' ? '' : align.value;
+                    updateStyleProp('textAlign', newValue);
+                }
+            }, [getIcon(align.icon, 16)]);
+            alignButtonsRow.appendChild(btn);
+        });
+        alignGroup.appendChild(alignButtonsRow);
+        body.appendChild(alignGroup);
+
+        // CSS Class input (simplified)
+        const cssClassGroup = createElement('div', { className: 'mb-3' });
+        cssClassGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Custom CSS Class' }));
+        cssClassGroup.appendChild(createElement('input', {
+            type: 'text',
+            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
+            value: selectedField.css?.class || '',
+            placeholder: 'e.g. my-custom-class',
+            'data-focus-id': `field-css-class-${selectedField.id}`,
+            oninput: (e: Event) => {
+                const cssClass = (e.target as HTMLInputElement).value;
+                // Get fresh state to prevent stale closure
+                const state = formStore.getState();
+                const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
+                if (!freshField) return;
+                
+                // IMPORTANT: Only pass 'class' in the update, NOT 'style'
+                // This allows updateField to preserve the existing style automatically
+                state.updateField(selectedField.id, {
+                    css: {
+                        class: cssClass || undefined
+                        // Do NOT spread freshField.css here - let updateField preserve style
+                    }
+                });
+            }
+        }));
+        body.appendChild(cssClassGroup);
+
+        // Advanced Mode toggle for raw CSS editing
+        // Check if panel was previously expanded for this field
+        const isPanelExpanded = advancedCssPanelState.get(selectedField.id) || false;
+
+        const advancedToggleGroup = createElement('div', { className: 'mb-3' });
+        const advancedToggle = createElement('button', {
+            type: 'button',
+            className: 'text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1',
+            onclick: () => {
+                const advancedPanel = document.getElementById(`advanced-css-${selectedField.id}`);
+                if (advancedPanel) {
+                    advancedPanel.classList.toggle('hidden');
+                    const isHidden = advancedPanel.classList.contains('hidden');
+                    advancedToggle.textContent = isHidden ? '▶ Show Advanced CSS' : '▼ Hide Advanced CSS';
+                    // Save state to preserve across re-renders
+                    advancedCssPanelState.set(selectedField.id, !isHidden);
+                }
+            }
+        });
+        // Set initial text based on preserved state
+        advancedToggle.textContent = isPanelExpanded ? '▼ Hide Advanced CSS' : '▶ Show Advanced CSS';
+        advancedToggleGroup.appendChild(advancedToggle);
+        body.appendChild(advancedToggleGroup);
+
+        // Advanced CSS panel (use preserved state for visibility)
+        const advancedPanel = createElement('div', {
+            className: isPanelExpanded ? 'mb-3' : 'mb-3 hidden',
+            id: `advanced-css-${selectedField.id}`
+        });
+        advancedPanel.appendChild(createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Raw CSS Style (JSON)' }));
+
+        const cssStyleId = `field-css-style-${selectedField.id}`;
+        
+        // Always get the freshest field data from store to ensure we have the latest CSS style
+        const freshState = formStore.getState();
+        const freshFieldForInit = freshState.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
+        
+        // Use fresh field data if available, otherwise fall back to selectedField
+        const fieldForCssStyle = freshFieldForInit || selectedField;
+        let initialCssStyleValue = fieldForCssStyle.css?.style ? JSON.stringify(fieldForCssStyle.css.style, null, 2) : '';
+        const preservedValue = focusState?.id === cssStyleId ? focusState.value : undefined;
+        if (preservedValue !== undefined) {
+            initialCssStyleValue = preservedValue;
+        }
+        
+
+        const cssStyleTextarea = createElement('textarea', {
+            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-xs font-mono',
+            rows: 3,
+            placeholder: '{"padding": "8px", "backgroundColor": "#f0f0f0"}',
+            'data-focus-id': cssStyleId,
+            'data-was-focused': 'false',
+            onfocus: (e: Event) => {
+                const textarea = e.target as HTMLTextAreaElement;
+                
+                // Mark that this textarea has received genuine user focus
+                textarea.setAttribute('data-was-focused', 'true');
+                
+                // DEBUG: Log when CSS style textarea gets focus
+                const state = formStore.getState();
+                const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
+                
+                // Safety check: If textarea is empty but store has CSS style, restore it
+                if (!textarea.value.trim() && freshField?.css?.style && Object.keys(freshField.css.style).length > 0) {
+                    const styleString = JSON.stringify(freshField.css.style, null, 2);
+                    textarea.value = styleString;
+                }
+            },
+            oninput: (e: Event) => {
+                const styleText = (e.target as HTMLTextAreaElement).value;
+                // Save on input to prevent data loss during re-renders
+                const state = formStore.getState();
+                const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
+                if (!freshField) return;
+                
+                try {
+                    if (styleText.trim()) {
+                        const styleObj = JSON.parse(styleText);
+                        state.updateField(selectedField.id, {
+                            css: { ...freshField.css, style: styleObj }
+                        });
+                    }
+                    // Don't clear on empty during oninput - only clear intentionally on blur when panel is visible
+                } catch (err) {
+                    // Invalid JSON during typing - ignore, will validate on blur
+                }
+            },
+            onblur: (e: Event) => {
+                const textarea = e.target as HTMLTextAreaElement;
+                const styleText = textarea.value;
+
+                // Only process blur if this textarea was genuinely focused by the user
+                // This prevents spurious blur events from re-renders
+                const wasFocused = textarea.getAttribute('data-was-focused') === 'true';
+                if (!wasFocused) {
+                    return;
+                }
+
+                // Reset the focus flag
+                textarea.setAttribute('data-was-focused', 'false');
+
+                // Defer blur processing to allow click events on fields to fire first
+                // This prevents the double-click issue when clicking on fields after using the textarea
+                setTimeout(() => {
+                    // Check if this textarea is still in the DOM
+                    if (!document.body.contains(textarea)) {
+                        return;
+                    }
+
+                    // Check if the advanced panel is visible
+                    const advPanel = document.getElementById(`advanced-css-${selectedField.id}`);
+                    const isPanelVisible = advPanel && !advPanel.classList.contains('hidden');
+                    if (!isPanelVisible) {
+                        return;
+                    }
+
+                    // Get fresh state to prevent stale closure
+                    const state = formStore.getState();
+                    const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
+                    if (!freshField) return;
+
+                    try {
+                        if (styleText.trim()) {
+                            const styleObj = JSON.parse(styleText);
+                            state.updateField(selectedField.id, {
+                                css: { ...freshField.css, style: styleObj }
+                            });
+                        } else {
+                            // Only clear if user explicitly cleared - check store first
+                            if (freshField.css?.style && Object.keys(freshField.css.style).length > 0) {
+                                // Store has data but textarea is empty - restore from store
+                                textarea.value = JSON.stringify(freshField.css.style, null, 2);
+                            } else {
+                                // No data in store, clear is intentional
+                                state.updateField(selectedField.id, {
+                                    css: { ...freshField.css, style: undefined }
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        // Invalid JSON - restore from store if available
+                        if (freshField.css?.style) {
+                            textarea.value = JSON.stringify(freshField.css.style, null, 2);
+                        }
+                    }
+                }, 0); // Defer to next event loop tick to allow click events to fire first
+            }
+        });
+        
+        // Set textarea value directly (textarea needs property, not attribute)
+        // This must be done after createElement because textarea.value is a property, not an attribute
+        cssStyleTextarea.value = initialCssStyleValue;
+        
+        advancedPanel.appendChild(cssStyleTextarea);
+        body.appendChild(advancedPanel);
 
         // --- Async Options (Select/Radio) ---
         // COMMENTED OUT: Options Source and Source Type functionality

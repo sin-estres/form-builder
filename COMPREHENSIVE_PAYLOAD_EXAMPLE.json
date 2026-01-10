@@ -1,0 +1,727 @@
+{
+  "id": "form-comprehensive-example-001",
+  "title": "Comprehensive Form Example - All Field Types",
+  "formName": "comprehensiveFormExample",
+  "sections": [
+    {
+      "id": "section-basic-fields-001",
+      "title": "Basic Input Fields",
+      "columns": 2,
+      "isExpanded": true,
+      "fields": [
+        {
+          "id": "field-text-basic-001",
+          "type": "text",
+          "label": "Text Input - Basic",
+          "placeholder": "Enter text here",
+          "description": "A basic text input field",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "defaultValue": "",
+          "validation": [
+            {
+              "type": "required",
+              "message": "This field is required"
+            },
+            {
+              "type": "minLength",
+              "value": 3,
+              "message": "Minimum 3 characters required"
+            },
+            {
+              "type": "maxLength",
+              "value": 100,
+              "message": "Maximum 100 characters allowed"
+            }
+          ]
+        },
+        {
+          "id": "field-text-regex-001",
+          "type": "text",
+          "label": "Text Input - With Regex Pattern",
+          "placeholder": "Enter website URL",
+          "description": "Text field with regex validation (Website URL preset)",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "pattern",
+              "regex": "^(https?:\\/\\/)?(www\\.)?([a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}(\\/.*)?$",
+              "message": "Please enter a valid website URL"
+            }
+          ]
+        },
+        {
+          "id": "field-text-pan-001",
+          "type": "text",
+          "label": "PAN Card Number",
+          "placeholder": "ABCDE1234F",
+          "description": "Text field with PAN card regex validation",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "pattern",
+              "regex": "^[A-Z]{5}[0-9]{4}[A-Z]$",
+              "message": "Please enter a valid PAN card number (e.g., ABCDE1234F)"
+            }
+          ]
+        },
+        {
+          "id": "field-text-width-numeric-001",
+          "type": "text",
+          "label": "Text Input - Numeric Width (75)",
+          "placeholder": "Width set to numeric value 75",
+          "width": 75,
+          "required": false,
+          "enabled": true,
+          "visible": true
+        },
+        {
+          "id": "field-textarea-001",
+          "type": "textarea",
+          "label": "Text Area",
+          "placeholder": "Enter description or long text",
+          "description": "A multi-line text area field",
+          "width": "100%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "defaultValue": "",
+          "validation": [
+            {
+              "type": "required",
+              "message": "Description is required"
+            },
+            {
+              "type": "minLength",
+              "value": 10,
+              "message": "Minimum 10 characters required"
+            },
+            {
+              "type": "maxLength",
+              "value": 500,
+              "message": "Maximum 500 characters allowed"
+            }
+          ]
+        },
+        {
+          "id": "field-number-001",
+          "type": "number",
+          "label": "Number Input",
+          "placeholder": "0",
+          "description": "A number input field with min/max validation",
+          "width": "33%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "defaultValue": 0,
+          "validation": [
+            {
+              "type": "required",
+              "message": "Number is required"
+            },
+            {
+              "type": "min",
+              "value": 0,
+              "message": "Value must be at least 0"
+            },
+            {
+              "type": "max",
+              "value": 1000,
+              "message": "Value must not exceed 1000"
+            }
+          ]
+        },
+        {
+          "id": "field-email-001",
+          "type": "email",
+          "label": "Email Input",
+          "placeholder": "example@email.com",
+          "description": "Email field with built-in email validation",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "required",
+              "message": "Email is required"
+            },
+            {
+              "type": "email",
+              "message": "Please enter a valid email address"
+            },
+            {
+              "type": "pattern",
+              "regex": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+              "message": "Invalid email format"
+            }
+          ]
+        },
+        {
+          "id": "field-phone-001",
+          "type": "phone",
+          "label": "Phone Number",
+          "placeholder": "+1 234 567 8900",
+          "description": "Phone number input field",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "required",
+              "message": "Phone number is required"
+            },
+            {
+              "type": "pattern",
+              "regex": "^[6-9]\\d{9}$",
+              "message": "Please enter a valid 10-digit mobile number starting with 6-9"
+            }
+          ]
+        },
+        {
+          "id": "field-date-001",
+          "type": "date",
+          "label": "Date Picker",
+          "placeholder": "Select date",
+          "description": "Date picker with min/max date validation",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "required",
+              "message": "Date is required"
+            },
+            {
+              "type": "minDate",
+              "value": "2024-01-01",
+              "message": "Date must be after 2024-01-01"
+            },
+            {
+              "type": "maxDate",
+              "value": "2024-12-31",
+              "message": "Date must be before 2024-12-31"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-select-fields-001",
+      "title": "Select/Dropdown Fields",
+      "columns": 1,
+      "isExpanded": true,
+      "fields": [
+        {
+          "id": "field-select-basic-001",
+          "type": "select",
+          "label": "Dropdown - Basic Options",
+          "placeholder": "Select an option",
+          "description": "Basic dropdown with static options",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "options": [
+            {
+              "label": "Option 1",
+              "value": "opt1"
+            },
+            {
+              "label": "Option 2",
+              "value": "opt2"
+            },
+            {
+              "label": "Option 3",
+              "value": "opt3"
+            }
+          ],
+          "validation": [
+            {
+              "type": "required",
+              "message": "Please select an option"
+            }
+          ]
+        },
+        {
+          "id": "field-select-multiselect-001",
+          "type": "select",
+          "label": "Dropdown - Multiselect",
+          "placeholder": "Select multiple options",
+          "description": "Dropdown with multiselect enabled",
+          "width": "50%",
+          "required": false,
+          "enabled": true,
+          "visible": true,
+          "multiselect": true,
+          "options": [
+            {
+              "label": "Red",
+              "value": "red"
+            },
+            {
+              "label": "Green",
+              "value": "green"
+            },
+            {
+              "label": "Blue",
+              "value": "blue"
+            },
+            {
+              "label": "Yellow",
+              "value": "yellow"
+            }
+          ]
+        },
+        {
+          "id": "field-select-custom-options-001",
+          "type": "select",
+          "label": "Dropdown - Custom Options Enabled",
+          "placeholder": "Select or add custom option",
+          "description": "Dropdown with custom options editing enabled",
+          "width": "50%",
+          "required": false,
+          "enabled": true,
+          "visible": true,
+          "customOptionsEnabled": true,
+          "options": [
+            {
+              "label": "Custom Option 1",
+              "value": "custom1"
+            },
+            {
+              "label": "Custom Option 2",
+              "value": "custom2"
+            }
+          ]
+        },
+        {
+          "id": "field-select-groupname-001",
+          "type": "select",
+          "label": "Dropdown - With Group Name",
+          "placeholder": "Select from group",
+          "description": "Dropdown linked to a master type group",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "groupName": {
+            "id": "master-type-001",
+            "name": "countries"
+          },
+          "masterTypeName": "CountryEnum",
+          "options": [
+            {
+              "label": "United States",
+              "value": "us"
+            },
+            {
+              "label": "United Kingdom",
+              "value": "uk"
+            },
+            {
+              "label": "India",
+              "value": "in"
+            }
+          ]
+        },
+        {
+          "id": "field-select-async-001",
+          "type": "select",
+          "label": "Dropdown - Async Options Source",
+          "placeholder": "Select from API",
+          "description": "Dropdown with async options from API",
+          "width": "100%",
+          "required": false,
+          "enabled": true,
+          "visible": true,
+          "optionsSource": {
+            "api": "https://api.example.com/options",
+            "method": "GET",
+            "labelKey": "name",
+            "valueKey": "id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "section-checkbox-radio-001",
+      "title": "Checkbox and Radio Fields",
+      "columns": 2,
+      "isExpanded": true,
+      "fields": [
+        {
+          "id": "field-checkbox-001",
+          "type": "checkbox",
+          "label": "Checkbox Group",
+          "description": "Multiple selection checkbox group",
+          "width": "100%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "options": [
+            {
+              "label": "Accept Terms and Conditions",
+              "value": "terms"
+            },
+            {
+              "label": "Subscribe to Newsletter",
+              "value": "newsletter"
+            },
+            {
+              "label": "Receive Marketing Emails",
+              "value": "marketing"
+            }
+          ],
+          "validation": [
+            {
+              "type": "required",
+              "message": "Please select at least one option"
+            }
+          ]
+        },
+        {
+          "id": "field-radio-001",
+          "type": "radio",
+          "label": "Radio Group",
+          "description": "Single selection radio group",
+          "width": "100%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "options": [
+            {
+              "label": "Option A",
+              "value": "option-a"
+            },
+            {
+              "label": "Option B",
+              "value": "option-b"
+            },
+            {
+              "label": "Option C",
+              "value": "option-c"
+            }
+          ],
+          "validation": [
+            {
+              "type": "required",
+              "message": "Please select an option"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-toggle-file-001",
+      "title": "Toggle and File Fields",
+      "columns": 3,
+      "isExpanded": true,
+      "fields": [
+        {
+          "id": "field-toggle-001",
+          "type": "toggle",
+          "label": "Toggle Switch",
+          "description": "A toggle/switch field",
+          "width": "33%",
+          "required": false,
+          "enabled": true,
+          "visible": true,
+          "defaultValue": false
+        },
+        {
+          "id": "field-toggle-enabled-001",
+          "type": "toggle",
+          "label": "Toggle - Enabled",
+          "description": "Toggle field that is enabled",
+          "width": "33%",
+          "required": false,
+          "enabled": true,
+          "visible": true,
+          "defaultValue": true
+        },
+        {
+          "id": "field-toggle-disabled-001",
+          "type": "toggle",
+          "label": "Toggle - Disabled",
+          "description": "Toggle field that is disabled",
+          "width": "33%",
+          "required": false,
+          "enabled": false,
+          "visible": true,
+          "defaultValue": false
+        },
+        {
+          "id": "field-file-001",
+          "type": "file",
+          "label": "File Upload",
+          "placeholder": "Upload file",
+          "description": "File upload field",
+          "width": "100%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "required",
+              "message": "Please upload a file"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-advanced-options-001",
+      "title": "Advanced Field Options",
+      "columns": 1,
+      "isExpanded": false,
+      "fields": [
+        {
+          "id": "field-hidden-001",
+          "type": "text",
+          "label": "Hidden Field",
+          "placeholder": "This field is hidden",
+          "description": "A hidden field (for conditional logic)",
+          "width": "100%",
+          "required": false,
+          "enabled": true,
+          "visible": false,
+          "hidden": true,
+          "defaultValue": "hidden-value"
+        },
+        {
+          "id": "field-disabled-001",
+          "type": "text",
+          "label": "Disabled Field",
+          "placeholder": "This field is disabled",
+          "description": "A disabled field",
+          "width": "100%",
+          "required": false,
+          "enabled": false,
+          "visible": true,
+          "defaultValue": "disabled-value"
+        },
+        {
+          "id": "field-position-001",
+          "type": "text",
+          "label": "Field with Position",
+          "placeholder": "Field with grid position",
+          "description": "Field with explicit grid position (future proofing)",
+          "width": "50%",
+          "required": false,
+          "enabled": true,
+          "visible": true,
+          "position": {
+            "row": 0,
+            "column": 0
+          }
+        },
+        {
+          "id": "field-all-widths-001",
+          "type": "text",
+          "label": "Width: 25%",
+          "width": "25%",
+          "required": false,
+          "enabled": true,
+          "visible": true
+        },
+        {
+          "id": "field-all-widths-002",
+          "type": "text",
+          "label": "Width: 33%",
+          "width": "33%",
+          "required": false,
+          "enabled": true,
+          "visible": true
+        },
+        {
+          "id": "field-all-widths-003",
+          "type": "text",
+          "label": "Width: 50%",
+          "width": "50%",
+          "required": false,
+          "enabled": true,
+          "visible": true
+        },
+        {
+          "id": "field-all-widths-004",
+          "type": "text",
+          "label": "Width: 66%",
+          "width": "66%",
+          "required": false,
+          "enabled": true,
+          "visible": true
+        },
+        {
+          "id": "field-all-widths-005",
+          "type": "text",
+          "label": "Width: 75%",
+          "width": "75%",
+          "required": false,
+          "enabled": true,
+          "visible": true
+        },
+        {
+          "id": "field-all-widths-006",
+          "type": "text",
+          "label": "Width: 100%",
+          "width": "100%",
+          "required": false,
+          "enabled": true,
+          "visible": true
+        },
+        {
+          "id": "field-numeric-width-001",
+          "type": "text",
+          "label": "Width: Numeric 45",
+          "width": 45,
+          "required": false,
+          "enabled": true,
+          "visible": true
+        },
+        {
+          "id": "field-numeric-width-002",
+          "type": "text",
+          "label": "Width: Numeric 80",
+          "width": 80,
+          "required": false,
+          "enabled": true,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "section-validation-examples-001",
+      "title": "Validation Examples",
+      "columns": 2,
+      "isExpanded": true,
+      "fields": [
+        {
+          "id": "field-validation-required-001",
+          "type": "text",
+          "label": "Required Field",
+          "placeholder": "This field is required",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "required",
+              "message": "This field is required"
+            }
+          ]
+        },
+        {
+          "id": "field-validation-minmax-length-001",
+          "type": "text",
+          "label": "Min/Max Length",
+          "placeholder": "3-20 characters",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "minLength",
+              "value": 3,
+              "message": "Minimum 3 characters"
+            },
+            {
+              "type": "maxLength",
+              "value": 20,
+              "message": "Maximum 20 characters"
+            }
+          ]
+        },
+        {
+          "id": "field-validation-minmax-value-001",
+          "type": "number",
+          "label": "Min/Max Value",
+          "placeholder": "10-100",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "min",
+              "value": 10,
+              "message": "Minimum value is 10"
+            },
+            {
+              "type": "max",
+              "value": 100,
+              "message": "Maximum value is 100"
+            }
+          ]
+        },
+        {
+          "id": "field-validation-date-range-001",
+          "type": "date",
+          "label": "Date Range",
+          "placeholder": "Select date between range",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "minDate",
+              "value": "2024-01-01",
+              "message": "Date must be after 2024-01-01"
+            },
+            {
+              "type": "maxDate",
+              "value": "2024-12-31",
+              "message": "Date must be before 2024-12-31"
+            }
+          ]
+        },
+        {
+          "id": "field-validation-pattern-001",
+          "type": "text",
+          "label": "Pattern Validation (GST)",
+          "placeholder": "27ABCDE1234F1Z5",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "pattern",
+              "regex": "^\\d{2}[A-Z]{5}\\d{4}[A-Z][A-Z\\d]Z[A-Z\\d]$",
+              "message": "Please enter a valid GST number (e.g., 27ABCDE1234F1Z5)"
+            }
+          ]
+        },
+        {
+          "id": "field-validation-email-001",
+          "type": "email",
+          "label": "Email Validation",
+          "placeholder": "user@example.com",
+          "width": "50%",
+          "required": true,
+          "enabled": true,
+          "visible": true,
+          "validation": [
+            {
+              "type": "email",
+              "message": "Please enter a valid email address"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -20,6 +20,20 @@ export class FieldWrapper {
             }
         });
 
+        // Apply field-level CSS class
+        if (field.css?.class) {
+            field.css.class.split(' ').forEach(cls => {
+                if (cls.trim()) fieldWrapper.classList.add(cls.trim());
+            });
+        }
+
+        // Apply field-level CSS style
+        if (field.css?.style) {
+            Object.entries(field.css.style).forEach(([prop, value]) => {
+                (fieldWrapper.style as any)[prop] = value;
+            });
+        }
+
         // Add visual indicator of selected state
         if (isSelected) {
             fieldWrapper.classList.add('ring-2', 'bg-[#acbdfe33]', 'dark:bg-blue-900/20');
