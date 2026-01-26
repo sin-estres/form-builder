@@ -416,6 +416,27 @@
       border-top-right-radius: 0;
     }
   }
+
+  /* ===== INPUT FIELD STABILITY & PERFORMANCE ===== */
+  /* Prevent flicker and layout shifts during typing */
+  .lookup-input-field,
+  .form-builder-config-wrapper input[type="text"],
+  .form-builder-config-wrapper input[type="number"],
+  .form-builder-config-wrapper textarea {
+    will-change: contents;
+    /* Use GPU acceleration for smooth rendering */
+    transform: translateZ(0);
+    /* Prevent layout recalculation on input change */
+    contain: layout style;
+  }
+
+  /* Ensure inputs have fixed dimensions to prevent jumps */
+  .form-builder-config-wrapper input,
+  .form-builder-config-wrapper select,
+  .form-builder-config-wrapper textarea {
+    min-height: 38px;
+    /* Fixed height prevents layout shift */
+  }
 }
 
 

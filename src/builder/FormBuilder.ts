@@ -47,6 +47,8 @@ export class FormBuilder {
     private container: HTMLElement;
     private unsubscribe!: () => void;
     private options: FormBuilderOptions;
+    private isInputUpdate: boolean = false; // Track if update is from text input
+    private lastRenderedSchemaHash: string = ''; // Cache to detect meaningful changes
 
     constructor(container: HTMLElement, options: FormBuilderOptions = {}) {
         if (!container) {
@@ -243,11 +245,35 @@ export class FormBuilder {
 
     private setupSubscriptions() {
         this.unsubscribe = formStore.subscribe(() => {
+            // Optimization: Skip full re-render if update is from text input
+            // Text inputs will update their own DOM directly
+            if (this.isInputUpdate) {
+                this.isInputUpdate = false; // Reset flag
+                return; // Skip re-render
+            }
 
-            // Optimization: We could diff, but for now full re-render is safer for migration.
-            // We need to be careful not to kill drag states if we re-render mid-drag.
-            // Ideally we only re-render if schema changed in a way that affects DOM structure.
-            this.render();
+            // Generate hash of schema for change detection
+            const state = formStore.getState();
+            const schemaHash = JSON.stringify({
+                sections: state.schema.sections.map(s => ({
+                    id: s.id,
+                    title: s.title,
+                    fields: s.fields.map(f => ({
+                        id: f.id,
+                        type: f.type,
+                        label: f.label,
+                        // Exclude frequently changing text properties from hash
+                        // to prevent re-renders on typing
+                    }))
+                })),
+                selectedField: state.selectedFieldId
+            });
+
+            // Only re-render if something meaningful changed
+            if (schemaHash !== this.lastRenderedSchemaHash) {
+                this.lastRenderedSchemaHash = schemaHash;
+                this.render();
+            }
         });
     }
 
@@ -535,7 +561,7 @@ export class FormBuilder {
         const previewBtn = createElement('button', {
             className: `flex items-center px-3 py-2 text-sm bg-[#3b497e] text-white font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-[#019FA2] text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 "}`,
             onclick: () => formStore.getState().togglePreview()
-        }, [getIcon('Eye', 16), createElement('span', { className: '', text: state.isPreviewMode ? '' : '' })]);
+        }, [getIcon(state.isPreviewMode ? 'X' : 'Eye', 16), createElement('span', { className: '', text: state.isPreviewMode ? '' : '' })]);
 
         const saveBtn = createElement('button', {
             className: 'flex items-center px-3 py-2 text-sm font-medium text-white bg-[#019FA2]  rounded-md shadow-sm transition-colors',
@@ -693,7 +719,10 @@ export class FormBuilder {
             value: state.schema.formName,
             placeholder: 'formName (e.g., contactForm)',
             'data-focus-id': 'form-name',
-            oninput: (e: Event) => formStore.getState().setSchema({ ...state.schema, formName: (e.target as HTMLInputElement).value })
+            oninput: (e: Event) => {
+                this.isInputUpdate = true;
+                formStore.getState().setSchema({ ...state.schema, formName: (e.target as HTMLInputElement).value });
+            }
         });
         inner.appendChild(formNameInput);
 
@@ -742,7 +771,10 @@ export class FormBuilder {
             className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
             value: selectedField.label,
             'data-focus-id': `field-label-${selectedField.id}`,
-            oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { label: (e.target as HTMLInputElement).value })
+            oninput: (e: Event) => {
+                this.isInputUpdate = true;
+                formStore.getState().updateField(selectedField.id, { label: (e.target as HTMLInputElement).value });
+            }
         }));
         body.appendChild(labelGroup);
 
@@ -753,7 +785,10 @@ export class FormBuilder {
             className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
             value: selectedField.placeholder || '',
             'data-focus-id': `field-placeholder-${selectedField.id}`,
-            oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { placeholder: (e.target as HTMLInputElement).value })
+            oninput: (e: Event) => {
+                this.isInputUpdate = true;
+                formStore.getState().updateField(selectedField.id, { placeholder: (e.target as HTMLInputElement).value });
+            }
         }));
         body.appendChild(placeholderGroup);
 
@@ -1152,31 +1187,51 @@ export class FormBuilder {
                 // Lookup Value Field
                 const lookupValueFieldGroup = createElement('div', { className: 'mb-4' });
                 lookupValueFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Value Field' }));
-                lookupValueFieldGroup.appendChild(createElement('input', {
+                const lookupValueFieldId = `field-lookup-value-${selectedField.id}`;
+                const lookupValueFieldInput = createElement('input', {
                     type: 'text',
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent lookup-input-field',
                     value: selectedField.lookupValueField || '',
                     placeholder: 'Enter value field name',
+                    'data-focus-id': lookupValueFieldId,
                     oninput: (e: Event) => {
+                        // Set flag to prevent full re-render
+                        this.isInputUpdate = true;
+                        const lookupValueField = (e.target as HTMLInputElement).value;
+                        formStore.getState().updateField(selectedField.id, { lookupValueField: lookupValueField || undefined });
+                    },
+                    onblur: (e: Event) => {
+                        // Save immediately and allow re-render on blur
                         const lookupValueField = (e.target as HTMLInputElement).value;
                         formStore.getState().updateField(selectedField.id, { lookupValueField: lookupValueField || undefined });
                     }
-                }));
+                });
+                lookupValueFieldGroup.appendChild(lookupValueFieldInput);
                 body.appendChild(lookupValueFieldGroup);
 
                 // Lookup Label Field
                 const lookupLabelFieldGroup = createElement('div', { className: 'mb-4' });
                 lookupLabelFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Label Field' }));
-                lookupLabelFieldGroup.appendChild(createElement('input', {
+                const lookupLabelFieldId = `field-lookup-label-${selectedField.id}`;
+                const lookupLabelFieldInput = createElement('input', {
                     type: 'text',
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent lookup-input-field',
                     value: selectedField.lookupLabelField || '',
                     placeholder: 'Enter label field name',
+                    'data-focus-id': lookupLabelFieldId,
                     oninput: (e: Event) => {
+                        // Set flag to prevent full re-render
+                        this.isInputUpdate = true;
+                        const lookupLabelField = (e.target as HTMLInputElement).value;
+                        formStore.getState().updateField(selectedField.id, { lookupLabelField: lookupLabelField || undefined });
+                    },
+                    onblur: (e: Event) => {
+                        // Save immediately and allow re-render on blur
                         const lookupLabelField = (e.target as HTMLInputElement).value;
                         formStore.getState().updateField(selectedField.id, { lookupLabelField: lookupLabelField || undefined });
                     }
-                }));
+                });
+                lookupLabelFieldGroup.appendChild(lookupLabelFieldInput);
                 body.appendChild(lookupLabelFieldGroup);
 
                 // Visibility checkbox
