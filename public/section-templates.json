@@ -1,7 +1,7 @@
 [
   {
     "id": "section-contact-details-001",
-    "title": "Customer Lead / Prospect Form - Contact Details",
+    "title": "Contact Details",
     "fields": [
       {
         "id": "field-first-name-001",
@@ -41,7 +41,7 @@
   },
   {
     "id": "section-business-info-001",
-    "title": "Customer Lead / Prospect Form - Business Info",
+    "title": "Business Info",
     "fields": [
       {
         "id": "field-company-name-001",
@@ -120,7 +120,7 @@
   },
   {
     "id": "section-additional-001",
-    "title": "Customer Lead / Prospect Form - Additional",
+    "title": "Additional",
     "fields": [
       {
         "id": "field-notes-001",
@@ -133,7 +133,7 @@
   },
   {
     "id": "section-personal-details-002",
-    "title": "Employee Onboarding Form - Personal Details",
+    "title": "Personal Details",
     "fields": [
       {
         "id": "field-full-name-002",
@@ -198,7 +198,7 @@
   },
   {
     "id": "section-address-info-002",
-    "title": "Employee Onboarding Form - Address Information",
+    "title": "Address Information",
     "fields": [
       {
         "id": "field-current-address-002",
@@ -218,7 +218,7 @@
   },
   {
     "id": "section-job-details-002",
-    "title": "Employee Onboarding Form - Job Details",
+    "title": "Job Details",
     "fields": [
       {
         "id": "field-department-002",
@@ -275,7 +275,7 @@
   },
   {
     "id": "section-banking-id-002",
-    "title": "Employee Onboarding Form - Banking & ID",
+    "title": "Banking & ID",
     "fields": [
       {
         "id": "field-aadhar-002",
@@ -309,7 +309,7 @@
   },
   {
     "id": "section-vendor-info-003",
-    "title": "Vendor Registration Form - Vendor Info",
+    "title": "Vendor Info",
     "fields": [
       {
         "id": "field-vendor-name-003",
@@ -369,7 +369,7 @@
   },
   {
     "id": "section-contact-details-003",
-    "title": "Vendor Registration Form - Contact Details",
+    "title": "Vendor Contact Details",
     "fields": [
       {
         "id": "field-contact-person-003",
@@ -402,7 +402,7 @@
   },
   {
     "id": "section-bank-details-003",
-    "title": "Vendor Registration Form - Bank Details",
+    "title": "Bank Details",
     "fields": [
       {
         "id": "field-account-holder-003",
@@ -429,7 +429,7 @@
   },
   {
     "id": "section-compliance-003",
-    "title": "Vendor Registration Form - Compliance",
+    "title": "Compliance",
     "fields": [
       {
         "id": "field-cancelled-cheque-003",
@@ -442,7 +442,7 @@
   },
   {
     "id": "section-personal-info-004",
-    "title": "Customer Feedback Form - Personal Info",
+    "title": "Personal Info",
     "fields": [
       {
         "id": "field-name-004",
@@ -468,7 +468,7 @@
   },
   {
     "id": "section-feedback-004",
-    "title": "Customer Feedback Form - Feedback",
+    "title": "Feedback",
     "fields": [
       {
         "id": "field-rate-experience-004",
@@ -517,7 +517,7 @@
   },
   {
     "id": "section-customer-details-005",
-    "title": "Support Ticket / Complaint Form - Customer Details",
+    "title": "Customer Details",
     "fields": [
       {
         "id": "field-name-005",
@@ -550,7 +550,7 @@
   },
   {
     "id": "section-issue-details-005",
-    "title": "Support Ticket / Complaint Form - Issue Details",
+    "title": "Issue Details",
     "fields": [
       {
         "id": "field-category-005",
@@ -613,7 +613,7 @@
   },
   {
     "id": "section-attachment-005",
-    "title": "Support Ticket / Complaint Form - Attachment",
+    "title": "Attachment",
     "fields": [
       {
         "id": "field-screenshot-005",
@@ -626,7 +626,7 @@
   },
   {
     "id": "section-customer-info-006",
-    "title": "Sales Order Request Form - Customer Information",
+    "title": "Customer Information",
     "fields": [
       {
         "id": "field-name-006",
@@ -659,7 +659,7 @@
   },
   {
     "id": "section-order-details-006",
-    "title": "Sales Order Request Form - Order Details",
+    "title": "Order Details",
     "fields": [
       {
         "id": "field-product-list-006",
@@ -708,7 +708,7 @@
   },
   {
     "id": "section-payment-006",
-    "title": "Sales Order Request Form - Payment",
+    "title": "Payment",
     "fields": [
       {
         "id": "field-payment-method-006",
@@ -747,7 +747,7 @@
   },
   {
     "id": "section-personal-info-007",
-    "title": "Job Application / Recruitment Form - Personal Info",
+    "title": "Applicant Info",
     "fields": [
       {
         "id": "field-name-007",
@@ -787,7 +787,7 @@
   },
   {
     "id": "section-professional-info-007",
-    "title": "Job Application / Recruitment Form - Professional Info",
+    "title": "Professional Info",
     "fields": [
       {
         "id": "field-resume-007",
@@ -814,7 +814,7 @@
   },
   {
     "id": "section-additional-007",
-    "title": "Job Application / Recruitment Form - Additional",
+    "title": "Additional Info",
     "fields": [
       {
         "id": "field-why-hire-007",
@@ -827,7 +827,7 @@
   },
   {
     "id": "section-employee-info-008",
-    "title": "Internal Request Form (IT / Admin) - Employee Info",
+    "title": "Employee Info",
     "fields": [
       {
         "id": "field-name-008",
@@ -854,7 +854,7 @@
   },
   {
     "id": "section-request-details-008",
-    "title": "Internal Request Form (IT / Admin) - Request Details",
+    "title": "Request Details",
     "fields": [
       {
         "id": "field-request-type-008",
@@ -925,7 +925,7 @@
   },
   {
     "id": "section-participant-info-009",
-    "title": "Event Registration Form - Participant Info",
+    "title": "Participant Info",
     "fields": [
       {
         "id": "field-name-009",
@@ -958,7 +958,7 @@
   },
   {
     "id": "section-event-details-009",
-    "title": "Event Registration Form - Event Details",
+    "title": "Event Details",
     "fields": [
       {
         "id": "field-select-event-009",
@@ -1000,7 +1000,7 @@
   },
   {
     "id": "section-additional-009",
-    "title": "Event Registration Form - Additional",
+    "title": "Event Additional Info",
     "fields": [
       {
         "id": "field-comments-009",
@@ -1013,7 +1013,7 @@
   },
   {
     "id": "section-customer-info-010",
-    "title": "Appointment / Booking Form - Customer Info",
+    "title": "Customer Info",
     "fields": [
       {
         "id": "field-full-name-010",
@@ -1046,7 +1046,7 @@
   },
   {
     "id": "section-booking-details-010",
-    "title": "Appointment / Booking Form - Booking Details",
+    "title": "Booking Details",
     "fields": [
       {
         "id": "field-service-type-010",
@@ -1095,7 +1095,7 @@
   },
   {
     "id": "section-notes-010",
-    "title": "Appointment / Booking Form - Notes",
+    "title": "Notes",
     "fields": [
       {
         "id": "field-additional-requests-010",
@@ -1108,7 +1108,7 @@
   },
   {
     "id": "section-contact-details-011",
-    "title": "CRM Contact / Company Form - Contact Details",
+    "title": "CRM Contact Details",
     "fields": [
       {
         "id": "field-name-011",
@@ -1141,7 +1141,7 @@
   },
   {
     "id": "section-company-details-011",
-    "title": "CRM Contact / Company Form - Company Details",
+    "title": "Company Details",
     "fields": [
       {
         "id": "field-company-name-011",
@@ -1202,7 +1202,7 @@
   },
   {
     "id": "section-notes-011",
-    "title": "CRM Contact / Company Form - Notes",
+    "title": "CRM Notes",
     "fields": [
       {
         "id": "field-description-011",
@@ -1215,7 +1215,7 @@
   },
   {
     "id": "section-employee-info-012",
-    "title": "Expense Reimbursement Form - Employee Info",
+    "title": "Expense Employee Info",
     "fields": [
       {
         "id": "field-name-012",
@@ -1242,7 +1242,7 @@
   },
   {
     "id": "section-expense-details-012",
-    "title": "Expense Reimbursement Form - Expense Details",
+    "title": "Expense Details",
     "fields": [
       {
         "id": "field-expense-type-012",
@@ -1306,13 +1306,125 @@
   },
   {
     "id": "section-upload-012",
-    "title": "Expense Reimbursement Form - Upload",
+    "title": "Receipt Upload",
     "fields": [
       {
         "id": "field-receipt-012",
         "type": "file",
         "label": "Receipt Attachment",
         "placeholder": "Upload receipt",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-text-fields-013",
+    "title": "Text Fields",
+    "fields": [
+      {
+        "id": "field-text-example-013",
+        "type": "text",
+        "label": "Text Field",
+        "placeholder": "Enter text here",
+        "width": "50%"
+      },
+      {
+        "id": "field-textarea-example-013",
+        "type": "textarea",
+        "label": "Textarea Field",
+        "placeholder": "Enter long text here",
+        "width": "100%"
+      }
+    ]
+  },
+  {
+    "id": "section-contact-fields-013",
+    "title": "Contact Fields",
+    "fields": [
+      {
+        "id": "field-email-example-013",
+        "type": "email",
+        "label": "Email Field",
+        "placeholder": "example@email.com",
+        "width": "50%",
+        "validation": [
+          {
+            "type": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      },
+      {
+        "id": "field-phone-example-013",
+        "type": "phone",
+        "label": "Phone Field",
+        "placeholder": "+1 234 567 8900",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-number-fields-013",
+    "title": "Number Fields",
+    "fields": [
+      {
+        "id": "field-number-example-013",
+        "type": "number",
+        "label": "Number Field",
+        "placeholder": "Enter a number",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-date-fields-013",
+    "title": "Date Fields",
+    "fields": [
+      {
+        "id": "field-date-example-013",
+        "type": "date",
+        "label": "Date Field",
+        "placeholder": "Select a date",
+        "width": "50%"
+      }
+    ]
+  },
+  {
+    "id": "section-selection-fields-013",
+    "title": "Selection Fields",
+    "fields": [
+      {
+        "id": "field-select-example-013",
+        "type": "select",
+        "label": "Select / Dropdown Field",
+        "placeholder": "Choose an option",
+        "width": "50%",
+        "options": [
+          {
+            "label": "Option 1",
+            "value": "option-1"
+          },
+          {
+            "label": "Option 2",
+            "value": "option-2"
+          },
+          {
+            "label": "Option 3",
+            "value": "option-3"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-file-fields-013",
+    "title": "File Fields",
+    "fields": [
+      {
+        "id": "field-file-example-013",
+        "type": "file",
+        "label": "File Upload Field",
+        "placeholder": "Upload a file",
         "width": "100%"
       }
     ]

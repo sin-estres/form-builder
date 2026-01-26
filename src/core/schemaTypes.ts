@@ -88,7 +88,12 @@ export interface FormField {
     customOptionsEnabled?: boolean; // For dropdown/checkbox/radio - enable custom options editing (UI only)
     multiselect?: boolean; // For dropdown - enable multiple selection (legacy - use multiSelect instead)
     multiSelect?: boolean; // Multi-select for dropdown (required: true | false, not optional)
-    optionSource?: 'STATIC' | 'MASTER'; // Option source type: STATIC = custom options, MASTER = from master types
+    optionSource?: 'STATIC' | 'MASTER' | 'LOOKUP'; // Option source type: STATIC = custom options, MASTER = from master types, LOOKUP = entity fields lookup
+    // Lookup configuration (for LOOKUP optionSource)
+    lookupSourceType?: 'MODULE' | 'MASTER_TYPE'; // Lookup source type: MODULE = from module list, MASTER_TYPE = from master types
+    lookupSource?: string; // Selected module name or master type identifier
+    lookupValueField?: string; // Field name to use as value in lookup
+    lookupLabelField?: string; // Field name to use as label in lookup
     // Phone field ISD configuration
     isd?: ISDConfig;
 }

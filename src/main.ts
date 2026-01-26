@@ -1,28 +1,29 @@
 import { FormBuilder } from './builder/FormBuilder';
-import { FormSection } from './core/schemaTypes';
+import { FormSchema } from './core/schemaTypes';
 import './index.css';
 
-// Load section templates
-async function loadTemplates(): Promise<FormSection[]> {
+// Load form templates from form-templates.json
+// The FormBuilder will automatically extract sections from FormSchema[] and populate the Templates tab
+async function loadFormTemplates(): Promise<FormSchema[]> {
     try {
-        const response = await fetch('/section-templates.json');
+        const response = await fetch('/form-templates.json');
         if (response.ok) {
             return await response.json();
         }
     } catch (error) {
-        // Could not load section templates
+        console.error('Could not load form templates:', error);
     }
     return [];
 }
 
 // Initialize form builder after templates are loaded
-loadTemplates().then((sectionTemplates) => {
+loadFormTemplates().then((formTemplates) => {
     const root = document.getElementById('root');
     if (root) {
         new FormBuilder(root, {
-            reusableSections: sectionTemplates,
+            formTemplates: formTemplates, // Use formTemplates instead of reusableSections
             onSave: (schema) => {
-                // You can now use schema.formName and the complete schema JSON
+                console.log('[Form Builder] Saved schema:', JSON.stringify(schema, null, 2));
             }
         });
     }

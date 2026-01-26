@@ -37,6 +37,7 @@ export interface FormBuilderOptions {
             value: string;
         }[];
     };
+    moduleList?: string[]; // List of module names for Lookup source type
     // Angular integration outputs
     onGroupSelectionChange?: (event: { fieldId: string; groupEnumName: string }) => void;
     onDropdownValueChange?: (event: { fieldId: string; value: string }) => void;
@@ -70,11 +71,36 @@ export class FormBuilder {
                 }
             });
             if (extractedSections.length > 0) {
+                // Deduplicate sections by title and merge their fields
+                const sectionMap = new Map<string, FormSection>();
+                extractedSections.forEach(section => {
+                    const existingSection = sectionMap.get(section.title);
+                    if (existingSection) {
+                        // Merge fields, avoiding duplicates by field ID
+                        const fieldIds = new Set(existingSection.fields.map(f => f.id));
+                        section.fields.forEach(field => {
+                            if (!fieldIds.has(field.id)) {
+                                existingSection.fields.push(field);
+                                fieldIds.add(field.id);
+                            }
+                        });
+                    } else {
+                        // Clone section to avoid mutating original
+                        sectionMap.set(section.title, {
+                            ...section,
+                            fields: [...section.fields]
+                        });
+                    }
+                });
+                const deduplicatedSections = Array.from(sectionMap.values());
+                console.log(`[FormBuilder] Loaded ${options.formTemplates.length} form templates, extracted ${extractedSections.length} sections, deduplicated to ${deduplicatedSections.length} unique templates`);
+
                 // Merge with existing templates if reusableSections was also provided
                 const existingTemplates = options.reusableSections || [];
-                formStore.getState().setTemplates([...existingTemplates, ...extractedSections]);
+                formStore.getState().setTemplates([...existingTemplates, ...deduplicatedSections]);
             }
         }
+
 
         // Load formJson if provided (for edit mode or when explicitly passing form data)
         if (options.formJson) {
@@ -183,12 +209,37 @@ export class FormBuilder {
             }
         });
         if (extractedSections.length > 0) {
+            // Deduplicate sections by title and merge their fields
+            const sectionMap = new Map<string, FormSection>();
+            extractedSections.forEach(section => {
+                const existingSection = sectionMap.get(section.title);
+                if (existingSection) {
+                    // Merge fields, avoiding duplicates by field ID
+                    const fieldIds = new Set(existingSection.fields.map(f => f.id));
+                    section.fields.forEach(field => {
+                        if (!fieldIds.has(field.id)) {
+                            existingSection.fields.push(field);
+                            fieldIds.add(field.id);
+                        }
+                    });
+                } else {
+                    // Clone section to avoid mutating original
+                    sectionMap.set(section.title, {
+                        ...section,
+                        fields: [...section.fields]
+                    });
+                }
+            });
+            const deduplicatedSections = Array.from(sectionMap.values());
+            console.log(`[FormBuilder] loadFormTemplates: extracted ${extractedSections.length} sections, deduplicated to ${deduplicatedSections.length} unique templates`);
+
             const currentTemplates = formStore.getState().templates;
-            formStore.getState().setTemplates([...currentTemplates, ...extractedSections]);
+            formStore.getState().setTemplates([...currentTemplates, ...deduplicatedSections]);
             // Re-render to update the templates tab
             this.render();
         }
     }
+
 
     private setupSubscriptions() {
         this.unsubscribe = formStore.subscribe(() => {
@@ -995,7 +1046,7 @@ export class FormBuilder {
                 className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
                 value: selectedField.optionSource || 'STATIC',
                 onchange: (e: Event) => {
-                    const source = (e.target as HTMLSelectElement).value as 'STATIC' | 'MASTER';
+                    const source = (e.target as HTMLSelectElement).value as 'STATIC' | 'MASTER' | 'LOOKUP';
                     const updates: any = { optionSource: source };
 
                     // If switching to MASTER and no masterTypeName/groupName exists, keep existing or clear options
@@ -1004,6 +1055,11 @@ export class FormBuilder {
                     } else if (source === 'STATIC') {
                         // When switching to STATIC, ensure customOptionsEnabled is true
                         updates.customOptionsEnabled = true;
+                    } else if (source === 'LOOKUP') {
+                        // Clear lookup-related fields when switching to LOOKUP if not already set
+                        if (!selectedField.lookupSourceType) {
+                            updates.lookupSourceType = 'MODULE';
+                        }
                     }
 
                     formStore.getState().updateField(selectedField.id, updates);
@@ -1013,8 +1069,144 @@ export class FormBuilder {
             });
             optionSourceSelect.appendChild(createElement('option', { value: 'STATIC', text: 'STATIC (Custom Options)', selected: (selectedField.optionSource || 'STATIC') === 'STATIC' }));
             optionSourceSelect.appendChild(createElement('option', { value: 'MASTER', text: 'MASTER (From Master Types)', selected: selectedField.optionSource === 'MASTER' }));
+            // LOOKUP option only available for select fields
+            if (selectedField.type === 'select') {
+                optionSourceSelect.appendChild(createElement('option', { value: 'LOOKUP', text: 'Lookup (Entity Fields)', selected: selectedField.optionSource === 'LOOKUP' }));
+            }
             optionSourceGroup.appendChild(optionSourceSelect);
             body.appendChild(optionSourceGroup);
+
+            // --- Lookup Configuration (for LOOKUP optionSource) ---
+            if (selectedField.type === 'select' && selectedField.optionSource === 'LOOKUP') {
+                // Lookup Source Type dropdown
+                const lookupSourceTypeGroup = createElement('div', { className: 'mb-4' });
+                lookupSourceTypeGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source Type' }));
+                const lookupSourceTypeSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    value: selectedField.lookupSourceType || 'MODULE',
+                    onchange: (e: Event) => {
+                        const lookupSourceType = (e.target as HTMLSelectElement).value as 'MODULE' | 'MASTER_TYPE';
+                        const updates: any = { lookupSourceType };
+                        // Clear lookupSource when switching source type
+                        if (lookupSourceType !== selectedField.lookupSourceType) {
+                            updates.lookupSource = undefined;
+                        }
+                        formStore.getState().updateField(selectedField.id, updates);
+                        this.render();
+                    }
+                });
+                lookupSourceTypeSelect.appendChild(createElement('option', { value: 'MODULE', text: 'Module', selected: (selectedField.lookupSourceType || 'MODULE') === 'MODULE' }));
+                lookupSourceTypeSelect.appendChild(createElement('option', { value: 'MASTER_TYPE', text: 'Master Type', selected: selectedField.lookupSourceType === 'MASTER_TYPE' }));
+                lookupSourceTypeGroup.appendChild(lookupSourceTypeSelect);
+                body.appendChild(lookupSourceTypeGroup);
+
+                // Lookup Source dropdown (Module or Master Type)
+                if (selectedField.lookupSourceType === 'MODULE') {
+                    const moduleList = this.options.moduleList || [];
+                    const lookupSourceGroup = createElement('div', { className: 'mb-4' });
+                    lookupSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source' }));
+                    const lookupSourceSelect = createElement('select', {
+                        className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                        value: selectedField.lookupSource || '',
+                        onchange: (e: Event) => {
+                            const lookupSource = (e.target as HTMLSelectElement).value;
+                            formStore.getState().updateField(selectedField.id, { lookupSource: lookupSource || undefined });
+                        }
+                    });
+                    lookupSourceSelect.appendChild(createElement('option', { value: '', text: 'Select Module', selected: !selectedField.lookupSource }));
+                    moduleList.forEach(module => {
+                        lookupSourceSelect.appendChild(createElement('option', { 
+                            value: module, 
+                            text: module, 
+                            selected: selectedField.lookupSource === module 
+                        }));
+                    });
+                    lookupSourceGroup.appendChild(lookupSourceSelect);
+                    body.appendChild(lookupSourceGroup);
+                } else if (selectedField.lookupSourceType === 'MASTER_TYPE') {
+                    const masterTypes = formStore.getState().masterTypes;
+                    const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
+                    const lookupSourceGroup = createElement('div', { className: 'mb-4' });
+                    lookupSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source' }));
+                    const lookupSourceSelect = createElement('select', {
+                        className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                        value: selectedField.lookupSource || '',
+                        onchange: (e: Event) => {
+                            const lookupSource = (e.target as HTMLSelectElement).value;
+                            formStore.getState().updateField(selectedField.id, { lookupSource: lookupSource || undefined });
+                        }
+                    });
+                    lookupSourceSelect.appendChild(createElement('option', { value: '', text: 'Select Master Type', selected: !selectedField.lookupSource }));
+                    activeMasterTypes.forEach(mt => {
+                        const optionValue = mt.enumName || mt.id || mt.name;
+                        lookupSourceSelect.appendChild(createElement('option', { 
+                            value: optionValue, 
+                            text: mt.displayName || mt.name, 
+                            selected: selectedField.lookupSource === optionValue 
+                        }));
+                    });
+                    lookupSourceGroup.appendChild(lookupSourceSelect);
+                    body.appendChild(lookupSourceGroup);
+                }
+
+                // Lookup Value Field
+                const lookupValueFieldGroup = createElement('div', { className: 'mb-4' });
+                lookupValueFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Value Field' }));
+                lookupValueFieldGroup.appendChild(createElement('input', {
+                    type: 'text',
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    value: selectedField.lookupValueField || '',
+                    placeholder: 'Enter value field name',
+                    oninput: (e: Event) => {
+                        const lookupValueField = (e.target as HTMLInputElement).value;
+                        formStore.getState().updateField(selectedField.id, { lookupValueField: lookupValueField || undefined });
+                    }
+                }));
+                body.appendChild(lookupValueFieldGroup);
+
+                // Lookup Label Field
+                const lookupLabelFieldGroup = createElement('div', { className: 'mb-4' });
+                lookupLabelFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Label Field' }));
+                lookupLabelFieldGroup.appendChild(createElement('input', {
+                    type: 'text',
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    value: selectedField.lookupLabelField || '',
+                    placeholder: 'Enter label field name',
+                    oninput: (e: Event) => {
+                        const lookupLabelField = (e.target as HTMLInputElement).value;
+                        formStore.getState().updateField(selectedField.id, { lookupLabelField: lookupLabelField || undefined });
+                    }
+                }));
+                body.appendChild(lookupLabelFieldGroup);
+
+                // Visibility checkbox
+                const visibilityGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+                visibilityGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Visibility' }));
+                visibilityGroup.appendChild(createElement('input', {
+                    type: 'checkbox',
+                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+                    checked: selectedField.visible !== false, // Default to true if not set
+                    onchange: (e: Event) => {
+                        const visible = (e.target as HTMLInputElement).checked;
+                        formStore.getState().updateField(selectedField.id, { visible });
+                    }
+                }));
+                body.appendChild(visibilityGroup);
+
+                // Enabled checkbox
+                const enabledGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
+                enabledGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Enabled' }));
+                enabledGroup.appendChild(createElement('input', {
+                    type: 'checkbox',
+                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
+                    checked: selectedField.enabled !== false, // Default to true if not set
+                    onchange: (e: Event) => {
+                        const enabled = (e.target as HTMLInputElement).checked;
+                        formStore.getState().updateField(selectedField.id, { enabled });
+                    }
+                }));
+                body.appendChild(enabledGroup);
+            }
         }
 
         // --- Multi-Select (Select fields only) ---

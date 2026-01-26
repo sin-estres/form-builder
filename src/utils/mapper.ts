@@ -185,7 +185,7 @@ function transformField(field: any): FormField {
     }
 
     // Handle optionSource - REQUIRED for select/radio/checkbox
-    // STATIC = custom options, MASTER = from master types
+    // STATIC = custom options, MASTER = from master types, LOOKUP = entity fields lookup
     if (['select', 'radio', 'checkbox'].includes(field.type)) {
         if (field.optionSource) {
             transformed.optionSource = field.optionSource;
@@ -199,6 +199,12 @@ function transformField(field: any): FormField {
             }
         }
     }
+
+    // Copy lookup-related properties (for LOOKUP optionSource)
+    if (field.lookupSourceType !== undefined) transformed.lookupSourceType = field.lookupSourceType;
+    if (field.lookupSource !== undefined) transformed.lookupSource = field.lookupSource;
+    if (field.lookupValueField !== undefined) transformed.lookupValueField = field.lookupValueField;
+    if (field.lookupLabelField !== undefined) transformed.lookupLabelField = field.lookupLabelField;
 
     // Copy other optional properties
     if (field.placeholder !== undefined) transformed.placeholder = field.placeholder;
@@ -363,6 +369,11 @@ function fieldToPayload(field: FormField): any {
     if (field.optionSource !== undefined) payload.optionSource = field.optionSource;
     if (field.groupName !== undefined) payload.groupName = field.groupName;
     if (field.masterTypeName !== undefined) payload.masterTypeName = field.masterTypeName;
+    // Lookup-related properties (for LOOKUP optionSource)
+    if (field.lookupSourceType !== undefined) payload.lookupSourceType = field.lookupSourceType;
+    if (field.lookupSource !== undefined) payload.lookupSource = field.lookupSource;
+    if (field.lookupValueField !== undefined) payload.lookupValueField = field.lookupValueField;
+    if (field.lookupLabelField !== undefined) payload.lookupLabelField = field.lookupLabelField;
     if (field.isd !== undefined) payload.isd = field.isd;
 
     // Options for select/radio/checkbox
