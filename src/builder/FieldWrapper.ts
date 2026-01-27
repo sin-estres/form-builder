@@ -42,7 +42,7 @@ export class FieldWrapper {
 
         // Add visual indicator of selected state
         if (isSelected) {
-            fieldWrapper.classList.add('ring-2', 'bg-[#acbdfe33]', 'dark:bg-blue-900/20');
+            fieldWrapper.classList.add('ring-2', 'bg-[#847dff1a]', 'dark:bg-blue-900/20');
         }
 
         // Drag Handle

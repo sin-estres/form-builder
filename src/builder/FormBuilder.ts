@@ -604,14 +604,14 @@ export class FormBuilder {
     private activeTab: 'fields' | 'templates' | 'import' = 'fields';
 
     private renderToolbox(): HTMLElement {
-        const toolbox = createElement('div', { className: 'bg-[#f8faff] dark:bg-gray-900 flex flex-col h-full' });
+        const toolbox = createElement('div', { className: 'bg-[#847dff1a] dark:bg-gray-900 flex flex-col h-full' });
 
         // Tabs
-        const tabs = createElement('div', { className: 'flex border-b border-gray-200 dark:border-gray-800' });
+        const tabs = createElement('div', { className: 'flex border-b border-gray-200 dark:border-gray-800 p-1' });
         const createTab = (id: 'fields' | 'templates' | 'import', label: string) => {
             const isActive = this.activeTab === id;
             return createElement('button', {
-                className: `flex-1 py-3 text-sm font-medium transition-colors ${isActive ? 'text-[#019FA2] border-b-2 border-[#019FA2]' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`,
+                className: `flex-1 py-3 text-sm font-medium transition-colors ${isActive ? 'text-white bg-[#635bff] rounded ' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`,
                 text: label,
                 onclick: () => {
                     this.activeTab = id;
@@ -625,7 +625,7 @@ export class FormBuilder {
         toolbox.appendChild(tabs);
 
         // Content
-        const content = createElement('div', { className: 'flex-1 overflow-y-auto p-4' });
+        const content = createElement('div', { className: 'flex-1 overflow-y-auto p-4 bg-white' });
 
         if (this.activeTab === 'fields') {
             const list = createElement('div', { className: 'grid grid-cols-2 gap-3', id: 'toolbox-list' });
@@ -718,7 +718,7 @@ export class FormBuilder {
 
     private renderCanvas(state: any): HTMLElement {
         const canvas = createElement('div', {
-            className: 'flex-1 bg-[#f8faff] dark:bg-gray-950 p-4 md:p-8 overflow-y-auto',
+            className: 'flex-1 dark:bg-gray-950 p-4 md:p-8 overflow-y-auto',
             onclick: (e: Event) => {
                 if (e.target === canvas || e.target === canvas.firstElementChild) {
                     formStore.getState().selectField(null);
@@ -747,7 +747,7 @@ export class FormBuilder {
 
         // Add Section Button
         const addSectionBtn = createElement('button', {
-            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-lg text-gray-500 bg-[#3b497e] text-white transition-colors flex items-center justify-center font-medium',
+            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-lg text-gray-500 bg-[#635bff] max-w-[180px] shadow-[0_17px_20px_-8px_rgba(77,91,236,0.231372549)] text-white transition-colors flex items-center justify-center font-medium',
             onclick: () => formStore.getState().addSection()
         }, [getIcon('Plus', 20), createElement('span', { className: 'ml-2', text: 'Add Section' })]);
 
@@ -794,7 +794,7 @@ export class FormBuilder {
     }
 
     private renderConfigPanel(state: any, focusState: { id: string; selectionStart: number | null; selectionEnd: number | null; value?: string } | null = null): HTMLElement {
-        const panel = createElement('div', { className: 'bg-[#f8faff]  dark:bg-gray-900 flex flex-col h-full overflow-y-auto' });
+        const panel = createElement('div', { className: ' dark:bg-gray-900 flex flex-col h-full overflow-y-auto' });
 
         // Get the latest field from state to ensure we have the most up-to-date data
         const selectedField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === state.selectedFieldId);
