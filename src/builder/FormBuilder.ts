@@ -51,7 +51,7 @@ export class FormBuilder {
     private container: HTMLElement;
     private unsubscribe!: () => void;
     private options: FormBuilderOptions;
-    private isInputUpdate: boolean = false; // Track if update is from text input
+
     private lastRenderedSchemaHash: string = ''; // Cache to detect meaningful changes
 
     constructor(container: HTMLElement, options: FormBuilderOptions = {}) {
@@ -260,12 +260,9 @@ export class FormBuilder {
 
     private setupSubscriptions() {
         this.unsubscribe = formStore.subscribe(() => {
-            // Optimization: Skip full re-render if update is from text input
-            // Text inputs will update their own DOM directly
-            if (this.isInputUpdate) {
-                this.isInputUpdate = false; // Reset flag
-                return; // Skip re-render
-            }
+            // Note: Removed isInputUpdate optimization - the focus preservation logic
+            // below already handles keeping focus on inputs during re-render, and
+            // skipping the render prevented live canvas updates
 
             // Generate hash of schema for change detection
             const state = formStore.getState();
@@ -735,7 +732,6 @@ export class FormBuilder {
             placeholder: 'formName (e.g., contactForm)',
             'data-focus-id': 'form-name',
             oninput: (e: Event) => {
-                this.isInputUpdate = true;
                 formStore.getState().setSchema({ ...state.schema, formName: (e.target as HTMLInputElement).value });
             }
         });
@@ -824,7 +820,6 @@ export class FormBuilder {
             value: selectedField.label,
             'data-focus-id': `field-label-${selectedField.id}`,
             oninput: (e: Event) => {
-                this.isInputUpdate = true;
                 formStore.getState().updateField(selectedField.id, { label: (e.target as HTMLInputElement).value });
             }
         }));
@@ -838,7 +833,6 @@ export class FormBuilder {
             value: selectedField.placeholder || '',
             'data-focus-id': `field-placeholder-${selectedField.id}`,
             oninput: (e: Event) => {
-                this.isInputUpdate = true;
                 formStore.getState().updateField(selectedField.id, { placeholder: (e.target as HTMLInputElement).value });
             }
         }));

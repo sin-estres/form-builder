@@ -13,6 +13,9 @@
         "build": "tsup && npm run build:css",
         "build:css": "postcss src/index.css -o dist/index.css --no-map && rm -f dist/index.css.map",
         "test": "vitest",
+        "test:ui": "vitest --ui",
+        "test:coverage": "vitest --coverage",
+        "test:run": "vitest run",
         "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
         "preview": "vite preview"
     },
