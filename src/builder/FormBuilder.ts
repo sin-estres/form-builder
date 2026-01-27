@@ -259,13 +259,20 @@ export class FormBuilder {
 
 
     private setupSubscriptions() {
+        let lastPreviewMode: boolean | null = null;
+        
         this.unsubscribe = formStore.subscribe(() => {
             // Note: Removed isInputUpdate optimization - the focus preservation logic
             // below already handles keeping focus on inputs during re-render, and
             // skipping the render prevented live canvas updates
 
-            // Generate hash of schema for change detection
             const state = formStore.getState();
+            
+            // Check if preview mode changed - always re-render on preview mode toggle
+            const previewModeChanged = lastPreviewMode !== null && lastPreviewMode !== state.isPreviewMode;
+            lastPreviewMode = state.isPreviewMode;
+
+            // Generate hash of schema for change detection
             const schemaHash = JSON.stringify({
                 sections: state.schema.sections.map(s => ({
                     id: s.id,
@@ -278,11 +285,12 @@ export class FormBuilder {
                         // to prevent re-renders on typing
                     }))
                 })),
-                selectedField: state.selectedFieldId
+                selectedField: state.selectedFieldId,
+                isPreviewMode: state.isPreviewMode // Include preview mode in hash
             });
 
-            // Only re-render if something meaningful changed
-            if (schemaHash !== this.lastRenderedSchemaHash) {
+            // Re-render if schema changed OR preview mode changed
+            if (schemaHash !== this.lastRenderedSchemaHash || previewModeChanged) {
                 this.lastRenderedSchemaHash = schemaHash;
                 this.render();
             }
@@ -571,9 +579,14 @@ export class FormBuilder {
         }, [getIcon('Trash2', 16), createElement('span', { className: '', title: 'Clear', })]);
 
         const previewBtn = createElement('button', {
-            className: `flex items-center px-3 py-2 text-sm bg-[#3b497e] text-white font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-[#019FA2] text-blue-700 dark:bg-blue-900 dark:text-blue-200" : "text-gray-700 dark:text-gray-200 "}`,
-            onclick: () => formStore.getState().togglePreview()
-        }, [getIcon(state.isPreviewMode ? 'X' : 'Eye', 16), createElement('span', { className: '', text: state.isPreviewMode ? '' : '' })]);
+            className: `flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-[#019FA2] text-white hover:bg-[#018a8d]" : "bg-[#3b497e] text-white hover:bg-[#2d3a62]"}`,
+            onclick: (e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formStore.getState().togglePreview();
+            },
+            title: state.isPreviewMode ? 'Exit Preview' : 'Preview Form'
+        }, [getIcon(state.isPreviewMode ? 'X' : 'Eye', 16)]);
 
         const saveBtn = createElement('button', {
             className: 'flex items-center px-3 py-2 text-sm font-medium text-white bg-[#019FA2]  rounded-md shadow-sm transition-colors',
