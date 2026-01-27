@@ -28,6 +28,9 @@ interface FormState {
             value: string;
         }[];
     };
+    lookupFieldOptionsMap: {
+        [lookupSource: string]: string[]; // Map lookup source to list of field names
+    };
 }
 
 interface FormActions {
@@ -39,6 +42,7 @@ interface FormActions {
     setTemplates: (templates: FormSection[]) => void;
     setMasterTypes: (masterTypes: MasterType[]) => void;
     setDropdownOptionsMap: (map: { [groupEnumName: string]: { label: string; value: string }[] }) => void;
+    setLookupFieldOptionsMap: (map: { [lookupSource: string]: string[] }) => void;
     loadForm: (formId: string) => void;
     cloneExistingForm: (formId: string) => void;
     importSection: (section: FormSection) => void;
@@ -78,6 +82,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     templates: [],
     masterTypes: [],
     dropdownOptionsMap: {},
+    lookupFieldOptionsMap: {},
 
     setSchema: (schema) => {
         // Log the incoming form payload schema
@@ -346,6 +351,9 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
             }));
             set({ schema: { ...state.schema, sections: updatedSections } });
         }
+    },
+    setLookupFieldOptionsMap: (map) => {
+        set({ lookupFieldOptionsMap: map });
     },
     setMasterTypes: (masterTypes) => {
         set({ masterTypes });

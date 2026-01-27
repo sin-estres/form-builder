@@ -38,9 +38,13 @@ export interface FormBuilderOptions {
         }[];
     };
     moduleList?: string[]; // List of module names for Lookup source type
+    lookupFieldOptionsMap?: {
+        [lookupSource: string]: string[]; // Map lookup source to list of field names
+    };
     // Angular integration outputs
     onGroupSelectionChange?: (event: { fieldId: string; groupEnumName: string }) => void;
     onDropdownValueChange?: (event: { fieldId: string; value: string }) => void;
+    onLookupSourceChange?: (event: { fieldId: string; lookupSourceType: 'MODULE' | 'MASTER_TYPE'; lookupSource: string }) => void;
 }
 
 export class FormBuilder {
@@ -136,6 +140,11 @@ export class FormBuilder {
             formStore.getState().setDropdownOptionsMap(options.dropdownOptionsMap);
         }
 
+        // Store lookupFieldOptionsMap if provided
+        if (options.lookupFieldOptionsMap) {
+            formStore.getState().setLookupFieldOptionsMap(options.lookupFieldOptionsMap);
+        }
+
         this.render();
         this.setupSubscriptions();
     }
@@ -184,6 +193,12 @@ export class FormBuilder {
     public updateDropdownOptionsMap(dropdownOptionsMap: { [groupEnumName: string]: { label: string; value: string }[] }) {
         formStore.getState().setDropdownOptionsMap(dropdownOptionsMap);
         // Re-render to update dropdown options
+        this.render();
+    }
+
+    public updateLookupFieldOptionsMap(lookupFieldOptionsMap: { [lookupSource: string]: string[] }) {
+        formStore.getState().setLookupFieldOptionsMap(lookupFieldOptionsMap);
+        // Re-render to update lookup field dropdowns
         this.render();
     }
 
@@ -741,6 +756,43 @@ export class FormBuilder {
         return canvas;
     }
 
+    // Helper method to create a modern checkbox field with better UX
+    private createCheckboxField(label: string, checked: boolean, onChange: (checked: boolean) => void, id?: string): HTMLElement {
+        const uniqueId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Modern checkbox container with better spacing
+        const container = createElement('div', { className: 'flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer' });
+        
+        // Checkbox input with larger size and better styling
+        const checkbox = createElement('input', {
+            type: 'checkbox',
+            id: uniqueId,
+            className: 'checkbox-custom flex-shrink-0',
+            checked,
+            onchange: (e: Event) => onChange((e.target as HTMLInputElement).checked)
+        }) as HTMLInputElement;
+        
+        // Label with better typography and clickable
+        const labelElement = createElement('label', {
+            htmlFor: uniqueId,
+            className: 'text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer select-none flex-1',
+            text: label
+        }) as HTMLLabelElement;
+        
+        container.appendChild(checkbox);
+        container.appendChild(labelElement);
+        
+        // Make the entire container clickable
+        container.addEventListener('click', (e: Event) => {
+            if (e.target !== checkbox && e.target !== labelElement) {
+                checkbox.checked = !checkbox.checked;
+                onChange(checkbox.checked);
+            }
+        });
+        
+        return container;
+    }
+
     private renderConfigPanel(state: any, focusState: { id: string; selectionStart: number | null; selectionEnd: number | null; value?: string } | null = null): HTMLElement {
         const panel = createElement('div', { className: 'bg-[#f8faff]  dark:bg-gray-900 flex flex-col h-full overflow-y-auto' });
 
@@ -842,37 +894,28 @@ export class FormBuilder {
         body.appendChild(layoutGroup);
 
         // Required
-        const requiredGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-        requiredGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Required' }));
-        requiredGroup.appendChild(createElement('input', {
-            type: 'checkbox',
-            className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-            checked: !!selectedField.required,
-            onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { required: (e.target as HTMLInputElement).checked })
-        }));
-        body.appendChild(requiredGroup);
+        body.appendChild(this.createCheckboxField(
+            'Required',
+            !!selectedField.required,
+            (checked) => formStore.getState().updateField(selectedField.id, { required: checked }),
+            `required-${selectedField.id}`
+        ));
 
         // Enabled
-        const enabledGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-        enabledGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Enabled' }));
-        enabledGroup.appendChild(createElement('input', {
-            type: 'checkbox',
-            className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-            checked: selectedField.enabled !== false, // Default to true if not specified
-            onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { enabled: (e.target as HTMLInputElement).checked })
-        }));
-        body.appendChild(enabledGroup);
+        body.appendChild(this.createCheckboxField(
+            'Enabled',
+            selectedField.enabled !== false,
+            (checked) => formStore.getState().updateField(selectedField.id, { enabled: checked }),
+            `enabled-${selectedField.id}`
+        ));
 
         // Visible
-        const visibleGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-        visibleGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Visible' }));
-        visibleGroup.appendChild(createElement('input', {
-            type: 'checkbox',
-            className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-            checked: selectedField.visible !== false, // Default to true if not specified
-            onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { visible: (e.target as HTMLInputElement).checked })
-        }));
-        body.appendChild(visibleGroup);
+        body.appendChild(this.createCheckboxField(
+            'Visible',
+            selectedField.visible !== false,
+            (checked) => formStore.getState().updateField(selectedField.id, { visible: checked }),
+            `visible-${selectedField.id}`
+        ));
 
         // --- Phone ISD Configuration (Phone fields only) ---
         if (selectedField.type === 'phone') {
@@ -889,47 +932,38 @@ export class FormBuilder {
             };
 
             // Show Flag toggle
-            const showFlagGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-            showFlagGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Show Flag' }));
-            showFlagGroup.appendChild(createElement('input', {
-                type: 'checkbox',
-                className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-                checked: isdConfig.showFlag !== false,
-                onchange: (e: Event) => formStore.getState().updateField(selectedField.id, {
-                    isd: { ...isdConfig, showFlag: (e.target as HTMLInputElement).checked }
-                })
-            }));
-            body.appendChild(showFlagGroup);
+            body.appendChild(this.createCheckboxField(
+                'Show Flag',
+                isdConfig.showFlag !== false,
+                (checked) => formStore.getState().updateField(selectedField.id, {
+                    isd: { ...isdConfig, showFlag: checked }
+                }),
+                `show-flag-${selectedField.id}`
+            ));
 
             // Allow Country Change toggle
-            const allowCountryChangeGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-            allowCountryChangeGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Allow Country Change' }));
-            allowCountryChangeGroup.appendChild(createElement('input', {
-                type: 'checkbox',
-                className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-                checked: isdConfig.enabled !== false,
-                onchange: (e: Event) => formStore.getState().updateField(selectedField.id, {
-                    isd: { ...isdConfig, enabled: (e.target as HTMLInputElement).checked }
-                })
-            }));
-            body.appendChild(allowCountryChangeGroup);
+            body.appendChild(this.createCheckboxField(
+                'Allow Country Change',
+                isdConfig.enabled !== false,
+                (checked) => formStore.getState().updateField(selectedField.id, {
+                    isd: { ...isdConfig, enabled: checked }
+                }),
+                `allow-country-change-${selectedField.id}`
+            ));
 
             // Show Country Name toggle
-            const showCountryNameGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-            showCountryNameGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Show Country Name' }));
-            showCountryNameGroup.appendChild(createElement('input', {
-                type: 'checkbox',
-                className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-                checked: isdConfig.showCountryName === true,
-                onchange: (e: Event) => formStore.getState().updateField(selectedField.id, {
-                    isd: { ...isdConfig, showCountryName: (e.target as HTMLInputElement).checked }
-                })
-            }));
-            body.appendChild(showCountryNameGroup);
+            body.appendChild(this.createCheckboxField(
+                'Show Country Name',
+                isdConfig.showCountryName === true,
+                (checked) => formStore.getState().updateField(selectedField.id, {
+                    isd: { ...isdConfig, showCountryName: checked }
+                }),
+                `show-country-name-${selectedField.id}`
+            ));
         }
 
-        // --- Group Name (Select/Dropdown only) ---
-        if (selectedField.type === 'select') {
+        // --- Master List (Select/Dropdown only - shown when optionSource is MASTER) ---
+        if (selectedField.type === 'select' && selectedField.optionSource === 'MASTER') {
             const masterTypes = formStore.getState().masterTypes;
             const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
             const dropdownOptionsMap = formStore.getState().dropdownOptionsMap;
@@ -958,7 +992,7 @@ export class FormBuilder {
 
             if (activeMasterTypes.length > 0) {
                 const groupNameGroup = createElement('div', { className: 'mb-4' });
-                groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Group Name' }));
+                groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Master List' }));
                 const groupNameSelect = createElement('select', {
                     className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
                     onchange: (e: Event) => {
@@ -1146,6 +1180,22 @@ export class FormBuilder {
                         onchange: (e: Event) => {
                             const lookupSource = (e.target as HTMLSelectElement).value;
                             formStore.getState().updateField(selectedField.id, { lookupSource: lookupSource || undefined });
+                            // Clear lookupValueField and lookupLabelField when source changes
+                            if (lookupSource) {
+                                formStore.getState().updateField(selectedField.id, { 
+                                    lookupValueField: undefined,
+                                    lookupLabelField: undefined
+                                });
+                            }
+                            // Emit lookup source change event
+                            if (this.options.onLookupSourceChange && lookupSource) {
+                                this.options.onLookupSourceChange({
+                                    fieldId: selectedField.id,
+                                    lookupSourceType: 'MODULE',
+                                    lookupSource: lookupSource
+                                });
+                            }
+                            this.render();
                         }
                     });
                     lookupSourceSelect.appendChild(createElement('option', { value: '', text: 'Select Module', selected: !selectedField.lookupSource }));
@@ -1169,6 +1219,22 @@ export class FormBuilder {
                         onchange: (e: Event) => {
                             const lookupSource = (e.target as HTMLSelectElement).value;
                             formStore.getState().updateField(selectedField.id, { lookupSource: lookupSource || undefined });
+                            // Clear lookupValueField and lookupLabelField when source changes
+                            if (lookupSource) {
+                                formStore.getState().updateField(selectedField.id, { 
+                                    lookupValueField: undefined,
+                                    lookupLabelField: undefined
+                                });
+                            }
+                            // Emit lookup source change event
+                            if (this.options.onLookupSourceChange && lookupSource) {
+                                this.options.onLookupSourceChange({
+                                    fieldId: selectedField.id,
+                                    lookupSourceType: 'MASTER_TYPE',
+                                    lookupSource: lookupSource
+                                });
+                            }
+                            this.render();
                         }
                     });
                     lookupSourceSelect.appendChild(createElement('option', { value: '', text: 'Select Master Type', selected: !selectedField.lookupSource }));
@@ -1187,100 +1253,92 @@ export class FormBuilder {
                 // Lookup Value Field
                 const lookupValueFieldGroup = createElement('div', { className: 'mb-4' });
                 lookupValueFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Value Field' }));
-                const lookupValueFieldId = `field-lookup-value-${selectedField.id}`;
-                const lookupValueFieldInput = createElement('input', {
-                    type: 'text',
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent lookup-input-field',
+                const lookupValueFieldSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
                     value: selectedField.lookupValueField || '',
-                    placeholder: 'Enter value field name',
-                    'data-focus-id': lookupValueFieldId,
-                    oninput: (e: Event) => {
-                        // Set flag to prevent full re-render
-                        this.isInputUpdate = true;
-                        const lookupValueField = (e.target as HTMLInputElement).value;
-                        formStore.getState().updateField(selectedField.id, { lookupValueField: lookupValueField || undefined });
-                    },
-                    onblur: (e: Event) => {
-                        // Save immediately and allow re-render on blur
-                        const lookupValueField = (e.target as HTMLInputElement).value;
+                    disabled: !selectedField.lookupSource,
+                    onchange: (e: Event) => {
+                        const lookupValueField = (e.target as HTMLSelectElement).value;
                         formStore.getState().updateField(selectedField.id, { lookupValueField: lookupValueField || undefined });
                     }
                 });
-                lookupValueFieldGroup.appendChild(lookupValueFieldInput);
+                lookupValueFieldSelect.appendChild(createElement('option', { value: '', text: selectedField.lookupSource ? 'Select Value Field' : 'Select Lookup Source first', selected: !selectedField.lookupValueField }));
+                
+                // Populate dropdown from lookupFieldOptionsMap
+                if (selectedField.lookupSource) {
+                    const lookupFieldOptionsMap = formStore.getState().lookupFieldOptionsMap;
+                    const fieldOptions = lookupFieldOptionsMap[selectedField.lookupSource] || [];
+                    fieldOptions.forEach(fieldName => {
+                        lookupValueFieldSelect.appendChild(createElement('option', { 
+                            value: fieldName, 
+                            text: fieldName, 
+                            selected: selectedField.lookupValueField === fieldName 
+                        }));
+                    });
+                }
+                
+                lookupValueFieldGroup.appendChild(lookupValueFieldSelect);
                 body.appendChild(lookupValueFieldGroup);
 
                 // Lookup Label Field
                 const lookupLabelFieldGroup = createElement('div', { className: 'mb-4' });
                 lookupLabelFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Label Field' }));
-                const lookupLabelFieldId = `field-lookup-label-${selectedField.id}`;
-                const lookupLabelFieldInput = createElement('input', {
-                    type: 'text',
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent lookup-input-field',
+                const lookupLabelFieldSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
                     value: selectedField.lookupLabelField || '',
-                    placeholder: 'Enter label field name',
-                    'data-focus-id': lookupLabelFieldId,
-                    oninput: (e: Event) => {
-                        // Set flag to prevent full re-render
-                        this.isInputUpdate = true;
-                        const lookupLabelField = (e.target as HTMLInputElement).value;
-                        formStore.getState().updateField(selectedField.id, { lookupLabelField: lookupLabelField || undefined });
-                    },
-                    onblur: (e: Event) => {
-                        // Save immediately and allow re-render on blur
-                        const lookupLabelField = (e.target as HTMLInputElement).value;
+                    disabled: !selectedField.lookupSource,
+                    onchange: (e: Event) => {
+                        const lookupLabelField = (e.target as HTMLSelectElement).value;
                         formStore.getState().updateField(selectedField.id, { lookupLabelField: lookupLabelField || undefined });
                     }
                 });
-                lookupLabelFieldGroup.appendChild(lookupLabelFieldInput);
+                lookupLabelFieldSelect.appendChild(createElement('option', { value: '', text: selectedField.lookupSource ? 'Select Label Field' : 'Select Lookup Source first', selected: !selectedField.lookupLabelField }));
+                
+                // Populate dropdown from lookupFieldOptionsMap
+                if (selectedField.lookupSource) {
+                    const lookupFieldOptionsMap = formStore.getState().lookupFieldOptionsMap;
+                    const fieldOptions = lookupFieldOptionsMap[selectedField.lookupSource] || [];
+                    fieldOptions.forEach(fieldName => {
+                        lookupLabelFieldSelect.appendChild(createElement('option', { 
+                            value: fieldName, 
+                            text: fieldName, 
+                            selected: selectedField.lookupLabelField === fieldName 
+                        }));
+                    });
+                }
+                
+                lookupLabelFieldGroup.appendChild(lookupLabelFieldSelect);
                 body.appendChild(lookupLabelFieldGroup);
 
                 // Visibility checkbox
-                const visibilityGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-                visibilityGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Visibility' }));
-                visibilityGroup.appendChild(createElement('input', {
-                    type: 'checkbox',
-                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-                    checked: selectedField.visible !== false, // Default to true if not set
-                    onchange: (e: Event) => {
-                        const visible = (e.target as HTMLInputElement).checked;
-                        formStore.getState().updateField(selectedField.id, { visible });
-                    }
-                }));
-                body.appendChild(visibilityGroup);
+                body.appendChild(this.createCheckboxField(
+                    'Visibility',
+                    selectedField.visible !== false,
+                    (checked) => formStore.getState().updateField(selectedField.id, { visible: checked }),
+                    `visibility-lookup-${selectedField.id}`
+                ));
 
                 // Enabled checkbox
-                const enabledGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-                enabledGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Enabled' }));
-                enabledGroup.appendChild(createElement('input', {
-                    type: 'checkbox',
-                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-                    checked: selectedField.enabled !== false, // Default to true if not set
-                    onchange: (e: Event) => {
-                        const enabled = (e.target as HTMLInputElement).checked;
-                        formStore.getState().updateField(selectedField.id, { enabled });
-                    }
-                }));
-                body.appendChild(enabledGroup);
+                body.appendChild(this.createCheckboxField(
+                    'Enabled',
+                    selectedField.enabled !== false,
+                    (checked) => formStore.getState().updateField(selectedField.id, { enabled: checked }),
+                    `enabled-lookup-${selectedField.id}`
+                ));
             }
         }
 
         // --- Multi-Select (Select fields only) ---
         if (selectedField.type === 'select') {
-            const multiSelectGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-            multiSelectGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Multi-Select' }));
-            multiSelectGroup.appendChild(createElement('input', {
-                type: 'checkbox',
-                className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-                checked: selectedField.multiSelect === true || selectedField.multiselect === true,
-                onchange: (e: Event) => {
-                    const isMulti = (e.target as HTMLInputElement).checked;
-                    formStore.getState().updateField(selectedField.id, {
-                        multiSelect: isMulti,
-                        multiselect: isMulti // Also update legacy property
-                    });
-                }
-            }));
-            body.appendChild(multiSelectGroup);
+            body.appendChild(this.createCheckboxField(
+                'Multi-Select',
+                selectedField.multiSelect === true || selectedField.multiselect === true,
+                (checked) => formStore.getState().updateField(selectedField.id, {
+                    multiSelect: checked,
+                    multiselect: checked // Also update legacy property
+                }),
+                `multi-select-${selectedField.id}`
+            ));
         }
 
         // --- Custom Options Management (Dropdown, Checkbox, Radio) ---
@@ -1290,20 +1348,16 @@ export class FormBuilder {
 
             // Enable Custom Options checkbox (for dropdown) - only shown for STATIC optionSource
             if (selectedField.type === 'select' && (selectedField.optionSource === 'STATIC' || !selectedField.optionSource)) {
-                const customOptionsGroup = createElement('div', { className: 'flex items-center justify-between mb-4' });
-                customOptionsGroup.appendChild(createElement('label', { className: 'text-sm text-gray-700 dark:text-gray-300', text: 'Enable Custom Options' }));
-                customOptionsGroup.appendChild(createElement('input', {
-                    type: 'checkbox',
-                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500',
-                    checked: !!selectedField.customOptionsEnabled,
-                    onchange: (e: Event) => {
-                        const enabled = (e.target as HTMLInputElement).checked;
-                        formStore.getState().updateField(selectedField.id, { customOptionsEnabled: enabled });
+                body.appendChild(this.createCheckboxField(
+                    'Enable Custom Options',
+                    !!selectedField.customOptionsEnabled,
+                    (checked) => {
+                        formStore.getState().updateField(selectedField.id, { customOptionsEnabled: checked });
                         // Force re-render to show/hide options editor
                         this.render();
-                    }
-                }));
-                body.appendChild(customOptionsGroup);
+                    },
+                    `custom-options-${selectedField.id}`
+                ));
             }
 
             // Show options editor if:
