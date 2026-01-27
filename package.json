@@ -1,6 +1,6 @@
 {
     "name": "form-builder-pro",
-    "version": "1.1.9",
+    "version": "1.2.0",
     "description": "A production-grade Drag & Drop Form Builder",
     "main": "./dist/index.js",
     "module": "./dist/index.mjs",
