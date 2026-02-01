@@ -17,7 +17,7 @@ async function loadFormTemplates(): Promise<FormSchema[]> {
 }
 
 // Initialize form builder after templates are loaded
-loadFormTemplates().then((formTemplates) => {
+loadFormTemplates().then(async (formTemplates) => {
     const root = document.getElementById('root');
     if (root) {
         new FormBuilder(root, {
@@ -26,5 +26,11 @@ loadFormTemplates().then((formTemplates) => {
                 console.log('[Form Builder] Saved schema:', JSON.stringify(schema, null, 2));
             }
         });
+
+        // DEV-ONLY: JSON preview uploader — visible only when running locally (Vite dev server)
+        if (import.meta.env.DEV) {
+            const { attachDevJsonUploader } = await import('./dev/JsonPreviewUploader');
+            attachDevJsonUploader(root);
+        }
     }
 });

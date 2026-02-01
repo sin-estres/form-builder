@@ -19,6 +19,11 @@ function convertValidationToArray(validation: ValidationRule[] | ValidationObjec
     return rules;
 }
 
+// Model key for binding: fieldName (API convention) or id fallback
+function getModelKey(field: { id: string; fieldName?: string }): string {
+    return field.fieldName ?? field.id;
+}
+
 export class FormRenderer {
     private container: HTMLElement;
     private schema: FormSchema;
@@ -26,11 +31,20 @@ export class FormRenderer {
     private onSubmit?: (data: any) => void;
     private onDropdownValueChange?: (event: { fieldId: string; value: string }) => void;
 
-    constructor(container: HTMLElement, schema: FormSchema, onSubmit?: (data: any) => void, onDropdownValueChange?: (event: { fieldId: string; value: string }) => void) {
+    constructor(
+        container: HTMLElement,
+        schema: FormSchema,
+        onSubmit?: (data: any) => void,
+        onDropdownValueChange?: (event: { fieldId: string; value: string }) => void,
+        initialData?: Record<string, any>
+    ) {
         this.container = container;
         this.schema = schema;
         this.onSubmit = onSubmit;
         this.onDropdownValueChange = onDropdownValueChange;
+        if (initialData && typeof initialData === 'object') {
+            this.data = { ...initialData };
+        }
         this.render();
     }
 
@@ -47,14 +61,15 @@ export class FormRenderer {
         // Title
         form.appendChild(createElement('h1', { className: 'text-2xl font-semibold mb-2 text-[#3b497e] ', text: this.schema.title }));
 
-        // Sections
+        // Sections: sort fields by order (fallback when row/column conflict)
         this.schema.sections.forEach(section => {
             const sectionEl = createElement('div', { className: 'space-y-3 md:space-y-4 !m-0' });
             sectionEl.appendChild(createElement('h2', { className: 'text-xl  font-semibold text-[#3b497e] dark:text-gray-200 border-b pb-2', text: section.title }));
 
             const grid = createElement('div', { className: 'form-builder-grid' });
 
-            section.fields.forEach(field => {
+            const sortedFields = [...section.fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            sortedFields.forEach(field => {
                 // Check if field is visible (default to true if not specified)
                 const isVisible = field.visible !== false;
 
@@ -76,8 +91,9 @@ export class FormRenderer {
 
                 fieldWrapper.className = spanClass;
 
-                const fieldEl = FieldRenderer.render(field, this.data[field.id], (val) => {
-                    this.data[field.id] = val;
+                const modelKey = getModelKey(field);
+                const fieldEl = FieldRenderer.render(field, this.data[modelKey], (val) => {
+                    this.data[modelKey] = val;
                     // Emit dropdownValueChange event for select fields (Angular integration)
                     if (field.type === 'select' && this.onDropdownValueChange) {
                         this.onDropdownValueChange({
@@ -114,7 +130,8 @@ export class FormRenderer {
                 section.fields.forEach(field => {
                     if (field.visible === false) return;
 
-                    const fieldValue = this.data[field.id];
+                    const modelKey = getModelKey(field);
+                    const fieldValue = this.data[modelKey];
                     const fieldElement = form.querySelector(`input[id*="${field.id}"], textarea[id*="${field.id}"], select[id*="${field.id}"]`) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
 
                     if (!fieldElement) {

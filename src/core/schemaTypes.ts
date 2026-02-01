@@ -67,6 +67,7 @@ export interface FormField {
     id: string;
     type: FieldType;
     label: string;
+    fieldName?: string; // Model key for binding (API / preview); fallback to id when missing
     placeholder?: string;
     description?: string;
     required?: boolean;
