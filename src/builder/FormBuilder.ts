@@ -45,6 +45,8 @@ export interface FormBuilderOptions {
     onGroupSelectionChange?: (event: { fieldId: string; groupEnumName: string }) => void;
     onDropdownValueChange?: (event: { fieldId: string; value: string }) => void;
     onLookupSourceChange?: (event: { fieldId: string; lookupSourceType: 'MODULE' | 'MASTER_TYPE'; lookupSource: string }) => void;
+    onProfileClick?: () => void; // Callback for profile icon click
+    onSettingsClick?: () => void; // Callback for settings icon click
 }
 
 export class FormBuilder {
@@ -568,6 +570,30 @@ export class FormBuilder {
 
         // Right
         const right = createElement('div', { className: 'flex items-center space-x-2' });
+
+        // Profile Icon Button
+        const profileBtn = createElement('button', {
+            className: 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400',
+            title: 'Profile',
+            onclick: () => {
+                if (this.options.onProfileClick) {
+                    this.options.onProfileClick();
+                }
+            }
+        }, [getIcon('User', 20)]);
+        right.appendChild(profileBtn);
+
+        // Settings Icon Button
+        const settingsBtn = createElement('button', {
+            className: 'p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400',
+            title: 'Settings',
+            onclick: () => {
+                if (this.options.onSettingsClick) {
+                    this.options.onSettingsClick();
+                }
+            }
+        }, [getIcon('Cog', 20)]);
+        right.appendChild(settingsBtn);
 
         const clearBtn = createElement('button', {
             className: 'flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-red-500 text-white rounded-md transition-colors',
