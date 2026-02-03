@@ -283,8 +283,9 @@ export class FormBuilder {
                         id: f.id,
                         type: f.type,
                         label: f.label,
-                        // Exclude frequently changing text properties from hash
-                        // to prevent re-renders on typing
+                        layout: f.layout,
+                        width: f.width
+                        // Exclude frequently changing text (placeholder, etc.) to prevent re-renders on typing
                     }))
                 })),
                 selectedField: state.selectedFieldId,
@@ -904,18 +905,24 @@ export class FormBuilder {
 
         // Grid span selector buttons (1-12 columns)
         const spanButtonsContainer = createElement('div', { className: 'grid grid-cols-6 gap-2 mt-2' });
+        const fieldId = selectedField.id;
         for (let span = 1; span <= 12; span++) {
             const isActive = currentSpan === span;
             const spanBtn = createElement('button', {
                 type: 'button',
-                className: `span-preset-btn px-2 py-1.5 text-xs rounded transition-colors ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
+                className: `span-preset-btn px-2 py-1.5 text-xs rounded transition-colors cursor-pointer ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
                 text: `${span}`,
-                title: `${span} column${span > 1 ? 's' : ''} (${Math.round((span / 12) * 100)}%)`,
-                onclick: () => {
-                    const layout = selectedField.layout || { row: 0, column: 0 };
-                    formStore.getState().updateField(selectedField.id, {
-                        layout: { ...layout, span: span },
-                        // Also update width for backward compatibility
+                title: `${span} column${span > 1 ? 's' : ''} (${Math.round((span / 12) * 100)}%)`
+            });
+            spanBtn.addEventListener('click', (e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const state = formStore.getState();
+                const field = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === fieldId);
+                if (field) {
+                    const layout = field.layout || { row: 0, column: 0 };
+                    state.updateField(fieldId, {
+                        layout: { ...layout, span },
                         width: Math.round((span / 12) * 100) as FieldWidth
                     });
                 }
