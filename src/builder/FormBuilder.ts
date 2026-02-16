@@ -442,7 +442,7 @@ export class FormBuilder {
             }
         } else {
             // Wrap toolbox for mobile collapsibility
-            const toolboxWrapper = createElement('div', { className: 'form-builder-toolbox-wrapper w-full md:w-40 bg-white dark:bg-gray-900 border-r md:border-r border-b md:border-b-0 border-gray-200 dark:border-gray-800' });
+            const toolboxWrapper = createElement('div', { className: 'form-builder-toolbox-wrapper w-full md:w-[13rem] bg-white dark:bg-gray-900 border-r md:border-r border-b md:border-b-0 border-gray-200 dark:border-gray-800' });
             toolboxWrapper.appendChild(this.renderToolbox());
             main.appendChild(toolboxWrapper);
 
@@ -452,7 +452,7 @@ export class FormBuilder {
             main.appendChild(canvasWrapper);
 
             // Wrap config panel for mobile collapsibility
-            const configWrapper = createElement('div', { className: 'form-builder-config-wrapper w-full md:w-80 bg-white dark:bg-gray-900 border-l md:border-l border-t md:border-t-0 border-gray-200 dark:border-gray-800 overflow-hidden' });
+            const configWrapper = createElement('div', { className: 'form-builder-config-wrapper w-full md:w-[15rem] bg-white dark:bg-gray-900 border-l md:border-l border-t md:border-t-0 border-gray-200 dark:border-gray-800 overflow-hidden' });
             configWrapper.appendChild(this.renderConfigPanel(state, focusState));
             main.appendChild(configWrapper);
         }
@@ -507,7 +507,7 @@ export class FormBuilder {
     }
 
     private renderToolbar(state: any): HTMLElement {
-        const toolbar = createElement('div', { className: 'flex items-center justify-between p-4 border-b bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' });
+        const toolbar = createElement('div', { className: 'flex items-center justify-between pb-2 border-b bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' });
 
         // Left
         const left = createElement('div', { className: 'flex items-center ' });
@@ -640,7 +640,7 @@ export class FormBuilder {
     private activeTab: 'fields' | 'templates' | 'import' = 'fields';
 
     private renderToolbox(): HTMLElement {
-        const toolbox = createElement('div', { className: 'bg-[#847dff1a] dark:bg-gray-900 flex flex-col h-full' });
+        const toolbox = createElement('div', { className: ' dark:bg-gray-900 flex flex-col h-full' });
 
         // Tabs
         const tabs = createElement('div', { className: 'flex border-b border-gray-200 dark:border-gray-800 p-1' });
@@ -653,7 +653,7 @@ export class FormBuilder {
             const isActive = this.activeTab === id;
 
             const btn = createElement('button', {
-                className: `flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${isActive ? 'text-white bg-[#635bff] rounded ' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`,
+                className: `flex-1 flex items-center justify-center  py-3 text-sm font-medium transition-colors ${isActive ? 'text-white bg-[#635bff] rounded ' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`,
                 title: tooltip || label,
                 'aria-label': tooltip || label,
                 onclick: () => {
@@ -675,7 +675,7 @@ export class FormBuilder {
         toolbox.appendChild(tabs);
 
         // Content
-        const content = createElement('div', { className: 'flex-1 overflow-y-auto p-4 bg-white' });
+        const content = createElement('div', { className: 'flex-1 overflow-y-auto py-2 pr-1  bg-white' });
 
         if (this.activeTab === 'fields') {
             const list = createElement('div', { className: 'grid grid-cols-2 gap-3', id: 'toolbox-list' });
@@ -768,7 +768,7 @@ export class FormBuilder {
 
     private renderCanvas(state: any): HTMLElement {
         const canvas = createElement('div', {
-            className: 'flex-1 dark:bg-gray-950 p-4 md:p-8 overflow-y-auto',
+            className: 'flex-1 dark:bg-gray-950 p-4 md:p-4 overflow-y-auto',
             onclick: (e: Event) => {
                 if (e.target === canvas || e.target === canvas.firstElementChild) {
                     formStore.getState().selectField(null);
@@ -796,7 +796,7 @@ export class FormBuilder {
 
         // Add Section Button
         const addSectionBtn = createElement('button', {
-            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-lg text-gray-500 bg-[#635bff] max-w-[180px] shadow-[0_17px_20px_-8px_rgba(77,91,236,0.231372549)] text-white transition-colors flex items-center justify-center font-medium',
+            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-lg text-sm text-gray-500 bg-[#635bff] max-w-[180px] shadow-[0_17px_20px_-8px_rgba(77,91,236,0.231372549)] text-white transition-colors flex items-center justify-center font-medium',
             onclick: () => formStore.getState().addSection()
         }, [getIcon('Plus', 20), createElement('span', { className: 'ml-2', text: 'Add Section' })]);
 
@@ -810,7 +810,7 @@ export class FormBuilder {
         const uniqueId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
         
         // Modern checkbox container with better spacing
-        const container = createElement('div', { className: 'flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer' });
+        const container = createElement('div', { className: 'flex items-center gap-3 py-2.5 px-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer' });
         
         // Checkbox input with larger size and better styling
         const checkbox = createElement('input', {
@@ -863,7 +863,7 @@ export class FormBuilder {
         }, [getIcon('X', 20)]));
         panel.appendChild(header);
 
-        const body = createElement('div', { className: 'flex-1 overflow-y-auto p-4 space-y-6', id: 'config-panel-body' });
+        const body = createElement('div', { className: 'flex-1 overflow-y-auto p-4 px-2 space-y-3', id: 'config-panel-body' });
 
         // Label
         const labelGroup = createElement('div');
