@@ -442,7 +442,7 @@ export class FormBuilder {
             }
         } else {
             // Wrap toolbox for mobile collapsibility
-            const toolboxWrapper = createElement('div', { className: 'form-builder-toolbox-wrapper w-full md:w-80 bg-white dark:bg-gray-900 border-r md:border-r border-b md:border-b-0 border-gray-200 dark:border-gray-800' });
+            const toolboxWrapper = createElement('div', { className: 'form-builder-toolbox-wrapper w-full md:w-40 bg-white dark:bg-gray-900 border-r md:border-r border-b md:border-b-0 border-gray-200 dark:border-gray-800' });
             toolboxWrapper.appendChild(this.renderToolbox());
             main.appendChild(toolboxWrapper);
 
@@ -644,20 +644,34 @@ export class FormBuilder {
 
         // Tabs
         const tabs = createElement('div', { className: 'flex border-b border-gray-200 dark:border-gray-800 p-1' });
-        const createTab = (id: 'fields' | 'templates' | 'import', label: string) => {
+        /**
+         * createTab: builds a tab button with optional icon and tooltip (title).
+         * - icon defaults to 'ListBullet' when not provided
+         * - tooltip (title) is shown on hover by the browser
+         */
+        const createTab = (id: 'fields' | 'templates' | 'import', label: string, icon?: string, tooltip?: string) => {
             const isActive = this.activeTab === id;
-            return createElement('button', {
-                className: `flex-1 py-3 text-sm font-medium transition-colors ${isActive ? 'text-white bg-[#635bff] rounded ' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`,
-                text: label,
+
+            const btn = createElement('button', {
+                className: `flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${isActive ? 'text-white bg-[#635bff] rounded ' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`,
+                title: tooltip || label,
+                'aria-label': tooltip || label,
                 onclick: () => {
                     this.activeTab = id;
                     this.render(); // Re-render to show new tab content
                 }
-            });
+            }, [
+                getIcon(icon || 'ListBullet', 16),
+                createElement('span', { className: 'hidden sm:inline-block', text: label })
+            ]);
+
+            return btn;
         };
-        tabs.appendChild(createTab('fields', 'Fields'));
-        tabs.appendChild(createTab('templates', 'Templates'));
-        tabs.appendChild(createTab('import', 'Import'));
+
+        // Tabs with icons + hover tooltips
+        tabs.appendChild(createTab('fields', '', 'ListBullet', 'Field types'));
+        tabs.appendChild(createTab('templates', '', 'DocumentText', 'Saved templates'));
+        tabs.appendChild(createTab('import', '', 'Upload', 'Import sections'));
         toolbox.appendChild(tabs);
 
         // Content
