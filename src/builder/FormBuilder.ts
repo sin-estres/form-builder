@@ -443,7 +443,7 @@ export class FormBuilder {
             }
         } else {
             // Wrap toolbox for mobile collapsibility
-            const toolboxWrapper = createElement('div', { className: 'form-builder-toolbox-wrapper w-full md:w-[13rem] bg-white dark:bg-gray-900 border-r md:border-r border-b md:border-b-0 border-gray-200 dark:border-gray-800' });
+            const toolboxWrapper = createElement('div', { className: 'form-builder-toolbox-wrapper w-full md:w-[14rem] bg-white dark:bg-gray-900 border-r md:border-r border-b md:border-b-0 border-gray-200 dark:border-gray-800' });
             toolboxWrapper.appendChild(this.renderToolbox());
             main.appendChild(toolboxWrapper);
 
@@ -453,7 +453,7 @@ export class FormBuilder {
             main.appendChild(canvasWrapper);
 
             // Wrap config panel for mobile collapsibility
-            const configWrapper = createElement('div', { className: 'form-builder-config-wrapper w-full md:w-[15rem] bg-white dark:bg-gray-900 border-l md:border-l border-t md:border-t-0 border-gray-200 dark:border-gray-800 overflow-hidden' });
+            const configWrapper = createElement('div', { className: 'form-builder-config-wrapper w-full md:w-[17rem] bg-white dark:bg-gray-900 border-l md:border-l border-t md:border-t-0 border-gray-200 dark:border-gray-800 overflow-hidden' });
             configWrapper.appendChild(this.renderConfigPanel(state, focusState));
             main.appendChild(configWrapper);
         }
@@ -508,7 +508,7 @@ export class FormBuilder {
     }
 
     private renderToolbar(state: any): HTMLElement {
-        const toolbar = createElement('div', { className: 'flex items-center justify-between pb-2 border-b bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' });
+        const toolbar = createElement('div', { className: 'flex items-center justify-between p-2 pl-[95px] border-b bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' });
 
         // Left
         const left = createElement('div', { className: 'flex items-center ' });
@@ -517,7 +517,7 @@ export class FormBuilder {
         // Form Selection Dropdown
         if (state.existingForms && state.existingForms.length > 0) {
             const formSelect = createElement('select', {
-                className: 'px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm mr-2',
+                className: 'px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm mr-2',
                 onchange: (e: Event) => {
                     const formId = (e.target as HTMLSelectElement).value;
                     if (formId) {
@@ -597,7 +597,7 @@ export class FormBuilder {
         right.appendChild(settingsBtn);
 
         const clearBtn = createElement('button', {
-            className: 'flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-red-500 text-white rounded-md transition-colors',
+            className: 'flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-[#f7a1a14d] text-red-500 rounded-md transition-colors',
             onclick: () => {
                 if (confirm('Are you sure?')) {
                     formStore.getState().setSchema({ id: 'new', title: 'New Form', formName: 'newForm', sections: [] });
@@ -606,7 +606,7 @@ export class FormBuilder {
         }, [getIcon('Trash2', 16), createElement('span', { className: '', title: 'Clear', })]);
 
         const previewBtn = createElement('button', {
-            className: `flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${state.isPreviewMode ? "bg-[#019FA2] text-white hover:bg-[#018a8d]" : "bg-[#3b497e] text-white hover:bg-[#2d3a62]"}`,
+            className: `flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${state.isPreviewMode ? "text-[#635bff] bg-[#e7e7ff] " : "text-[#635bff] bg-[#e7e7ff]"}`,
             onclick: (e: Event) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -616,7 +616,7 @@ export class FormBuilder {
         }, [getIcon(state.isPreviewMode ? 'X' : 'Eye', 16)]);
 
         const saveBtn = createElement('button', {
-            className: 'flex items-center px-3 py-2 text-sm font-medium text-white bg-[#019FA2]  rounded-md shadow-sm transition-colors',
+            className: 'flex items-center px-3 py-2 text-sm font-medium text-[#635bff] bg-[#e7e7ff]  rounded-md shadow-sm transition-colors',
             onclick: () => {
                 const schema = formStore.getState().schema;
 
@@ -628,7 +628,7 @@ export class FormBuilder {
                     this.options.onSave(schema);
                 }
             }
-        }, [getIcon('Save', 16), createElement('span', { className: '', text: '' })]);
+        }, [ createElement('span', { className: '', text: 'Save' })]);
 
         right.appendChild(clearBtn);
         right.appendChild(previewBtn);
@@ -644,7 +644,7 @@ export class FormBuilder {
         const toolbox = createElement('div', { className: ' dark:bg-gray-900 flex flex-col h-full' });
 
         // Tabs
-        const tabs = createElement('div', { className: 'flex border-b border-gray-200 dark:border-gray-800 p-1' });
+        const tabs = createElement('div', { className: 'flex border-b border-gray-200 dark:border-gray-800 ' });
         /**
          * createTab: builds a tab button with optional icon and tooltip (title).
          * - icon defaults to 'ListBullet' when not provided
@@ -654,7 +654,7 @@ export class FormBuilder {
             const isActive = this.activeTab === id;
 
             const btn = createElement('button', {
-                className: `flex-1 flex items-center justify-center  py-3 text-sm font-medium transition-colors ${isActive ? 'text-white bg-[#635bff] rounded ' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`,
+                className: `flex-1 flex items-center justify-center  py-3 text-base font-bold transition-colors ${isActive ? 'text-[#635bff] bg-[#e7e7ff]  ' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`,
                 title: tooltip || label,
                 'aria-label': tooltip || label,
                 onclick: () => {
@@ -676,7 +676,7 @@ export class FormBuilder {
         toolbox.appendChild(tabs);
 
         // Content
-        const content = createElement('div', { className: 'flex-1 overflow-y-auto py-2 pr-1  bg-white' });
+        const content = createElement('div', { className: 'flex-1 overflow-y-auto p-4 bg-[#e7e7ff]' });
 
         if (this.activeTab === 'fields') {
             const list = createElement('div', { className: 'grid grid-cols-2 gap-3', id: 'toolbox-list' });
@@ -797,7 +797,7 @@ export class FormBuilder {
 
         // Add Section Button
         const addSectionBtn = createElement('button', {
-            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-lg text-sm text-gray-500 bg-[#635bff] max-w-[180px] shadow-[0_17px_20px_-8px_rgba(77,91,236,0.231372549)] text-white transition-colors flex items-center justify-center font-medium',
+            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-md text-sm text-gray-500 bg-[#635bff] max-w-[180px]  text-white transition-colors flex items-center justify-center font-medium',
             onclick: () => formStore.getState().addSection()
         }, [getIcon('Plus', 20), createElement('span', { className: 'ml-2', text: 'Add Section' })]);
 
@@ -811,7 +811,7 @@ export class FormBuilder {
         const uniqueId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
         
         // Modern checkbox container with better spacing
-        const container = createElement('div', { className: 'flex items-center gap-3 py-2.5 px-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer' });
+        const container = createElement('div', { className: 'flex items-center gap-3 py-1 px-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer' });
         
         // Checkbox input with larger size and better styling
         const checkbox = createElement('input', {
@@ -868,9 +868,9 @@ export class FormBuilder {
 
         // Label
         const labelGroup = createElement('div');
-        labelGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Label' }));
+        labelGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Label' }));
         labelGroup.appendChild(createElement('input', {
-            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
             value: selectedField.label,
             'data-focus-id': `field-label-${selectedField.id}`,
             oninput: (e: Event) => {
@@ -881,9 +881,9 @@ export class FormBuilder {
 
         // Placeholder
         const placeholderGroup = createElement('div');
-        placeholderGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Placeholder' }));
+        placeholderGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Placeholder' }));
         placeholderGroup.appendChild(createElement('input', {
-            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
             value: selectedField.placeholder || '',
             'data-focus-id': `field-placeholder-${selectedField.id}`,
             oninput: (e: Event) => {
@@ -924,7 +924,7 @@ export class FormBuilder {
             const isActive = currentSpan === span;
             const spanBtn = createElement('button', {
                 type: 'button',
-                className: `span-preset-btn px-2 py-1.5 text-xs rounded transition-colors cursor-pointer ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
+                className: `span-preset-btn px-2 py-1.5 text-xs rounded transition-colors cursor-pointer ${isActive ? 'bg-[#e7e7ff] text-[#635bff] font-semibold' : 'bg-white border-2 border-[#e7e7ff] dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
                 text: `${span}`,
                 title: `${span} column${span > 1 ? 's' : ''} (${Math.round((span / 12) * 100)}%)`
             });
@@ -1046,9 +1046,9 @@ export class FormBuilder {
 
             if (activeMasterTypes.length > 0) {
                 const groupNameGroup = createElement('div', { className: 'mb-4' });
-                groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Master List' }));
+                groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Master List' }));
                 const groupNameSelect = createElement('select', {
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                     onchange: (e: Event) => {
                         const selectedEnumName = (e.target as HTMLSelectElement).value;
                         if (selectedEnumName) {
@@ -1164,9 +1164,9 @@ export class FormBuilder {
             body.appendChild(optionSourceHeader);
 
             const optionSourceGroup = createElement('div', { className: 'mb-4' });
-            optionSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Source Type' }));
+            optionSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Source Type' }));
             const optionSourceSelect = createElement('select', {
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 value: selectedField.optionSource || 'STATIC',
                 onchange: (e: Event) => {
                     const source = (e.target as HTMLSelectElement).value as 'STATIC' | 'MASTER' | 'LOOKUP';
@@ -1203,9 +1203,9 @@ export class FormBuilder {
             if (selectedField.type === 'select' && selectedField.optionSource === 'LOOKUP') {
                 // Lookup Source Type dropdown
                 const lookupSourceTypeGroup = createElement('div', { className: 'mb-4' });
-                lookupSourceTypeGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source Type' }));
+                lookupSourceTypeGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source Type' }));
                 const lookupSourceTypeSelect = createElement('select', {
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                     value: selectedField.lookupSourceType || 'MODULE',
                     onchange: (e: Event) => {
                         const lookupSourceType = (e.target as HTMLSelectElement).value as 'MODULE' | 'MASTER_TYPE';
@@ -1227,9 +1227,9 @@ export class FormBuilder {
                 if (selectedField.lookupSourceType === 'MODULE') {
                     const moduleList = this.options.moduleList || [];
                     const lookupSourceGroup = createElement('div', { className: 'mb-4' });
-                    lookupSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source' }));
+                    lookupSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source' }));
                     const lookupSourceSelect = createElement('select', {
-                        className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                        className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                         value: selectedField.lookupSource || '',
                         onchange: (e: Event) => {
                             const lookupSource = (e.target as HTMLSelectElement).value;
@@ -1266,9 +1266,9 @@ export class FormBuilder {
                     const masterTypes = formStore.getState().masterTypes;
                     const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
                     const lookupSourceGroup = createElement('div', { className: 'mb-4' });
-                    lookupSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source' }));
+                    lookupSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Source' }));
                     const lookupSourceSelect = createElement('select', {
-                        className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                        className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                         value: selectedField.lookupSource || '',
                         onchange: (e: Event) => {
                             const lookupSource = (e.target as HTMLSelectElement).value;
@@ -1306,9 +1306,9 @@ export class FormBuilder {
 
                 // Lookup Value Field
                 const lookupValueFieldGroup = createElement('div', { className: 'mb-4' });
-                lookupValueFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Value Field' }));
+                lookupValueFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Value Field' }));
                 const lookupValueFieldSelect = createElement('select', {
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                     value: selectedField.lookupValueField || '',
                     disabled: !selectedField.lookupSource,
                     onchange: (e: Event) => {
@@ -1336,9 +1336,9 @@ export class FormBuilder {
 
                 // Lookup Label Field
                 const lookupLabelFieldGroup = createElement('div', { className: 'mb-4' });
-                lookupLabelFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Label Field' }));
+                lookupLabelFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Lookup Label Field' }));
                 const lookupLabelFieldSelect = createElement('select', {
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                     value: selectedField.lookupLabelField || '',
                     disabled: !selectedField.lookupSource,
                     onchange: (e: Event) => {
@@ -1536,10 +1536,10 @@ export class FormBuilder {
         // Min/Max Length (Text/Textarea)
         if (['text', 'textarea', 'email', 'password'].includes(selectedField.type)) {
             const minLenGroup = createElement('div', { className: 'mb-3' });
-            minLenGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Min Length' }));
+            minLenGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Min Length' }));
             minLenGroup.appendChild(createElement('input', {
                 type: 'number',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 value: getRuleValue('minLength') || '',
                 placeholder: 'e.g. 3',
                 onchange: (e: Event) => {
@@ -1550,10 +1550,10 @@ export class FormBuilder {
             validationElements.push(minLenGroup);
 
             const maxLenGroup = createElement('div', { className: 'mb-3' });
-            maxLenGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Max Length' }));
+            maxLenGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Max Length' }));
             maxLenGroup.appendChild(createElement('input', {
                 type: 'number',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 value: getRuleValue('maxLength') || '',
                 placeholder: 'e.g. 100',
                 onchange: (e: Event) => {
@@ -1565,7 +1565,7 @@ export class FormBuilder {
 
             // Regex (with preset support for text fields, special handling for email fields)
             const regexGroup = createElement('div', { className: 'mb-3' });
-            regexGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Regex Pattern' }));
+            regexGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Regex Pattern' }));
 
             // Helper function to update examples based on preset or custom regex
             const updateExamples = (examplesList: HTMLElement, regex: string, preset?: RegexPreset) => {
@@ -1648,7 +1648,7 @@ export class FormBuilder {
                 presetGroup.appendChild(createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Regex Presets (Optional)' }));
 
                 const presetSelect = createElement('select', {
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm',
                     value: selectedPresetId,
                     onchange: (e: Event) => {
                         const presetId = (e.target as HTMLSelectElement).value;
@@ -1700,7 +1700,7 @@ export class FormBuilder {
 
             regexInput = createElement('input', {
                 type: 'text',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 value: currentRegex,
                 placeholder: selectedField.type === 'email' ? '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$' : 'e.g. ^[A-Z]+$',
                 'data-focus-id': `field-regex-${selectedField.id}`,
@@ -1769,10 +1769,10 @@ export class FormBuilder {
         // Min/Max Selected (Checkbox)
         if (selectedField.type === 'checkbox') {
             const minSelectedGroup = createElement('div', { className: 'mb-3' });
-            minSelectedGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Min Selected' }));
+            minSelectedGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Min Selected' }));
             minSelectedGroup.appendChild(createElement('input', {
                 type: 'number',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 value: getRuleValue('minSelected'),
                 placeholder: 'e.g. 1',
                 min: '0',
@@ -1784,10 +1784,10 @@ export class FormBuilder {
             validationElements.push(minSelectedGroup);
 
             const maxSelectedGroup = createElement('div', { className: 'mb-3' });
-            maxSelectedGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Max Selected' }));
+            maxSelectedGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Max Selected' }));
             maxSelectedGroup.appendChild(createElement('input', {
                 type: 'number',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 value: getRuleValue('maxSelected'),
                 placeholder: 'e.g. 2',
                 min: '1',
@@ -1802,10 +1802,10 @@ export class FormBuilder {
         // Min/Max Date (Date)
         if (selectedField.type === 'date') {
             const minDateGroup = createElement('div', { className: 'mb-3' });
-            minDateGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Minimum Date' }));
+            minDateGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Minimum Date' }));
             minDateGroup.appendChild(createElement('input', {
                 type: 'date',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 value: validationObj.minDate || '',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
@@ -1815,10 +1815,10 @@ export class FormBuilder {
             validationElements.push(minDateGroup);
 
             const maxDateGroup = createElement('div', { className: 'mb-3' });
-            maxDateGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Maximum Date' }));
+            maxDateGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Maximum Date' }));
             maxDateGroup.appendChild(createElement('input', {
                 type: 'date',
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 value: validationObj.maxDate || '',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
@@ -1874,9 +1874,9 @@ export class FormBuilder {
 
         // Padding dropdown
         const paddingGroup = createElement('div', { className: 'mb-3' });
-        paddingGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Padding' }));
+        paddingGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Padding' }));
         const paddingSelect = createElement('select', {
-            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-sm',
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-sm',
             onchange: (e: Event) => {
                 updateStyleProp('padding', (e.target as HTMLSelectElement).value);
             }
@@ -1897,7 +1897,7 @@ export class FormBuilder {
 
         // Background Color picker
         const bgColorGroup = createElement('div', { className: 'mb-3' });
-        bgColorGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Background Color' }));
+        bgColorGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Background Color' }));
         const bgColorRow = createElement('div', { className: 'flex items-center gap-2' });
         const bgColorInput = createElement('input', {
             type: 'color',
@@ -1924,7 +1924,7 @@ export class FormBuilder {
 
         // Text Alignment buttons
         const alignGroup = createElement('div', { className: 'mb-3' });
-        alignGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Text Alignment' }));
+        alignGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Text Alignment' }));
         const alignButtonsRow = createElement('div', { className: 'flex gap-1' });
         const alignments = [
             { value: 'left', icon: 'AlignLeft' },
@@ -1950,10 +1950,10 @@ export class FormBuilder {
 
         // CSS Class input (simplified)
         const cssClassGroup = createElement('div', { className: 'mb-3' });
-        cssClassGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Custom CSS Class' }));
+        cssClassGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Custom CSS Class' }));
         cssClassGroup.appendChild(createElement('input', {
             type: 'text',
-            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm',
             value: selectedField.css?.class || '',
             placeholder: 'e.g. my-custom-class',
             'data-focus-id': `field-css-class-${selectedField.id}`,
@@ -2023,7 +2023,7 @@ export class FormBuilder {
 
 
         const cssStyleTextarea = createElement('textarea', {
-            className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-xs font-mono',
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-xs font-mono',
             rows: 3,
             placeholder: '{"padding": "8px", "backgroundColor": "#f0f0f0"}',
             'data-focus-id': cssStyleId,
@@ -2142,7 +2142,7 @@ export class FormBuilder {
             const sourceGroup = createElement('div', { className: 'mb-4' });
             sourceGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'Source Type' }));
             const sourceSelect = createElement('select', {
-                className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                 onchange: (e: Event) => {
                     const isAsync = (e.target as HTMLSelectElement).value === 'api';
                     if (isAsync) {
@@ -2166,7 +2166,7 @@ export class FormBuilder {
                 const apiGroup = createElement('div', { className: 'mb-3' });
                 apiGroup.appendChild(createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1', text: 'API URL' }));
                 apiGroup.appendChild(createElement('input', {
-                    className: 'w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent',
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                     value: selectedField.optionsSource.api,
                     oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { optionsSource: { ...selectedField.optionsSource!, api: (e.target as HTMLInputElement).value } })
                 }));
