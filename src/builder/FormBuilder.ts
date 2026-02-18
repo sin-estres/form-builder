@@ -11,6 +11,10 @@ import { MasterType } from '../core/useFormStore';
 // Module-level state to track which fields have their Advanced CSS panel expanded
 const advancedCssPanelState: Map<string, boolean> = new Map();
 
+// Debounced label updates to prevent flickering when typing
+const LABEL_DEBOUNCE_MS = 300;
+const labelUpdateTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 
 export interface FormBuilderOptions {
     existingForms?: FormSchema[];
@@ -272,7 +276,7 @@ export class FormBuilder {
             const previewModeChanged = lastPreviewMode !== null && lastPreviewMode !== state.isPreviewMode;
             lastPreviewMode = state.isPreviewMode;
 
-            // Generate hash of schema for change detection (exclude title/label to prevent re-renders on typing)
+            // Generate hash of schema for change detection (exclude title to prevent re-renders on section name typing)
             const schemaHash = JSON.stringify({
                 sections: state.schema.sections.map((s) => ({
                     id: s.id,
@@ -280,7 +284,7 @@ export class FormBuilder {
                     fields: s.fields.map((f) => ({
                         id: f.id,
                         type: f.type,
-                        // Exclude label - prevents re-renders on field name typing
+                        label: f.label,
                         layout: f.layout,
                         width: f.width,
                         css: f.css
@@ -311,6 +315,8 @@ export class FormBuilder {
             cancelAnimationFrame(this.pendingRenderId);
             this.pendingRenderId = null;
         }
+        labelUpdateTimeouts.forEach((id) => clearTimeout(id));
+        labelUpdateTimeouts.clear();
         this.unsubscribe();
         this.container.innerHTML = '';
     }
@@ -884,7 +890,15 @@ export class FormBuilder {
             value: selectedField.label,
             'data-focus-id': `field-label-${selectedField.id}`,
             oninput: (e: Event) => {
-                formStore.getState().updateField(selectedField.id, { label: (e.target as HTMLInputElement).value });
+                const fieldId = selectedField.id;
+                const value = (e.target as HTMLInputElement).value;
+                const existing = labelUpdateTimeouts.get(fieldId);
+                if (existing) clearTimeout(existing);
+                const timeoutId = setTimeout(() => {
+                    labelUpdateTimeouts.delete(fieldId);
+                    formStore.getState().updateField(fieldId, { label: value });
+                }, LABEL_DEBOUNCE_MS);
+                labelUpdateTimeouts.set(fieldId, timeoutId);
             }
         }));
         body.appendChild(labelGroup);
