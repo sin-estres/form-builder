@@ -138,6 +138,49 @@ describe('Serialization & Persistence Tests', () => {
             expect(field.defaultValue).toBe('IN');
         });
 
+        it('should preserve custom options when adding multiple options and include in save payload', async () => {
+            formStore.getState().addSection();
+            const sectionId = formStore.getState().schema.sections[0].id;
+            formStore.getState().addField(sectionId, 'select');
+            const fieldId = formStore.getState().schema.sections[0].fields[0].id;
+
+            // Enable custom options and add first option
+            formStore.getState().updateField(fieldId, {
+                customOptionsEnabled: true,
+                optionSource: 'STATIC',
+                options: [{ label: 'Custom Option 1', value: 'custom1' }],
+            });
+            await waitForDOMUpdate();
+
+            // Simulate "Add Option" - append to existing (must read current from store, not stale closure)
+            const getCurrentOptions = () => {
+                const field = formStore.getState().schema.sections.flatMap((s) => s.fields).find((f) => f.id === fieldId);
+                return field?.options || [];
+            };
+            const currentOptions = getCurrentOptions();
+            const newOptions = [...currentOptions, { label: 'Custom Option 2', value: 'custom2' }];
+            formStore.getState().updateField(fieldId, { options: newOptions });
+            await waitForDOMUpdate();
+
+            const schema = formStore.getState().schema;
+            const field = schema.sections[0].fields[0];
+            expect(field.options).toHaveLength(2);
+            expect(field.options?.[0]).toEqual({ label: 'Custom Option 1', value: 'custom1' });
+            expect(field.options?.[1]).toEqual({ label: 'Custom Option 2', value: 'custom2' });
+
+            // Verify options and customOptionsEnabled are in save payload
+            const savedSchema = JSON.parse(JSON.stringify(schema));
+            expect(savedSchema.sections[0].fields[0].options).toHaveLength(2);
+            expect(savedSchema.sections[0].fields[0].customOptionsEnabled).toBe(true);
+
+            // Reload and verify options persist
+            formStore.getState().setSchema(savedSchema);
+            const reloadedField = formStore.getState().schema.sections[0].fields[0];
+            expect(reloadedField.options).toHaveLength(2);
+            expect(reloadedField.options?.[0].label).toBe('Custom Option 1');
+            expect(reloadedField.options?.[1].label).toBe('Custom Option 2');
+        });
+
         it('should save form with section layout configuration', async () => {
             formStore.getState().addSection();
             const sectionId = formStore.getState().schema.sections[0].id;

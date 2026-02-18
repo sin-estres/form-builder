@@ -1448,6 +1448,13 @@ export class FormBuilder {
             if (shouldShowOptions) {
                 const options = selectedField.options || [];
 
+                // Helper to get current options from store (avoids stale closure when user types then clicks Add/Delete)
+                const fieldId = selectedField.id;
+                const getCurrentOptions = (): { label: string; value: string }[] => {
+                    const field = formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === fieldId);
+                    return field?.options || [];
+                };
+
                 const optionsList = createElement('div', { className: 'space-y-2 mb-3' });
 
                 options.forEach((opt: { label: string; value: string }, index: number) => {
@@ -1460,9 +1467,12 @@ export class FormBuilder {
                         placeholder: 'Option label',
                         'data-focus-id': `field-option-label-${selectedField.id}-${index}`,
                         oninput: (e: Event) => {
-                            const newOptions = [...options];
-                            newOptions[index] = { ...newOptions[index], label: (e.target as HTMLInputElement).value };
-                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                            const currentOptions = getCurrentOptions();
+                            const newOptions = [...currentOptions];
+                            if (newOptions[index]) {
+                                newOptions[index] = { ...newOptions[index], label: (e.target as HTMLInputElement).value };
+                                formStore.getState().updateField(fieldId, { options: newOptions });
+                            }
                         }
                     });
 
@@ -1473,9 +1483,12 @@ export class FormBuilder {
                         placeholder: 'Option value',
                         'data-focus-id': `field-option-value-${selectedField.id}-${index}`,
                         oninput: (e: Event) => {
-                            const newOptions = [...options];
-                            newOptions[index] = { ...newOptions[index], value: (e.target as HTMLInputElement).value };
-                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                            const currentOptions = getCurrentOptions();
+                            const newOptions = [...currentOptions];
+                            if (newOptions[index]) {
+                                newOptions[index] = { ...newOptions[index], value: (e.target as HTMLInputElement).value };
+                                formStore.getState().updateField(fieldId, { options: newOptions });
+                            }
                         }
                     });
 
@@ -1483,8 +1496,9 @@ export class FormBuilder {
                         className: 'p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors',
                         title: 'Delete option',
                         onclick: () => {
-                            const newOptions = options.filter((_: { label: string; value: string }, i: number) => i !== index);
-                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                            const currentOptions = getCurrentOptions();
+                            const newOptions = currentOptions.filter((_: { label: string; value: string }, i: number) => i !== index);
+                            formStore.getState().updateField(fieldId, { options: newOptions });
                         }
                     }, [getIcon('Trash2', 14)]);
 
@@ -1496,14 +1510,16 @@ export class FormBuilder {
 
                 body.appendChild(optionsList);
 
-                // Add Option button
+                // Add Option button - use getCurrentOptions() to avoid stale closure (preserves user-typed values)
                 const addOptionBtn = createElement('button', {
                     type: 'button',
                     className: 'w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
                     text: 'Add Option',
                     onclick: () => {
-                        const newOptions = [...(selectedField.options || []), { label: `Option ${(selectedField.options || []).length + 1}`, value: `opt${(selectedField.options || []).length + 1}` }];
-                        formStore.getState().updateField(selectedField.id, { options: newOptions });
+                        const currentOptions = getCurrentOptions();
+                        const newOption = { label: `Option ${currentOptions.length + 1}`, value: `opt${currentOptions.length + 1}` };
+                        const newOptions = [...currentOptions, newOption];
+                        formStore.getState().updateField(fieldId, { options: newOptions });
                         // Force re-render to show new option (scroll position will be preserved)
                         this.render();
                     }

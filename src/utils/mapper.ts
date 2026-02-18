@@ -458,6 +458,7 @@ function fieldToPayload(field: FormField): any {
     if (field.visible !== undefined) payload.visible = field.visible;
     if (field.css !== undefined) payload.css = field.css;
     if (field.optionSource !== undefined) payload.optionSource = field.optionSource;
+    if (field.customOptionsEnabled !== undefined) payload.customOptionsEnabled = field.customOptionsEnabled;
     if (field.groupName !== undefined) payload.groupName = field.groupName;
     if (field.masterTypeName !== undefined) payload.masterTypeName = field.masterTypeName;
     // Lookup-related properties (for LOOKUP optionSource)
@@ -467,9 +468,10 @@ function fieldToPayload(field: FormField): any {
     if (field.lookupLabelField !== undefined) payload.lookupLabelField = field.lookupLabelField;
     if (field.isd !== undefined) payload.isd = field.isd;
 
-    // Options for select/radio/checkbox
-    if ((field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && field.options) {
-        payload.options = field.options;
+    // Options for select/radio/checkbox - include when present (STATIC/custom options, or from MASTER/LOOKUP)
+    // Do not strip options: preserve custom options for STATIC fields even when lookup/masterTypeName absent
+    if ((field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && field.options && Array.isArray(field.options)) {
+        payload.options = field.options.map(opt => ({ label: opt.label, value: opt.value }));
     }
 
     return payload;
