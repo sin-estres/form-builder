@@ -55,6 +55,7 @@ export class FormBuilder {
     private options: FormBuilderOptions;
 
     private lastRenderedSchemaHash: string = ''; // Cache to detect meaningful changes
+    private pendingRenderId: number | null = null; // For requestAnimationFrame debouncing
 
     constructor(container: HTMLElement, options: FormBuilderOptions = {}) {
         if (!container) {
@@ -262,35 +263,31 @@ export class FormBuilder {
 
     private setupSubscriptions() {
         let lastPreviewMode: boolean | null = null;
-        
-        this.unsubscribe = formStore.subscribe(() => {
-            // Note: Removed isInputUpdate optimization - the focus preservation logic
-            // below already handles keeping focus on inputs during re-render, and
-            // skipping the render prevented live canvas updates
 
+        const performRender = () => {
+            this.pendingRenderId = null;
             const state = formStore.getState();
-            
+
             // Check if preview mode changed - always re-render on preview mode toggle
             const previewModeChanged = lastPreviewMode !== null && lastPreviewMode !== state.isPreviewMode;
             lastPreviewMode = state.isPreviewMode;
 
-            // Generate hash of schema for change detection
+            // Generate hash of schema for change detection (exclude title/label to prevent re-renders on typing)
             const schemaHash = JSON.stringify({
-                sections: state.schema.sections.map(s => ({
+                sections: state.schema.sections.map((s) => ({
                     id: s.id,
-                    title: s.title,
-                    fields: s.fields.map(f => ({
+                    // Exclude title - prevents re-renders on section name typing
+                    fields: s.fields.map((f) => ({
                         id: f.id,
                         type: f.type,
-                        label: f.label,
+                        // Exclude label - prevents re-renders on field name typing
                         layout: f.layout,
                         width: f.width,
-                        css: f.css // Include css so style changes (textAlign, backgroundColor, etc.) trigger re-render
-                        // Exclude frequently changing text (placeholder, etc.) to prevent re-renders on typing
+                        css: f.css
                     }))
                 })),
                 selectedField: state.selectedFieldId,
-                isPreviewMode: state.isPreviewMode // Include preview mode in hash
+                isPreviewMode: state.isPreviewMode
             });
 
             // Re-render if schema changed OR preview mode changed
@@ -298,10 +295,22 @@ export class FormBuilder {
                 this.lastRenderedSchemaHash = schemaHash;
                 this.render();
             }
+        };
+
+        this.unsubscribe = formStore.subscribe(() => {
+            // Debounce: schedule a single render for the next frame so multiple
+            // store updates in quick succession result in one render (fixes flickering)
+            if (this.pendingRenderId == null) {
+                this.pendingRenderId = requestAnimationFrame(() => performRender.call(this));
+            }
         });
     }
 
     public destroy() {
+        if (this.pendingRenderId != null) {
+            cancelAnimationFrame(this.pendingRenderId);
+            this.pendingRenderId = null;
+        }
         this.unsubscribe();
         this.container.innerHTML = '';
     }
