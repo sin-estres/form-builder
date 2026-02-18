@@ -284,7 +284,8 @@ export class FormBuilder {
                         type: f.type,
                         label: f.label,
                         layout: f.layout,
-                        width: f.width
+                        width: f.width,
+                        css: f.css // Include css so style changes (textAlign, backgroundColor, etc.) trigger re-render
                         // Exclude frequently changing text (placeholder, etc.) to prevent re-renders on typing
                     }))
                 })),
