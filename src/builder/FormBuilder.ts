@@ -11,6 +11,10 @@ import { MasterType } from '../core/useFormStore';
 // Module-level state to track which fields have their Advanced CSS panel expanded
 const advancedCssPanelState: Map<string, boolean> = new Map();
 
+// Debounced label updates to prevent flickering when typing
+const LABEL_DEBOUNCE_MS = 300;
+const labelUpdateTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 
 export interface FormBuilderOptions {
     existingForms?: FormSchema[];
@@ -55,6 +59,7 @@ export class FormBuilder {
     private options: FormBuilderOptions;
 
     private lastRenderedSchemaHash: string = ''; // Cache to detect meaningful changes
+    private pendingRenderId: number | null = null; // For requestAnimationFrame debouncing
 
     constructor(container: HTMLElement, options: FormBuilderOptions = {}) {
         if (!container) {
@@ -262,34 +267,31 @@ export class FormBuilder {
 
     private setupSubscriptions() {
         let lastPreviewMode: boolean | null = null;
-        
-        this.unsubscribe = formStore.subscribe(() => {
-            // Note: Removed isInputUpdate optimization - the focus preservation logic
-            // below already handles keeping focus on inputs during re-render, and
-            // skipping the render prevented live canvas updates
 
+        const performRender = () => {
+            this.pendingRenderId = null;
             const state = formStore.getState();
-            
+
             // Check if preview mode changed - always re-render on preview mode toggle
             const previewModeChanged = lastPreviewMode !== null && lastPreviewMode !== state.isPreviewMode;
             lastPreviewMode = state.isPreviewMode;
 
-            // Generate hash of schema for change detection
+            // Generate hash of schema for change detection (exclude title to prevent re-renders on section name typing)
             const schemaHash = JSON.stringify({
-                sections: state.schema.sections.map(s => ({
+                sections: state.schema.sections.map((s) => ({
                     id: s.id,
-                    title: s.title,
-                    fields: s.fields.map(f => ({
+                    // Exclude title - prevents re-renders on section name typing
+                    fields: s.fields.map((f) => ({
                         id: f.id,
                         type: f.type,
                         label: f.label,
                         layout: f.layout,
-                        width: f.width
-                        // Exclude frequently changing text (placeholder, etc.) to prevent re-renders on typing
+                        width: f.width,
+                        css: f.css
                     }))
                 })),
                 selectedField: state.selectedFieldId,
-                isPreviewMode: state.isPreviewMode // Include preview mode in hash
+                isPreviewMode: state.isPreviewMode
             });
 
             // Re-render if schema changed OR preview mode changed
@@ -297,10 +299,24 @@ export class FormBuilder {
                 this.lastRenderedSchemaHash = schemaHash;
                 this.render();
             }
+        };
+
+        this.unsubscribe = formStore.subscribe(() => {
+            // Debounce: schedule a single render for the next frame so multiple
+            // store updates in quick succession result in one render (fixes flickering)
+            if (this.pendingRenderId == null) {
+                this.pendingRenderId = requestAnimationFrame(() => performRender.call(this));
+            }
         });
     }
 
     public destroy() {
+        if (this.pendingRenderId != null) {
+            cancelAnimationFrame(this.pendingRenderId);
+            this.pendingRenderId = null;
+        }
+        labelUpdateTimeouts.forEach((id) => clearTimeout(id));
+        labelUpdateTimeouts.clear();
         this.unsubscribe();
         this.container.innerHTML = '';
     }
@@ -874,7 +890,15 @@ export class FormBuilder {
             value: selectedField.label,
             'data-focus-id': `field-label-${selectedField.id}`,
             oninput: (e: Event) => {
-                formStore.getState().updateField(selectedField.id, { label: (e.target as HTMLInputElement).value });
+                const fieldId = selectedField.id;
+                const value = (e.target as HTMLInputElement).value;
+                const existing = labelUpdateTimeouts.get(fieldId);
+                if (existing) clearTimeout(existing);
+                const timeoutId = setTimeout(() => {
+                    labelUpdateTimeouts.delete(fieldId);
+                    formStore.getState().updateField(fieldId, { label: value });
+                }, LABEL_DEBOUNCE_MS);
+                labelUpdateTimeouts.set(fieldId, timeoutId);
             }
         }));
         body.appendChild(labelGroup);
@@ -1424,6 +1448,13 @@ export class FormBuilder {
             if (shouldShowOptions) {
                 const options = selectedField.options || [];
 
+                // Helper to get current options from store (avoids stale closure when user types then clicks Add/Delete)
+                const fieldId = selectedField.id;
+                const getCurrentOptions = (): { label: string; value: string }[] => {
+                    const field = formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === fieldId);
+                    return field?.options || [];
+                };
+
                 const optionsList = createElement('div', { className: 'space-y-2 mb-3' });
 
                 options.forEach((opt: { label: string; value: string }, index: number) => {
@@ -1436,9 +1467,12 @@ export class FormBuilder {
                         placeholder: 'Option label',
                         'data-focus-id': `field-option-label-${selectedField.id}-${index}`,
                         oninput: (e: Event) => {
-                            const newOptions = [...options];
-                            newOptions[index] = { ...newOptions[index], label: (e.target as HTMLInputElement).value };
-                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                            const currentOptions = getCurrentOptions();
+                            const newOptions = [...currentOptions];
+                            if (newOptions[index]) {
+                                newOptions[index] = { ...newOptions[index], label: (e.target as HTMLInputElement).value };
+                                formStore.getState().updateField(fieldId, { options: newOptions });
+                            }
                         }
                     });
 
@@ -1449,9 +1483,12 @@ export class FormBuilder {
                         placeholder: 'Option value',
                         'data-focus-id': `field-option-value-${selectedField.id}-${index}`,
                         oninput: (e: Event) => {
-                            const newOptions = [...options];
-                            newOptions[index] = { ...newOptions[index], value: (e.target as HTMLInputElement).value };
-                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                            const currentOptions = getCurrentOptions();
+                            const newOptions = [...currentOptions];
+                            if (newOptions[index]) {
+                                newOptions[index] = { ...newOptions[index], value: (e.target as HTMLInputElement).value };
+                                formStore.getState().updateField(fieldId, { options: newOptions });
+                            }
                         }
                     });
 
@@ -1459,8 +1496,9 @@ export class FormBuilder {
                         className: 'p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors',
                         title: 'Delete option',
                         onclick: () => {
-                            const newOptions = options.filter((_: { label: string; value: string }, i: number) => i !== index);
-                            formStore.getState().updateField(selectedField.id, { options: newOptions });
+                            const currentOptions = getCurrentOptions();
+                            const newOptions = currentOptions.filter((_: { label: string; value: string }, i: number) => i !== index);
+                            formStore.getState().updateField(fieldId, { options: newOptions });
                         }
                     }, [getIcon('Trash2', 14)]);
 
@@ -1472,14 +1510,16 @@ export class FormBuilder {
 
                 body.appendChild(optionsList);
 
-                // Add Option button
+                // Add Option button - use getCurrentOptions() to avoid stale closure (preserves user-typed values)
                 const addOptionBtn = createElement('button', {
                     type: 'button',
                     className: 'w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
                     text: 'Add Option',
                     onclick: () => {
-                        const newOptions = [...(selectedField.options || []), { label: `Option ${(selectedField.options || []).length + 1}`, value: `opt${(selectedField.options || []).length + 1}` }];
-                        formStore.getState().updateField(selectedField.id, { options: newOptions });
+                        const currentOptions = getCurrentOptions();
+                        const newOption = { label: `Option ${currentOptions.length + 1}`, value: `opt${currentOptions.length + 1}` };
+                        const newOptions = [...currentOptions, newOption];
+                        formStore.getState().updateField(fieldId, { options: newOptions });
                         // Force re-render to show new option (scroll position will be preserved)
                         this.render();
                     }
