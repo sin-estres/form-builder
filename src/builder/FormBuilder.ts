@@ -597,7 +597,7 @@ export class FormBuilder {
         right.appendChild(settingsBtn);
 
         const clearBtn = createElement('button', {
-            className: 'flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-[#f7a1a14d] text-red-500 rounded-md transition-colors',
+            className: 'flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-[#f7a1a14d] text-red-500 hover:bg-[#ef2f2f] hover:text-white rounded-md transition-colors',
             onclick: () => {
                 if (confirm('Are you sure?')) {
                     formStore.getState().setSchema({ id: 'new', title: 'New Form', formName: 'newForm', sections: [] });
@@ -606,7 +606,7 @@ export class FormBuilder {
         }, [getIcon('Trash2', 16), createElement('span', { className: '', title: 'Clear', })]);
 
         const previewBtn = createElement('button', {
-            className: `flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${state.isPreviewMode ? "text-[#635bff] bg-[#e7e7ff] " : "text-[#635bff] bg-[#e7e7ff]"}`,
+            className: `flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${state.isPreviewMode ? "text-[#635bff] bg-[#e7e7ff] hover:bg-[#635bff] hover:text-white" : "text-[#635bff] bg-[#e7e7ff] hover:bg-[#635bff] hover:text-white"}`,
             onclick: (e: Event) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -616,7 +616,7 @@ export class FormBuilder {
         }, [getIcon(state.isPreviewMode ? 'X' : 'Eye', 16)]);
 
         const saveBtn = createElement('button', {
-            className: 'flex items-center px-3 py-2 text-sm font-medium text-[#635bff] bg-[#e7e7ff]  rounded-md shadow-sm transition-colors',
+            className: 'flex items-center px-3 py-2 text-sm font-medium text-[#635bff] bg-[#e7e7ff] hover:bg-[#635bff] hover:text-white  rounded-md shadow-sm transition-colors',
             onclick: () => {
                 const schema = formStore.getState().schema;
 
@@ -797,7 +797,7 @@ export class FormBuilder {
 
         // Add Section Button
         const addSectionBtn = createElement('button', {
-            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-md text-sm text-gray-500 bg-[#635bff] max-w-[180px]  text-white transition-colors flex items-center justify-center font-medium',
+            className: 'w-full mt-6 py-3  dark:border-gray-700 rounded-md text-sm text-gray-500 bg-[#635bff] max-w-[140px]  text-white transition-colors flex items-center justify-center font-medium',
             onclick: () => formStore.getState().addSection()
         }, [getIcon('Plus', 20), createElement('span', { className: 'ml-2', text: 'Add Section' })]);
 

@@ -42,17 +42,23 @@ export class FieldWrapper {
 
         // Add visual indicator of selected state
         if (isSelected) {
-            fieldWrapper.classList.add('ring-2', 'bg-[#847dff1a]', 'dark:bg-blue-900/20');
+            fieldWrapper.classList.add('ring-2', 'bg-transparent', 'dark:bg-blue-900/20');
         }
 
         // Drag Handle
         fieldWrapper.appendChild(createElement('div', {
-            className: `absolute top-2 right-6 cursor-move p-1 rounded bg-[#3b497e] p-[0.5px] mr-1 text-white group-hover:opacity-100 transition-opacity field-handle z-10 ${isSelected ? "opacity-100" : ""}`
-        }, [getIcon('GripVertical', 16)]));
+            className: `absolute top-8 left-6 cursor-move p-1 rounded bg-[#3b497e] p-[0.5px] mr-1 text-white group-hover:opacity-100 transition-opacity field-handle z-10 ${isSelected ? "opacity-100" : ""}`
+        }, [
+  createElement('span', {
+    innerHTML: `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-drag-drop"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M19 11v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /><path d="M13 13l9 3l-4 2l-2 4l-3 -9" /><path d="M3 3l0 .01" /><path d="M7 3l0 .01" /><path d="M11 3l0 .01" /><path d="M15 3l0 .01" /><path d="M3 7l0 .01" /><path d="M3 11l0 .01" /><path d="M3 15l0 .01" /></svg>
+    `
+  })
+]));
 
         // Delete Button
         fieldWrapper.appendChild(createElement('button', {
-            className: `absolute top-1 right-1 p-1 rounded text-red-500  group-hover:opacity-100 transition-opacity z-10 ${isSelected ? "opacity-100" : ""}`,
+            className: `absolute top-[3.3rem] right-7  rounded text-red-600  group-hover:opacity-100 transition-opacity z-10 ${isSelected ? "opacity-100" : ""}`,
             onclick: (e: Event) => {
                 e.stopPropagation();
                 if (confirm('Delete this field?')) {
