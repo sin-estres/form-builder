@@ -79,13 +79,15 @@ function convertSpanToWidth(span: number | undefined, totalColumns: number = 12)
 /**
  * Normalizes field type from various formats to lowercase
  * Handles: "SELECT" -> "select", "TEXT" -> "text", etc.
+ * Phone aliases: "phoneNumber", "phone_number", "telephone", "mobile" -> "phone"
  */
 function normalizeFieldType(type: any): string {
     if (!type) return 'text';
-    const normalized = String(type).toLowerCase();
+    const normalized = String(type).toLowerCase().replace(/_/g, '');
     // Handle special cases
     if (normalized === 'decimal') return 'number';
-    return normalized;
+    if (['phonenumber', 'telephone', 'mobile'].includes(normalized)) return 'phone';
+    return String(type).toLowerCase();
 }
 
 /**
@@ -280,6 +282,7 @@ function transformField(field: any): FormField {
     if (field.position !== undefined) transformed.position = field.position;
     if (field.enabled !== undefined) transformed.enabled = field.enabled;
     if (field.visible !== undefined) transformed.visible = field.visible;
+    if (field.isd !== undefined) transformed.isd = field.isd; // Phone ISD config (showFlag, allowCountryChange, defaultCountry)
     // Order is already set above
     if (field.css !== undefined) transformed.css = field.css; // Preserve CSS
     if (field.optionsSource !== undefined) transformed.optionsSource = field.optionsSource;
