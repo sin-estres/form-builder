@@ -47,18 +47,12 @@ export class FieldWrapper {
 
         // Drag Handle
         fieldWrapper.appendChild(createElement('div', {
-            className: `absolute top-8 left-6 cursor-move p-1 rounded bg-[#3b497e] p-[0.5px] mr-1 text-white group-hover:opacity-100 transition-opacity field-handle z-10 ${isSelected ? "opacity-100" : ""}`
-        }, [
-  createElement('span', {
-    innerHTML: `
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-drag-drop"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M19 11v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" /><path d="M13 13l9 3l-4 2l-2 4l-3 -9" /><path d="M3 3l0 .01" /><path d="M7 3l0 .01" /><path d="M11 3l0 .01" /><path d="M15 3l0 .01" /><path d="M3 7l0 .01" /><path d="M3 11l0 .01" /><path d="M3 15l0 .01" /></svg>
-    `
-  })
-]));
+            className: `absolute top-[6px] bg-[#e7e7ff]  hover:bg-[#635bff] hover:text-white  right-8 cursor-move p-1 rounded  p-[2px] mr-1 text-[#635bff] group-hover:opacity-100 transition-opacity field-handle z-10 ${isSelected ? "opacity-100" : ""}`
+        }, [getIcon('GripVertical', 20)]));
 
         // Delete Button
         fieldWrapper.appendChild(createElement('button', {
-            className: `absolute top-[3.3rem] right-7  rounded text-red-600  group-hover:opacity-100 transition-opacity z-10 ${isSelected ? "opacity-100" : ""}`,
+            className: `absolute top-[6px] right-2  rounded text-red-600 bg-[#f7a1a14d] text-red-500 p-1 hover:bg-[#ef2f2f] hover:text-white   group-hover:opacity-100  transition-opacity z-10 ${isSelected ? "opacity-100" : ""}`,
             onclick: (e: Event) => {
                 e.stopPropagation();
                 if (confirm('Delete this field?')) {
@@ -68,7 +62,7 @@ export class FieldWrapper {
         }, [getIcon('Trash2', 16)]));
 
         // Render Field Content
-        const content = createElement('div', { className: 'p-3  pointer-events-none' });
+        const content = createElement('div', { className: 'p-2  pointer-events-none ' });
 
         // We need to pass dummy data or handle the renderer carefully since we are in builder mode
         // The FieldRenderer might expect values. We pass null for value.
