@@ -1,6 +1,71 @@
-import { FormField, ISDConfig } from '../core/schemaTypes';
+import { FormField, ISDConfig, FieldValidations } from '../core/schemaTypes';
 import { createElement } from '../utils/dom';
 import { COUNTRY_CODES, getCountryByDialCode, getDefaultCountry, CountryCode } from '../core/countryData';
+
+/** Get validation rules from field.validations (preferred) or field.validation (legacy) */
+function getValidationRules(field: FormField): {
+    required?: boolean;
+    pattern?: string;
+    patternMessage?: string;
+    minLength?: number;
+    maxLength?: number;
+    min?: number;
+    max?: number;
+    minDate?: string;
+    maxDate?: string;
+} {
+    const v = field.validations;
+    if (v) {
+        return {
+            required: v.required,
+            pattern: v.pattern,
+            patternMessage: v.customErrorMessages?.pattern,
+            minLength: v.minLength,
+            maxLength: v.maxLength,
+            min: v.min,
+            max: v.max,
+            minDate: v.minDate,
+            maxDate: v.maxDate
+        };
+    }
+    const val = field.validation;
+    if (!val) return {};
+    if (Array.isArray(val)) {
+        const rules: any = {};
+        val.forEach((r: any) => {
+            if (r.type === 'required') rules.required = true;
+            else if (r.type === 'pattern') {
+                rules.pattern = r.regex;
+                rules.patternMessage = r.message;
+            }
+            else if (r.type === 'minLength') rules.minLength = r.value;
+            else if (r.type === 'maxLength') rules.maxLength = r.value;
+            else if (r.type === 'min') rules.min = r.value;
+            else if (r.type === 'max') rules.max = r.value;
+            else if (r.type === 'minDate') rules.minDate = r.value;
+            else if (r.type === 'maxDate') rules.maxDate = r.value;
+        });
+        return rules;
+    }
+    const o = val as any;
+    return {
+        required: o.required,
+        pattern: o.regex,
+        patternMessage: o.regexMessage,
+        minLength: o.minLength,
+        maxLength: o.maxLength,
+        min: o.min,
+        max: o.max,
+        minDate: o.minDate,
+        maxDate: o.maxDate
+    };
+}
+
+/** Check if field is numeric text (postal, phone, OTP) - must use type="text" to preserve leading zeros */
+function isNumericTextField(field: FormField): boolean {
+    const v = field.validations;
+    return !!(v?.validationType && ['postalCode', 'phoneNumber', 'otp'].includes(v.validationType));
+}
 
 export class FieldRenderer {
     static render(field: FormField, value?: any, onChange?: (val: any) => void, readOnly: boolean = false): HTMLElement {
@@ -44,101 +109,86 @@ export class FieldRenderer {
         let input: HTMLElement;
         let validationMsg: HTMLElement | null = null;
 
-        // Handle both array and object validation formats
-        // Convert validation object to array format for rendering logic
-        const validationArray = Array.isArray(field.validation)
-            ? field.validation
-            : field.validation
-                ? (() => {
-                    const obj = field.validation as any;
-                    const rules: any[] = [];
-                    if (obj.required) rules.push({ type: 'required', value: true });
-                    if (obj.regex) rules.push({ type: 'pattern', regex: obj.regex, message: obj.regexMessage });
-                    if (obj.minLength !== undefined) rules.push({ type: 'minLength', value: obj.minLength });
-                    if (obj.maxLength !== undefined) rules.push({ type: 'maxLength', value: obj.maxLength });
-                    if (obj.minSelected !== undefined) rules.push({ type: 'minSelected', value: obj.minSelected });
-                    if (obj.maxSelected !== undefined) rules.push({ type: 'maxSelected', value: obj.maxSelected });
-                    if (obj.minDate) rules.push({ type: 'minDate', value: obj.minDate });
-                    if (obj.maxDate) rules.push({ type: 'maxDate', value: obj.maxDate });
-                    return rules;
-                })()
-                : [];
+        const validationRules = getValidationRules(field);
+        const hasPatternValidation = !!validationRules.pattern;
+        const hasNumericTextValidation = isNumericTextField(field);
 
-        // Check if field has pattern validation (for text or email fields)
-        const hasPatternValidation = validationArray.some((v: any) => v.type === 'pattern');
-
-        // Create validation message container for date/email/text fields with validation
-        if (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation)) {
+        // Create validation message container for date/email/text/number fields with validation
+        if (field.type === 'date' || field.type === 'email' || field.type === 'number' ||
+            (field.type === 'text' && (hasPatternValidation || hasNumericTextValidation || validationRules.minLength !== undefined || validationRules.maxLength !== undefined))) {
             validationMsg = createElement('div', { className: 'text-xs text-red-600 dark:text-red-400 mt-1 hidden', id: `validation-${field.id}` });
         }
 
-        // Validation helper function (defined before use)
-        const validateField = (field: FormField, value: string, inputElement: HTMLInputElement, validationMsg: HTMLElement) => {
+        // Validation helper function (uses validationRules from getValidationRules)
+        const validateField = (f: FormField, value: string, inputElement: HTMLInputElement, msgEl: HTMLElement) => {
+            const rules = getValidationRules(f);
+            const custom = f.validations?.customErrorMessages;
             let errorMessage = '';
 
-            // Handle both array and object validation formats
-            // Convert validation object to array format for rendering logic
-            const validationArray = Array.isArray(field.validation)
-                ? field.validation
-                : field.validation
-                    ? (() => {
-                        const obj = field.validation as any;
-                        const rules: any[] = [];
-                        if (obj.required) rules.push({ type: 'required', value: true });
-                        if (obj.regex) rules.push({ type: 'pattern', regex: obj.regex, message: obj.regexMessage });
-                        if (obj.minLength !== undefined) rules.push({ type: 'minLength', value: obj.minLength });
-                        if (obj.maxLength !== undefined) rules.push({ type: 'maxLength', value: obj.maxLength });
-                        if (obj.minSelected !== undefined) rules.push({ type: 'minSelected', value: obj.minSelected });
-                        if (obj.maxSelected !== undefined) rules.push({ type: 'maxSelected', value: obj.maxSelected });
-                        if (obj.minDate) rules.push({ type: 'minDate', value: obj.minDate });
-                        if (obj.maxDate) rules.push({ type: 'maxDate', value: obj.maxDate });
-                        return rules;
-                    })()
-                    : [];
+            // Required
+            if (rules.required && (!value || String(value).trim() === '')) {
+                errorMessage = custom?.required || 'This field is required';
+            }
 
             // Date validation
-            if (field.type === 'date' && value) {
-                const minDateRule = validationArray.find((v: any) => v.type === 'minDate');
-                const maxDateRule = validationArray.find((v: any) => v.type === 'maxDate');
+            if (!errorMessage && f.type === 'date' && value) {
                 const inputDate = new Date(value);
-
-                if (minDateRule?.value) {
-                    const minDate = new Date(minDateRule.value as string);
+                if (rules.minDate) {
+                    const minDate = new Date(rules.minDate);
                     if (inputDate < minDate) {
-                        errorMessage = minDateRule.message || 'Date must be after the minimum date';
+                        errorMessage = 'Date must be after the minimum date';
                     }
                 }
-
-                if (maxDateRule?.value && !errorMessage) {
-                    const maxDate = new Date(maxDateRule.value as string);
+                if (!errorMessage && rules.maxDate) {
+                    const maxDate = new Date(rules.maxDate);
                     if (inputDate > maxDate) {
-                        errorMessage = maxDateRule.message || 'Date must be before the maximum date';
+                        errorMessage = 'Date must be before the maximum date';
                     }
                 }
             }
 
-            // Pattern/regex validation (for email and text fields)
-            if ((field.type === 'email' || field.type === 'text') && value) {
-                const patternRule = validationArray.find((v: any) => v.type === 'pattern');
-                if (patternRule?.regex) {
-                    try {
-                        const regex = new RegExp(patternRule.regex);
-                        if (!regex.test(value)) {
-                            errorMessage = patternRule.message || 'Invalid format';
-                        }
-                    } catch (e) {
-                        // Invalid regex pattern - don't show error for invalid regex
+            // Pattern/regex validation (for email, text, phone)
+            if (!errorMessage && (f.type === 'email' || f.type === 'text' || f.type === 'phone') && value && rules.pattern) {
+                try {
+                    if (!new RegExp(rules.pattern).test(value)) {
+                        errorMessage = rules.patternMessage || custom?.pattern || 'Invalid format';
+                    }
+                } catch (_e) { /* invalid regex */ }
+            }
+
+            // Length validation (text, numeric text)
+            if (!errorMessage && value && (f.type === 'text' || f.type === 'phone')) {
+                const len = String(value).length;
+                if (rules.minLength !== undefined && len < rules.minLength) {
+                    errorMessage = custom?.minLength || `Minimum length is ${rules.minLength}`;
+                }
+                if (!errorMessage && rules.maxLength !== undefined && len > rules.maxLength) {
+                    errorMessage = custom?.maxLength || `Maximum length is ${rules.maxLength}`;
+                }
+            }
+
+            // Number min/max and allowNegative validation
+            if (!errorMessage && f.type === 'number' && value !== '' && value !== undefined) {
+                const num = parseFloat(String(value));
+                if (!isNaN(num)) {
+                    if (f.validations?.allowNegative === false && num < 0) {
+                        errorMessage = custom?.min || 'Negative values are not allowed';
+                    }
+                    if (!errorMessage && rules.min !== undefined && num < rules.min) {
+                        errorMessage = custom?.min || `Value must be at least ${rules.min}`;
+                    }
+                    if (!errorMessage && rules.max !== undefined && num > rules.max) {
+                        errorMessage = custom?.max || `Value must be at most ${rules.max}`;
                     }
                 }
             }
 
-            // Show/hide validation message
             if (errorMessage) {
-                validationMsg.textContent = errorMessage;
-                validationMsg.classList.remove('hidden');
+                msgEl.textContent = errorMessage;
+                msgEl.classList.remove('hidden');
                 inputElement.classList.add('border-red-500');
             } else {
-                validationMsg.classList.add('hidden');
+                msgEl.classList.add('hidden');
                 inputElement.classList.remove('border-red-500');
             }
         };
@@ -286,60 +336,46 @@ export class FieldRenderer {
                 input = this.renderPhoneField(field, value, onChange, isEnabled);
                 break;
 
+            case 'image':
+                // Image field: upload, preview, remove/replace
+                input = this.renderImageField(field, value ?? field.imageUrl ?? field.defaultValue, onChange, isEnabled);
+                break;
+
             default: // text, number, email, date, etc.
-                // Get pattern validation if exists
-                // Convert validation object to array format for rendering logic
-                const fieldValidationArray = Array.isArray(field.validation)
-                    ? field.validation
-                    : field.validation
-                        ? (() => {
-                            const obj = field.validation as any;
-                            const rules: any[] = [];
-                            if (obj.required) rules.push({ type: 'required', value: true });
-                            if (obj.regex) rules.push({ type: 'pattern', regex: obj.regex, message: obj.regexMessage });
-                            if (obj.minLength !== undefined) rules.push({ type: 'minLength', value: obj.minLength });
-                            if (obj.maxLength !== undefined) rules.push({ type: 'maxLength', value: obj.maxLength });
-                            if (obj.minSelected !== undefined) rules.push({ type: 'minSelected', value: obj.minSelected });
-                            if (obj.maxSelected !== undefined) rules.push({ type: 'maxSelected', value: obj.maxSelected });
-                            if (obj.minDate) rules.push({ type: 'minDate', value: obj.minDate });
-                            if (obj.maxDate) rules.push({ type: 'maxDate', value: obj.maxDate });
-                            return rules;
-                        })()
-                        : [];
-                const patternRule = fieldValidationArray.find((v: any) => v.type === 'pattern');
-                const patternRegex = patternRule?.regex;
+                const rules = getValidationRules(field);
+                // For postal, phone, OTP: use type="text" to preserve leading zeros; prevent scientific notation (e, +, -)
+                const useNumericTextInput = field.type === 'text' && isNumericTextField(field);
+                const inputType = useNumericTextInput ? 'text' : (field.type === 'number' ? 'number' : field.type);
+
+                const runValidation = () => {
+                    if (validationMsg && (field.type === 'date' || field.type === 'email' || field.type === 'text' || field.type === 'number')) {
+                        validateField(field, (input as HTMLInputElement).value, input as HTMLInputElement, validationMsg);
+                    }
+                };
 
                 input = createElement('input', {
-                    type: field.type,
+                    type: inputType,
+                    ...(useNumericTextInput && { inputmode: 'numeric' }),
                     className: 'flex min-h-touch w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-                    // type: field.type === 'phone' ? 'tel' : field.type,
-                    // className: 'flex min-h-touch w-full rounded-md border border-gray-300 bg-background px-3 py-2 text-sm sm:text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none   disabled:cursor-not-allowed disabled:opacity-50',
                     placeholder: field.placeholder,
                     value: value || '',
                     disabled: !isEnabled,
-                    min: field.type === 'date' ? (fieldValidationArray.find((v: any) => v.type === 'minDate')?.value as string) : undefined,
-                    max: field.type === 'date' ? (fieldValidationArray.find((v: any) => v.type === 'maxDate')?.value as string) : undefined,
-                    pattern: patternRegex || undefined, // Apply pattern for both email and text fields
+                    min: field.type === 'date' ? rules.minDate : (field.type === 'number' ? (rules.min !== undefined ? String(rules.min) : undefined) : undefined),
+                    max: field.type === 'date' ? rules.maxDate : (field.type === 'number' ? (rules.max !== undefined ? String(rules.max) : undefined) : undefined),
+                    pattern: !useNumericTextInput ? (rules.pattern || undefined) : undefined,
                     oninput: (e: Event) => {
-                        const inputValue = (e.target as HTMLInputElement).value;
+                        const inputEl = e.target as HTMLInputElement;
+                        let inputValue = inputEl.value;
+                        // Prevent scientific notation (e, E, +, -) for numeric text fields (postal, phone, OTP)
+                        if (useNumericTextInput) {
+                            inputValue = inputValue.replace(/[eE+-]/g, '');
+                            inputEl.value = inputValue;
+                        }
                         onChange?.(inputValue);
-
-                        // Validate on input for immediate feedback (date, email, or text with pattern)
-                        if (validationMsg && (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation))) {
-                            validateField(field, inputValue, input as HTMLInputElement, validationMsg);
-                        }
+                        runValidation();
                     },
-                    onchange: (e: Event) => {
-                        if (validationMsg && (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation))) {
-                            validateField(field, (e.target as HTMLInputElement).value, input as HTMLInputElement, validationMsg);
-                        }
-                    },
-                    onblur: (e: Event) => {
-                        // Also validate on blur for better UX
-                        if (validationMsg && (field.type === 'date' || field.type === 'email' || (field.type === 'text' && hasPatternValidation))) {
-                            validateField(field, (e.target as HTMLInputElement).value, input as HTMLInputElement, validationMsg);
-                        }
-                    }
+                    onchange: () => runValidation(),
+                    onblur: () => runValidation()
                 });
         }
 
@@ -475,6 +511,111 @@ export class FieldRenderer {
         isdSelector.addEventListener('change', () => {
             phoneInput.focus();
         });
+
+        return container;
+    }
+
+    /**
+     * Render image field with upload, preview, and remove/replace
+     */
+    private static renderImageField(
+        field: FormField,
+        imageValue: string | undefined,
+        onChange?: (val: string | undefined) => void,
+        isEnabled: boolean = true
+    ): HTMLElement {
+        const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
+        const MAX_SIZE_MB = 5;
+        const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+        const container = createElement('div', { className: 'image-field-wrapper flex flex-col gap-3 w-full' });
+
+        // Preview area
+        const previewWrap = createElement('div', {
+            className: 'relative rounded-md border border-input bg-gray-50 dark:bg-gray-800 overflow-hidden min-h-[120px] flex items-center justify-center'
+        });
+
+        if (imageValue) {
+            const img = createElement('img', {
+                src: imageValue,
+                alt: field.label || 'Uploaded image',
+                className: 'max-h-48 max-w-full object-contain'
+            }) as HTMLImageElement;
+            img.onerror = () => {
+                previewWrap.innerHTML = '';
+                previewWrap.appendChild(createElement('p', {
+                    className: 'text-xs text-red-500 p-4',
+                    text: 'Failed to load image'
+                }));
+            };
+            previewWrap.appendChild(img);
+
+            if (isEnabled) {
+                const removeBtn = createElement('button', {
+                    type: 'button',
+                    className: 'absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 text-xs',
+                    title: 'Remove image',
+                    onclick: () => onChange?.(undefined)
+                });
+                removeBtn.innerHTML = '×';
+                previewWrap.appendChild(removeBtn);
+            }
+        } else {
+            previewWrap.appendChild(createElement('p', {
+                className: 'text-xs text-muted-foreground p-4',
+                text: 'No image uploaded'
+            }));
+        }
+
+        container.appendChild(previewWrap);
+
+        // Upload input (hidden)
+        if (isEnabled) {
+            const fileInput = createElement('input', {
+                type: 'file',
+                accept: ACCEPT,
+                className: 'hidden',
+                id: `image-upload-${field.id}`
+            }) as HTMLInputElement;
+
+            const uploadBtn = createElement('button', {
+                type: 'button',
+                className: 'px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                text: imageValue ? 'Replace' : 'Upload Image',
+                onclick: () => fileInput.click()
+            });
+
+            fileInput.onchange = (e: Event) => {
+                const target = e.target as HTMLInputElement;
+                const file = target.files?.[0];
+                if (!file) return;
+
+                if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
+                    alert(`Please select a valid image (JPG, PNG, GIF, WebP)`);
+                    target.value = '';
+                    return;
+                }
+                if (file.size > MAX_SIZE_BYTES) {
+                    alert(`Image must be under ${MAX_SIZE_MB}MB`);
+                    target.value = '';
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const result = reader.result as string;
+                    if (result) onChange?.(result);
+                };
+                reader.onerror = () => {
+                    alert('Failed to read image');
+                };
+                reader.readAsDataURL(file);
+                target.value = '';
+            };
+
+            container.appendChild(fileInput);
+            container.appendChild(uploadBtn);
+        }
 
         return container;
     }

@@ -1,4 +1,4 @@
-import { FieldType, FormField } from './schemaTypes';
+import { FieldType, FormField, FieldValidations } from './schemaTypes';
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -14,6 +14,7 @@ export const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
     { type: 'radio', label: 'Radio Group', icon: 'CircleDot' },
     { type: 'toggle', label: 'Toggle', icon: 'ToggleSwitch' },
     { type: 'file', label: 'File Upload', icon: 'Upload' },
+    { type: 'image', label: 'Image', icon: 'Image' },
 ];
 
 export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
@@ -41,6 +42,7 @@ export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
     radio: { label: 'Radio Group', options: [], width: '100%', enabled: true, visible: true },
     toggle: { label: 'Toggle', width: '50%', enabled: true, visible: true },
     file: { label: 'File Upload', width: '100%', enabled: true, visible: true },
+    image: { label: 'Image', width: '50%', enabled: true, visible: true },
 };
 
 export interface RegexPreset {
@@ -52,6 +54,39 @@ export interface RegexPreset {
     invalidExamples: string[];
     errorMessage: string;
 }
+
+/** Predefined validation type configurations - auto-apply rules when selected */
+export const VALIDATION_TYPE_PRESETS: Record<string, Partial<FieldValidations>> = {
+    postalCode: {
+        pattern: '^[0-9]{6}$',
+        minLength: 6,
+        maxLength: 6,
+        validationType: 'postalCode',
+        customErrorMessages: { pattern: 'Please enter a valid 6-digit postal code' }
+    },
+    phoneNumber: {
+        pattern: '^[6-9][0-9]{9}$',
+        minLength: 10,
+        maxLength: 10,
+        validationType: 'phoneNumber',
+        customErrorMessages: { pattern: 'Please enter a valid 10-digit mobile number starting with 6-9' }
+    },
+    otp: {
+        pattern: '^[0-9]{4,6}$',
+        minLength: 4,
+        maxLength: 6,
+        validationType: 'otp',
+        customErrorMessages: { pattern: 'Please enter a valid OTP (4-6 digits)' }
+    },
+    amount: {
+        min: 0,
+        allowDecimal: true,
+        decimalPlaces: 2,
+        allowNegative: false,
+        validationType: 'amount',
+        customErrorMessages: { min: 'Amount must be at least 0' }
+    }
+};
 
 export const REGEX_PRESETS: RegexPreset[] = [
     {

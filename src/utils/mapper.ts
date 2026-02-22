@@ -1,4 +1,46 @@
-import { FormSchema, FormField, ValidationRule, ValidationObject, FieldWidth, parseWidth } from '../core/schemaTypes';
+import { FormSchema, FormField, ValidationRule, ValidationObject, FieldValidations, FieldWidth, parseWidth } from '../core/schemaTypes';
+
+/**
+ * Converts FieldValidations to legacy ValidationObject (for backward compatibility)
+ */
+function validationsToValidationObject(v: FieldValidations | undefined): ValidationObject | undefined {
+    if (!v) return undefined;
+    const obj: ValidationObject = {};
+    if (v.required !== undefined) obj.required = v.required;
+    if (v.pattern) obj.regex = v.pattern;
+    if (v.minLength !== undefined) obj.minLength = v.minLength;
+    if (v.maxLength !== undefined) obj.maxLength = v.maxLength;
+    if (v.min !== undefined) obj.min = v.min;
+    if (v.max !== undefined) obj.max = v.max;
+    if (v.customErrorMessages?.pattern) obj.regexMessage = v.customErrorMessages.pattern;
+    if (v.minSelected !== undefined) obj.minSelected = v.minSelected;
+    if (v.maxSelected !== undefined) obj.maxSelected = v.maxSelected;
+    if (v.minDate) obj.minDate = v.minDate;
+    if (v.maxDate) obj.maxDate = v.maxDate;
+    return Object.keys(obj).length > 0 ? obj : undefined;
+}
+
+/**
+ * Converts legacy ValidationObject to FieldValidations
+ */
+function validationObjectToValidations(v: ValidationObject | undefined): FieldValidations | undefined {
+    if (!v) return undefined;
+    const validations: FieldValidations = {};
+    if (v.required !== undefined) validations.required = v.required;
+    if (v.regex) validations.pattern = v.regex;
+    if (v.minLength !== undefined) validations.minLength = v.minLength;
+    if (v.maxLength !== undefined) validations.maxLength = v.maxLength;
+    if (v.min !== undefined) validations.min = v.min;
+    if (v.max !== undefined) validations.max = v.max;
+    if (v.regexMessage) {
+        validations.customErrorMessages = { pattern: v.regexMessage };
+    }
+    if (v.minSelected !== undefined) validations.minSelected = v.minSelected;
+    if (v.maxSelected !== undefined) validations.maxSelected = v.maxSelected;
+    if (v.minDate) validations.minDate = v.minDate;
+    if (v.maxDate) validations.maxDate = v.maxDate;
+    return Object.keys(validations).length > 0 ? validations : undefined;
+}
 
 /**
  * Converts validation object format to validation array format
@@ -24,6 +66,8 @@ export function convertValidationObjectToArray(validationObj: ValidationObject |
         obj.regexMessage ||
         obj.minLength !== undefined ||
         obj.maxLength !== undefined ||
+        obj.min !== undefined ||
+        obj.max !== undefined ||
         obj.minSelected !== undefined ||
         obj.maxSelected !== undefined
     );
@@ -49,6 +93,14 @@ export function convertValidationObjectToArray(validationObj: ValidationObject |
 
     if (obj.maxLength !== undefined) {
         rules.push({ type: 'maxLength', value: obj.maxLength });
+    }
+
+    if (obj.min !== undefined) {
+        rules.push({ type: 'min', value: obj.min });
+    }
+
+    if (obj.max !== undefined) {
+        rules.push({ type: 'max', value: obj.max });
     }
 
     if (obj.minSelected !== undefined) {
@@ -169,9 +221,20 @@ function transformField(field: any): FormField {
         transformed.order = field.order !== undefined ? field.order : 0;
     }
 
-    // Handle validation: support both object and array formats
-    // Keep validation as object format internally (standard), but also support array for backward compatibility
-    if (field.validation) {
+    // Handle validations (preferred) and validation (legacy)
+    // validations: comprehensive FieldValidations format
+    // validation: legacy ValidationObject or ValidationRule[]
+    if (field.validations) {
+        let validations = field.validations as FieldValidations;
+        // Backward compatibility: migrate validationType 'age' to 'custom', preserve min/max (age removed from UI)
+        if ((validations as { validationType?: string }).validationType === 'age') {
+            validations = { ...validations, validationType: 'custom' };
+        }
+        transformed.validations = validations;
+        transformed.required = validations.required ?? false;
+        // Also populate validation for backward compatibility with existing consumers
+        transformed.validation = validationsToValidationObject(validations);
+    } else if (field.validation) {
         if (Array.isArray(field.validation)) {
             // Legacy array format - convert to object format
             const validationObj: ValidationObject = {};
@@ -185,6 +248,10 @@ function transformField(field: any): FormField {
                     validationObj.minLength = rule.value;
                 } else if (rule.type === 'maxLength' && typeof rule.value === 'number') {
                     validationObj.maxLength = rule.value;
+                } else if (rule.type === 'min' && typeof rule.value === 'number') {
+                    validationObj.min = rule.value;
+                } else if (rule.type === 'max' && typeof rule.value === 'number') {
+                    validationObj.max = rule.value;
                 } else if (rule.type === 'minSelected' && typeof rule.value === 'number') {
                     validationObj.minSelected = rule.value;
                 } else if (rule.type === 'maxSelected' && typeof rule.value === 'number') {
@@ -197,15 +264,23 @@ function transformField(field: any): FormField {
             });
             transformed.validation = validationObj;
             transformed.required = validationObj.required || false;
+            // Migrate to validations for new format
+            transformed.validations = validationObjectToValidations(validationObj);
         } else {
             // Object format (standard)
             transformed.validation = field.validation as ValidationObject;
             transformed.required = field.validation.required || false;
+            let validations = validationObjectToValidations(field.validation as ValidationObject);
+            // Backward compatibility: migrate validationType 'age' to 'custom', preserve min/max (age removed from UI)
+            if ((validations as { validationType?: string } | undefined)?.validationType === 'age') {
+                validations = { ...validations, validationType: 'custom' };
+            }
+            transformed.validations = validations;
         }
     } else if (field.required !== undefined) {
         transformed.required = field.required;
-        // Create validation object with required flag
         transformed.validation = { required: field.required };
+        transformed.validations = { required: field.required };
     }
 
     // Handle multiSelect for select fields - REQUIRED property
@@ -274,6 +349,10 @@ function transformField(field: any): FormField {
     if (lookupValueField !== undefined) transformed.lookupValueField = lookupValueField;
     if (lookupLabelField !== undefined) transformed.lookupLabelField = lookupLabelField;
 
+    // fieldName / name (model key for binding)
+    if (field.fieldName !== undefined) transformed.fieldName = field.fieldName;
+    else if (field.name !== undefined) transformed.fieldName = field.name;
+
     // Copy other optional properties
     if (field.placeholder !== undefined) transformed.placeholder = field.placeholder;
     if (field.description !== undefined) transformed.description = field.description;
@@ -283,6 +362,7 @@ function transformField(field: any): FormField {
     if (field.enabled !== undefined) transformed.enabled = field.enabled;
     if (field.visible !== undefined) transformed.visible = field.visible;
     if (field.isd !== undefined) transformed.isd = field.isd; // Phone ISD config (showFlag, allowCountryChange, defaultCountry)
+    if (field.imageUrl !== undefined) transformed.imageUrl = field.imageUrl; // Image field
     // Order is already set above
     if (field.css !== undefined) transformed.css = field.css; // Preserve CSS
     if (field.optionsSource !== undefined) transformed.optionsSource = field.optionsSource;
@@ -290,9 +370,23 @@ function transformField(field: any): FormField {
     if (field.groupName !== undefined) transformed.groupName = field.groupName;
     if (field.masterTypeName !== undefined) transformed.masterTypeName = field.masterTypeName;
 
-    // Only include options for select/radio/checkbox
-    if ((normalizedType === 'select' || normalizedType === 'radio' || normalizedType === 'checkbox') && field.options) {
-        transformed.options = field.options;
+    // Options for select/radio/checkbox - normalize to { label, value } and preserve for edit mode
+    if ((normalizedType === 'select' || normalizedType === 'radio' || normalizedType === 'checkbox') && field.options && Array.isArray(field.options)) {
+        transformed.options = field.options.map((opt: any, idx: number) => {
+            if (opt && typeof opt === 'object' && 'label' in opt && 'value' in opt) {
+                return { label: String(opt.label), value: String(opt.value) };
+            }
+            // Normalize alternate shapes: { name, id }, { text, value }, etc.
+            const label = opt?.label ?? opt?.name ?? opt?.displayName ?? opt?.text ?? `Option ${idx + 1}`;
+            const value = opt?.value ?? opt?.id ?? opt?.name ?? String(idx);
+            return { label: String(label), value: String(value) };
+        });
+        // When loading STATIC select with options, enable options editor so user can edit (customOptionsEnabled may not be in saved payload)
+        if (normalizedType === 'select' && transformed.options.length > 0 &&
+            (transformed.optionSource === 'STATIC' || !transformed.optionSource) &&
+            transformed.customOptionsEnabled === undefined) {
+            transformed.customOptionsEnabled = true;
+        }
     }
 
     return transformed as FormField;
@@ -381,6 +475,10 @@ function convertValidationArrayToObject(validation: ValidationRule[] | Validatio
             obj.minLength = rule.value;
         } else if (rule.type === 'maxLength' && typeof rule.value === 'number') {
             obj.maxLength = rule.value;
+        } else if (rule.type === 'min' && typeof rule.value === 'number') {
+            obj.min = rule.value;
+        } else if (rule.type === 'max' && typeof rule.value === 'number') {
+            obj.max = rule.value;
         } else if (rule.type === 'minSelected' && typeof rule.value === 'number') {
             obj.minSelected = rule.value;
         } else if (rule.type === 'maxSelected' && typeof rule.value === 'number') {
@@ -416,6 +514,7 @@ function fieldToPayload(field: FormField): any {
         id: field.id,
         type: field.type,
         label: field.label,
+        name: field.fieldName || field.id, // Model key for binding (API / host app)
         order: field.order !== undefined ? field.order : 0
     };
 
@@ -442,9 +541,23 @@ function fieldToPayload(field: FormField): any {
         };
     }
 
-    // Validation (object format)
-    payload.validation = convertValidationArrayToObject(field.validation);
-    if (payload.validation?.required) {
+    // Validations (comprehensive format - preferred for payload)
+    if (field.validations) {
+        let validations = { ...field.validations };
+        // Backward compatibility: never output validationType 'age', convert to 'custom' (age removed from UI)
+        if ((validations as { validationType?: string }).validationType === 'age') {
+            validations = { ...validations, validationType: 'custom' };
+        }
+        payload.validations = validations;
+        if (field.validations.required) {
+            payload.required = true;
+        }
+    }
+    // Validation (legacy object format - for backward compatibility)
+    payload.validation = field.validations
+        ? validationsToValidationObject(field.validations)
+        : convertValidationArrayToObject(field.validation);
+    if (payload.validation?.required || payload.validations?.required) {
         payload.required = true;
     }
 
@@ -470,6 +583,7 @@ function fieldToPayload(field: FormField): any {
     if (field.lookupValueField !== undefined) payload.lookupValueField = field.lookupValueField;
     if (field.lookupLabelField !== undefined) payload.lookupLabelField = field.lookupLabelField;
     if (field.isd !== undefined) payload.isd = field.isd;
+    if (field.imageUrl !== undefined) payload.imageUrl = field.imageUrl;
 
     // Options for select/radio/checkbox - include when present (STATIC/custom options, or from MASTER/LOOKUP)
     // Do not strip options: preserve custom options for STATIC fields even when lookup/masterTypeName absent
@@ -511,3 +625,33 @@ export const platformToBuilder = (platformSchema: any): FormSchema => {
     // Clean the schema when loading from platform
     return cleanFormSchema(platformSchema);
 };
+
+/**
+ * Returns validation config for Angular Reactive Forms compatibility.
+ * Use with Validators.required, Validators.minLength(n), Validators.maxLength(n),
+ * Validators.min(n), Validators.max(n), Validators.pattern(regex).
+ * @param validations Field validations from form schema
+ * @returns Object with validator params and custom error messages for Angular
+ */
+export function getValidationConfigForAngular(validations: FieldValidations | undefined): {
+    required: boolean;
+    minLength?: number;
+    maxLength?: number;
+    min?: number;
+    max?: number;
+    pattern?: string;
+    customErrorMessages: FieldValidations['customErrorMessages'];
+} {
+    if (!validations) {
+        return { required: false, customErrorMessages: {} };
+    }
+    return {
+        required: validations.required ?? false,
+        minLength: validations.minLength,
+        maxLength: validations.maxLength,
+        min: validations.min,
+        max: validations.max,
+        pattern: validations.pattern,
+        customErrorMessages: validations.customErrorMessages || {}
+    };
+}

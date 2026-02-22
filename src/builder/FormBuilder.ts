@@ -1,8 +1,8 @@
 import { formStore } from '../core/useFormStore';
 import { createElement, getIcon } from '../utils/dom';
-import { FIELD_TYPES, REGEX_PRESETS, RegexPreset } from '../core/constants';
+import { FIELD_TYPES, REGEX_PRESETS, VALIDATION_TYPE_PRESETS, RegexPreset } from '../core/constants';
 import { FormRenderer } from '../renderer/FormRenderer';
-import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject } from '../core/schemaTypes';
+import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject, FieldValidations } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
 import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
@@ -636,6 +636,21 @@ export class FormBuilder {
             onclick: () => {
                 const schema = formStore.getState().schema;
 
+                // Debug: Log validation state for number fields before save
+                schema.sections.forEach((section: any) => {
+                    section.fields?.forEach((field: any) => {
+                        if (field.type === 'number' && field.validations) {
+                            console.log('[Form Builder] Number field validations before save:', {
+                                fieldId: field.id,
+                                label: field.label,
+                                validations: field.validations,
+                                hasMin: 'min' in field.validations,
+                                hasMax: 'max' in field.validations
+                            });
+                        }
+                    });
+                });
+
                 // Log what we are sending to the app using this npm package
                 console.log('[Form Builder] Schema being sent to app:', JSON.stringify(schema, null, 2));
 
@@ -903,18 +918,85 @@ export class FormBuilder {
         }));
         body.appendChild(labelGroup);
 
-        // Placeholder
-        const placeholderGroup = createElement('div');
-        placeholderGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Placeholder' }));
-        placeholderGroup.appendChild(createElement('input', {
-            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
-            value: selectedField.placeholder || '',
-            'data-focus-id': `field-placeholder-${selectedField.id}`,
-            oninput: (e: Event) => {
-                formStore.getState().updateField(selectedField.id, { placeholder: (e.target as HTMLInputElement).value });
+        // Placeholder (skip for image - uses Image section instead)
+        if (selectedField.type !== 'image') {
+            const placeholderGroup = createElement('div');
+            placeholderGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Placeholder' }));
+            placeholderGroup.appendChild(createElement('input', {
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.placeholder || '',
+                'data-focus-id': `field-placeholder-${selectedField.id}`,
+                oninput: (e: Event) => {
+                    formStore.getState().updateField(selectedField.id, { placeholder: (e.target as HTMLInputElement).value });
+                }
+            }));
+            body.appendChild(placeholderGroup);
+        }
+
+        // Image field: upload, preview, remove
+        if (selectedField.type === 'image') {
+            const imageUrl = selectedField.imageUrl ?? selectedField.defaultValue;
+            const imageGroup = createElement('div', { className: 'mb-4' });
+            imageGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-2', text: 'Image' }));
+
+            const previewWrap = createElement('div', {
+                className: 'rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden min-h-[80px] flex items-center justify-center mb-2'
+            });
+            if (imageUrl) {
+                const img = createElement('img', {
+                    src: imageUrl,
+                    alt: selectedField.label || 'Image',
+                    className: 'max-h-32 max-w-full object-contain'
+                }) as HTMLImageElement;
+                img.onerror = () => {
+                    previewWrap.innerHTML = '';
+                    previewWrap.appendChild(createElement('p', { className: 'text-xs text-red-500 p-2', text: 'Failed to load' }));
+                };
+                previewWrap.appendChild(img);
+            } else {
+                previewWrap.appendChild(createElement('p', { className: 'text-xs text-muted-foreground p-2', text: 'No image' }));
             }
-        }));
-        body.appendChild(placeholderGroup);
+            imageGroup.appendChild(previewWrap);
+
+            const btnRow = createElement('div', { className: 'flex gap-2' });
+            const fileInput = createElement('input', {
+                type: 'file',
+                accept: 'image/jpeg,image/png,image/gif,image/webp',
+                className: 'hidden',
+                id: `config-image-${selectedField.id}`
+            }) as HTMLInputElement;
+            fileInput.onchange = (e: Event) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (!file || !file.type.match(/^image\/(jpeg|png|gif|webp)$/)) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Image must be under 5MB');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result as string;
+                    if (base64) formStore.getState().updateField(selectedField.id, { imageUrl: base64, defaultValue: base64 });
+                };
+                reader.readAsDataURL(file);
+                (e.target as HTMLInputElement).value = '';
+            };
+            btnRow.appendChild(fileInput);
+            btnRow.appendChild(createElement('button', {
+                type: 'button',
+                className: 'px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800',
+                text: imageUrl ? 'Replace' : 'Upload',
+                onclick: () => fileInput.click()
+            }));
+            btnRow.appendChild(createElement('button', {
+                type: 'button',
+                className: 'px-3 py-2 text-sm border border-red-200 text-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20',
+                text: 'Remove',
+                disabled: !imageUrl,
+                onclick: () => formStore.getState().updateField(selectedField.id, { imageUrl: undefined, defaultValue: undefined })
+            }));
+            imageGroup.appendChild(btnRow);
+            body.appendChild(imageGroup);
+        }
 
         // Grid Span Selector (replaces width slider)
         const layoutGroup = createElement('div', { className: 'layout-span-group' });
@@ -971,11 +1053,17 @@ export class FormBuilder {
 
         body.appendChild(layoutGroup);
 
-        // Required
+        // Required (sync with validations.required)
         body.appendChild(this.createCheckboxField(
             'Required',
-            !!selectedField.required,
-            (checked) => formStore.getState().updateField(selectedField.id, { required: checked }),
+            !!selectedField.required || !!selectedField.validations?.required,
+            (checked) => {
+                const currentValidations = selectedField.validations || {};
+                formStore.getState().updateField(selectedField.id, {
+                    required: checked,
+                    validations: { ...currentValidations, required: checked }
+                });
+            },
             `required-${selectedField.id}`
         ));
 
@@ -1439,10 +1527,13 @@ export class FormBuilder {
             }
 
             // Show options editor if:
-            // - For select: customOptionsEnabled is true AND optionSource is STATIC
+            // - For select: (customOptionsEnabled OR has options) AND optionSource is STATIC
+            //   When loading saved form, customOptionsEnabled may be unset but options exist - show editor
             // - For checkbox/radio: always show (they always use STATIC)
+            const isStaticSelect = selectedField.type === 'select' && (selectedField.optionSource === 'STATIC' || !selectedField.optionSource);
+            const hasOptions = selectedField.options && selectedField.options.length > 0;
             const shouldShowOptions = selectedField.type === 'select'
-                ? (selectedField.customOptionsEnabled && (selectedField.optionSource === 'STATIC' || !selectedField.optionSource))
+                ? isStaticSelect && (!!selectedField.customOptionsEnabled || !!hasOptions)
                 : true;
 
             if (shouldShowOptions) {
@@ -1493,12 +1584,17 @@ export class FormBuilder {
                     });
 
                     const deleteBtn = createElement('button', {
+                        type: 'button',
                         className: 'p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors',
                         title: 'Delete option',
-                        onclick: () => {
+                        onclick: (e: Event) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             const currentOptions = getCurrentOptions();
-                            const newOptions = currentOptions.filter((_: { label: string; value: string }, i: number) => i !== index);
+                            // Use value-based deletion (more robust than index - avoids stale closure)
+                            const newOptions = currentOptions.filter((o) => o.value !== opt.value);
                             formStore.getState().updateField(fieldId, { options: newOptions });
+                            this.render();
                         }
                     }, [getIcon('Trash2', 14)]);
 
@@ -1529,41 +1625,63 @@ export class FormBuilder {
         }
 
         // --- Advanced Validation ---
-        // Handle both array and object validation formats
-        // Convert to object format (standard)
-        const validationObj: ValidationObject = Array.isArray(selectedField.validation)
-            ? (() => {
-                const obj: ValidationObject = {};
-                selectedField.validation.forEach((rule: any) => {
+        // Use validations (comprehensive) - fallback to migrated validation for legacy
+        const validationsObj: FieldValidations = selectedField.validations || (() => {
+            const v = selectedField.validation;
+            if (!v) return {};
+            if (Array.isArray(v)) {
+                const obj: FieldValidations = {};
+                v.forEach((rule: any) => {
                     if (rule.type === 'required') obj.required = true;
                     else if (rule.type === 'pattern' && rule.regex) {
-                        obj.regex = rule.regex;
-                        obj.regexMessage = rule.message;
+                        obj.pattern = rule.regex;
+                        if (rule.message) obj.customErrorMessages = { ...obj.customErrorMessages, pattern: rule.message };
                     }
                     else if (rule.type === 'minLength' && typeof rule.value === 'number') obj.minLength = rule.value;
                     else if (rule.type === 'maxLength' && typeof rule.value === 'number') obj.maxLength = rule.value;
+                    else if (rule.type === 'min' && typeof rule.value === 'number') obj.min = rule.value;
+                    else if (rule.type === 'max' && typeof rule.value === 'number') obj.max = rule.value;
                     else if (rule.type === 'minSelected' && typeof rule.value === 'number') obj.minSelected = rule.value;
                     else if (rule.type === 'maxSelected' && typeof rule.value === 'number') obj.maxSelected = rule.value;
                     else if (rule.type === 'minDate' && typeof rule.value === 'string') obj.minDate = rule.value;
                     else if (rule.type === 'maxDate' && typeof rule.value === 'string') obj.maxDate = rule.value;
                 });
                 return obj;
-            })()
-            : (selectedField.validation as ValidationObject) || {};
+            }
+            const o = v as ValidationObject;
+            return {
+                required: o.required,
+                pattern: o.regex,
+                minLength: o.minLength,
+                maxLength: o.maxLength,
+                min: o.min,
+                max: o.max,
+                minSelected: o.minSelected,
+                maxSelected: o.maxSelected,
+                minDate: o.minDate,
+                maxDate: o.maxDate,
+                customErrorMessages: o.regexMessage ? { pattern: o.regexMessage } : undefined
+            };
+        })();
 
-        const updateValidation = (updates: Partial<ValidationObject>) => {
-            const newValidation: ValidationObject = { ...validationObj, ...updates };
-            // Remove undefined values
-            Object.keys(newValidation).forEach(key => {
-                if (newValidation[key as keyof ValidationObject] === undefined) {
-                    delete newValidation[key as keyof ValidationObject];
+        const updateValidations = (updates: Partial<FieldValidations>) => {
+            // Always read latest validations from store to avoid stale closure when updates happen
+            // in quick succession (e.g. typing min then max before debounced re-render)
+            const currentField = formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
+            const currentValidations: FieldValidations = currentField?.validations ? { ...currentField.validations } : { ...validationsObj };
+            const newValidations: FieldValidations = { ...currentValidations, ...updates };
+            // Remove undefined/null only - use explicit checks to preserve valid numeric 0
+            Object.keys(newValidations).forEach(key => {
+                const v = newValidations[key as keyof FieldValidations];
+                if (v === undefined || v === null) {
+                    delete newValidations[key as keyof FieldValidations];
                 }
             });
-            formStore.getState().updateField(selectedField.id, { validation: newValidation });
+            formStore.getState().updateField(selectedField.id, { validations: newValidations });
         };
 
-        const getRuleValue = (key: keyof ValidationObject): string => {
-            const value = validationObj[key];
+        const getValidationsValue = (key: keyof FieldValidations): string => {
+            const value = validationsObj[key];
             if (value === undefined || value === null) return '';
             if (typeof value === 'number') return String(value);
             if (typeof value === 'boolean') return String(value);
@@ -1573,18 +1691,150 @@ export class FormBuilder {
         // Collect validation rule elements
         const validationElements: HTMLElement[] = [];
 
-        // Min/Max Length (Text/Textarea)
-        if (['text', 'textarea', 'email', 'password'].includes(selectedField.type)) {
+        // --- Number field validation ---
+        if (selectedField.type === 'number') {
+            // Validation Type for number (amount)
+            const numValidationTypeGroup = createElement('div', { className: 'mb-3' });
+            numValidationTypeGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Validation Type' }));
+            const numValidationTypeSelect = createElement('select', {
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                onchange: (e: Event) => {
+                    const presetId = (e.target as HTMLSelectElement).value;
+                    if (presetId) {
+                        const preset = VALIDATION_TYPE_PRESETS[presetId];
+                        if (preset && presetId === 'amount') {
+                            updateValidations({ ...preset, validationType: presetId as FieldValidations['validationType'] });
+                        }
+                    } else {
+                        updateValidations({ validationType: 'custom' });
+                    }
+                }
+            });
+            [
+                { value: '', text: 'Custom' },
+                { value: 'amount', text: 'Amount (min 0, 2 decimals)' }
+            ].forEach(opt => {
+                numValidationTypeSelect.appendChild(createElement('option', {
+                    value: opt.value,
+                    text: opt.text,
+                    selected: validationsObj.validationType === opt.value || (!validationsObj.validationType && opt.value === '')
+                }));
+            });
+            numValidationTypeGroup.appendChild(numValidationTypeSelect);
+            validationElements.push(numValidationTypeGroup);
+
+            const minValGroup = createElement('div', { className: 'mb-3' });
+            minValGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Min Value' }));
+            minValGroup.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: getValidationsValue('min') || '',
+                placeholder: 'e.g. 0',
+                oninput: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidations({ min: val !== '' ? parseFloat(val) : undefined });
+                }
+            }));
+            validationElements.push(minValGroup);
+
+            const maxValGroup = createElement('div', { className: 'mb-3' });
+            maxValGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Max Value' }));
+            maxValGroup.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: getValidationsValue('max') || '',
+                placeholder: 'e.g. 100',
+                oninput: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidations({ max: val !== '' ? parseFloat(val) : undefined });
+                }
+            }));
+            validationElements.push(maxValGroup);
+
+            validationElements.push(this.createCheckboxField(
+                'Allow Decimal',
+                validationsObj.allowDecimal === true,
+                (checked) => updateValidations({
+                    allowDecimal: checked,
+                    // When unchecked, remove decimalPlaces so it's not in the payload
+                    decimalPlaces: checked ? (validationsObj.decimalPlaces ?? 2) : undefined
+                }),
+                `allow-decimal-${selectedField.id}`
+            ));
+
+            const decimalPlacesGroup = createElement('div', { className: 'mb-3' });
+            decimalPlacesGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Decimal Places' }));
+            const decimalPlacesInput = createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent disabled:opacity-50 disabled:cursor-not-allowed',
+                value: validationsObj.allowDecimal === true ? String(validationsObj.decimalPlaces ?? 2) : '',
+                placeholder: 'e.g. 2',
+                min: '0',
+                max: '10',
+                disabled: validationsObj.allowDecimal !== true,
+                oninput: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidations({ decimalPlaces: val !== '' ? parseInt(val) : undefined });
+                }
+            });
+            decimalPlacesGroup.appendChild(decimalPlacesInput);
+            validationElements.push(decimalPlacesGroup);
+
+            validationElements.push(this.createCheckboxField(
+                'Allow Negative',
+                validationsObj.allowNegative === true,
+                (checked) => updateValidations({ allowNegative: checked }),
+                `allow-negative-${selectedField.id}`
+            ));
+        }
+
+        // Min/Max Length (Text/Textarea/Email/Phone - numeric use-case: postal, phone, OTP)
+        if (['text', 'textarea', 'email', 'phone'].includes(selectedField.type)) {
+            // Validation Type dropdown (for text-based numeric fields: postal, phone, OTP)
+            if (selectedField.type === 'text' || selectedField.type === 'phone') {
+                const validationTypeGroup = createElement('div', { className: 'mb-3' });
+                validationTypeGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Validation Type' }));
+                const validationTypeSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                    onchange: (e: Event) => {
+                        const presetId = (e.target as HTMLSelectElement).value;
+                        if (presetId) {
+                            const preset = VALIDATION_TYPE_PRESETS[presetId];
+                            if (preset) {
+                                updateValidations({ ...preset, validationType: presetId as FieldValidations['validationType'] });
+                            }
+                        } else {
+                            updateValidations({ validationType: 'custom' });
+                        }
+                    }
+                });
+                const options = [
+                    { value: '', text: 'Custom' },
+                    { value: 'postalCode', text: 'Postal Code (6 digit)' },
+                    { value: 'phoneNumber', text: 'Phone Number (10 digit)' },
+                    { value: 'otp', text: 'OTP (4/6 digit)' }
+                ];
+                options.forEach(opt => {
+                    validationTypeSelect.appendChild(createElement('option', {
+                        value: opt.value,
+                        text: opt.text,
+                        selected: validationsObj.validationType === opt.value || (!validationsObj.validationType && opt.value === '')
+                    }));
+                });
+                validationTypeGroup.appendChild(validationTypeSelect);
+                validationElements.push(validationTypeGroup);
+            }
+
             const minLenGroup = createElement('div', { className: 'mb-3' });
             minLenGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Min Length' }));
             minLenGroup.appendChild(createElement('input', {
                 type: 'number',
                 className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
-                value: getRuleValue('minLength') || '',
+                value: getValidationsValue('minLength') || '',
                 placeholder: 'e.g. 3',
-                onchange: (e: Event) => {
+                oninput: (e: Event) => {
                     const value = (e.target as HTMLInputElement).value;
-                    updateValidation({ minLength: value ? parseInt(value) : undefined });
+                    updateValidations({ minLength: value !== '' ? parseInt(value) : undefined });
                 }
             }));
             validationElements.push(minLenGroup);
@@ -1594,11 +1844,11 @@ export class FormBuilder {
             maxLenGroup.appendChild(createElement('input', {
                 type: 'number',
                 className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
-                value: getRuleValue('maxLength') || '',
+                value: getValidationsValue('maxLength') || '',
                 placeholder: 'e.g. 100',
-                onchange: (e: Event) => {
+                oninput: (e: Event) => {
                     const value = (e.target as HTMLInputElement).value;
-                    updateValidation({ maxLength: value ? parseInt(value) : undefined });
+                    updateValidations({ maxLength: value !== '' ? parseInt(value) : undefined });
                 }
             }));
             validationElements.push(maxLenGroup);
@@ -1669,13 +1919,14 @@ export class FormBuilder {
                 regexGroup.appendChild(examplesContainer);
             }
 
-            const currentRegex = validationObj.regex || '';
+            const currentRegex = validationsObj.pattern || (selectedField.validation as ValidationObject)?.regex || '';
 
             // Find current preset based on regex pattern
             const findPresetByRegex = (regex: string): RegexPreset | undefined => {
                 return REGEX_PRESETS.find(preset => preset.pattern === regex);
             };
 
+            const regexMessage = validationsObj.customErrorMessages?.pattern || (selectedField.validation as ValidationObject)?.regexMessage || 'Invalid format';
             let currentPreset: RegexPreset | undefined = currentRegex ? findPresetByRegex(currentRegex) : undefined;
             let selectedPresetId: string = currentPreset?.id || '';
 
@@ -1696,9 +1947,9 @@ export class FormBuilder {
                         const preset = REGEX_PRESETS.find(p => p.id === presetId);
 
                         if (preset) {
-                            updateValidation({
-                                regex: preset.pattern,
-                                regexMessage: preset.errorMessage
+                            updateValidations({
+                                pattern: preset.pattern,
+                                customErrorMessages: { ...validationsObj.customErrorMessages, pattern: preset.errorMessage }
                             });
 
                             // Update regex input
@@ -1769,9 +2020,9 @@ export class FormBuilder {
                         }
                     }
 
-                    updateValidation({
-                        regex: val || undefined,
-                        regexMessage: currentPreset?.errorMessage || validationObj.regexMessage || 'Invalid format'
+                    updateValidations({
+                        pattern: val || undefined,
+                        customErrorMessages: { ...validationsObj.customErrorMessages, pattern: currentPreset?.errorMessage || regexMessage || 'Invalid format' }
                     });
 
                     // Update live examples
@@ -1799,10 +2050,26 @@ export class FormBuilder {
                 }
             }
 
+            // Pattern error message (inline with regex)
+            const patternMsgGroup = createElement('div', { className: 'mb-3 mt-2' });
+            patternMsgGroup.appendChild(createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Pattern Error Message' }));
+            patternMsgGroup.appendChild(createElement('input', {
+                type: 'text',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                value: validationsObj.customErrorMessages?.pattern || '',
+                placeholder: 'e.g. Invalid format',
+                oninput: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidations({
+                        customErrorMessages: { ...validationsObj.customErrorMessages, pattern: val || undefined }
+                    });
+                }
+            }));
+            regexGroup.appendChild(patternMsgGroup);
             validationElements.push(regexGroup);
         }
 
-        // Min/Max Value (Number) - Note: Number fields don't have min/max in validation object format
+        // Custom Error Messages (for fields with validation)
         // These are typically handled via HTML5 min/max attributes, but we can add them if needed
         // For now, skipping as they're not in the standard validation object
 
@@ -1813,12 +2080,12 @@ export class FormBuilder {
             minSelectedGroup.appendChild(createElement('input', {
                 type: 'number',
                 className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
-                value: getRuleValue('minSelected'),
+                value: getValidationsValue('minSelected'),
                 placeholder: 'e.g. 1',
                 min: '0',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    updateValidation({ minSelected: val ? parseInt(val) : undefined });
+                    updateValidations({ minSelected: val ? parseInt(val) : undefined });
                 }
             }));
             validationElements.push(minSelectedGroup);
@@ -1828,12 +2095,12 @@ export class FormBuilder {
             maxSelectedGroup.appendChild(createElement('input', {
                 type: 'number',
                 className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
-                value: getRuleValue('maxSelected'),
+                value: getValidationsValue('maxSelected'),
                 placeholder: 'e.g. 2',
                 min: '1',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    updateValidation({ maxSelected: val ? parseInt(val) : undefined });
+                    updateValidations({ maxSelected: val ? parseInt(val) : undefined });
                 }
             }));
             validationElements.push(maxSelectedGroup);
@@ -1846,10 +2113,10 @@ export class FormBuilder {
             minDateGroup.appendChild(createElement('input', {
                 type: 'date',
                 className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
-                value: validationObj.minDate || '',
+                value: validationsObj.minDate || '',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    updateValidation({ minDate: val || undefined });
+                    updateValidations({ minDate: val || undefined });
                 }
             }));
             validationElements.push(minDateGroup);
@@ -1859,10 +2126,10 @@ export class FormBuilder {
             maxDateGroup.appendChild(createElement('input', {
                 type: 'date',
                 className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
-                value: validationObj.maxDate || '',
+                value: validationsObj.maxDate || '',
                 onchange: (e: Event) => {
                     const val = (e.target as HTMLInputElement).value;
-                    updateValidation({ maxDate: val || undefined });
+                    updateValidations({ maxDate: val || undefined });
                 }
             }));
             validationElements.push(maxDateGroup);

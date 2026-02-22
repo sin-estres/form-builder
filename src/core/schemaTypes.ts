@@ -10,6 +10,7 @@ export type FieldType =
     | 'radio'
     | 'toggle' // switch
     | 'file'
+    | 'image'
     | 'email'
     | 'phone';
 
@@ -50,10 +51,62 @@ export interface ValidationObject {
     regexMessage?: string;
     minLength?: number;
     maxLength?: number;
+    min?: number; // For number fields
+    max?: number; // For number fields
     minSelected?: number; // For checkbox/select groups
     maxSelected?: number; // For checkbox/select groups
     minDate?: string; // ISO date string
     maxDate?: string; // ISO date string
+}
+
+/**
+ * Comprehensive validation configuration for form fields.
+ * Supports number fields (min, max, decimal) and text-based numeric fields (phone, postal, OTP).
+ */
+export interface FieldValidations {
+    required?: boolean;
+
+    // Length-based (for text-based numeric fields like phone, postal)
+    minLength?: number;
+    maxLength?: number;
+
+    // Value-based (for numeric fields like amount)
+    min?: number;
+    max?: number;
+
+    // Decimal & sign control (for number fields)
+    allowDecimal?: boolean;
+    decimalPlaces?: number;
+    allowNegative?: boolean;
+
+    // Regex support
+    pattern?: string;
+
+    // Predefined validation type (auto-applies rules when selected)
+    validationType?:
+        | 'postalCode'
+        | 'phoneNumber'
+        | 'otp'
+        | 'amount'
+        | 'custom';
+
+    // Custom error messages per rule
+    customErrorMessages?: {
+        required?: string;
+        minLength?: string;
+        maxLength?: string;
+        min?: string;
+        max?: string;
+        pattern?: string;
+    };
+
+    // Checkbox/select (min/max selected)
+    minSelected?: number;
+    maxSelected?: number;
+
+    // Date range
+    minDate?: string;
+    maxDate?: string;
 }
 
 export interface AsyncOptionSource {
@@ -74,7 +127,8 @@ export interface FormField {
     defaultValue?: any;
     options?: { label: string; value: string }[]; // For select, radio, checkbox
     optionsSource?: AsyncOptionSource; // For async select
-    validation?: ValidationRule[] | ValidationObject; // Support both array and object formats
+    validation?: ValidationRule[] | ValidationObject; // Support both array and object formats (legacy)
+    validations?: FieldValidations; // Comprehensive validation configuration (preferred)
     width?: FieldWidth; // Legacy support - prefer layout.span
     hidden?: boolean; // For conditional logic later
     position?: { row: number; column: number }; // Legacy - use layout instead
@@ -97,6 +151,8 @@ export interface FormField {
     lookupLabelField?: string; // Field name to use as label in lookup
     // Phone field ISD configuration
     isd?: ISDConfig;
+    // Image field - URL or base64 data
+    imageUrl?: string;
 }
 
 /**

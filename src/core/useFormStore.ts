@@ -459,9 +459,11 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         const { existingForms, history, historyIndex } = get();
         const found = existingForms.find(f => f.id === formId);
         if (found) {
+            // Clean schema to ensure options, optionSource, customOptionsEnabled etc. are correctly loaded
+            const cleanedSchema = cleanFormSchema(found);
             set({
-                schema: found,
-                history: [...history.slice(0, historyIndex + 1), found],
+                schema: cleanedSchema,
+                history: [...history.slice(0, historyIndex + 1), cleanedSchema],
                 historyIndex: historyIndex + 1,
             });
         }
@@ -472,9 +474,10 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         const found = existingForms.find(f => f.id === formId);
         if (found) {
             const cloned = cloneForm(found); // Uses the new util
+            const cleanedSchema = cleanFormSchema(cloned);
             set({
-                schema: cloned,
-                history: [...history.slice(0, historyIndex + 1), cloned],
+                schema: cleanedSchema,
+                history: [...history.slice(0, historyIndex + 1), cleanedSchema],
                 historyIndex: historyIndex + 1,
             });
         }
