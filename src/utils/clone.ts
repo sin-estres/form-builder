@@ -34,6 +34,10 @@ export const cloneField = (field: FormField): FormField => {
         id: generateId(),
         // Ensure options are also cloned if present
         options: field.options ? field.options.map(opt => ({ ...opt })) : undefined,
-        validation: field.validation ? field.validation.map(v => ({ ...v })) : undefined
+        validation: field.validation ? field.validation.map(v => ({ ...v })) : undefined,
+        // Preserve formula config for number fields (dependencies stay as-is - they reference other field ids/names)
+        valueSource: field.valueSource,
+        formula: field.formula,
+        dependencies: field.dependencies ? [...field.dependencies] : undefined
     };
 };

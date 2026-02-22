@@ -1,6 +1,12 @@
 import { formStore } from '../core/useFormStore';
 import { createElement, getIcon } from '../utils/dom';
 import { FIELD_TYPES, REGEX_PRESETS, VALIDATION_TYPE_PRESETS, RegexPreset } from '../core/constants';
+import {
+    parseFormulaDependencies,
+    validateFormula,
+    detectCircularDependency,
+    getNumericFieldsForFormula
+} from '../utils/formula';
 import { FormRenderer } from '../renderer/FormRenderer';
 import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject, FieldValidations } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
@@ -636,6 +642,25 @@ export class FormBuilder {
             onclick: () => {
                 const schema = formStore.getState().schema;
 
+                // Validate formula fields before save
+                const numericFields = schema.sections.flatMap(s => s.fields).filter((f: any) => f.type === 'number');
+                const allIds = numericFields.map((f: any) => f.id);
+                const allNames = numericFields.map((f: any) => f.fieldName ?? f.id);
+                for (const field of schema.sections.flatMap(s => s.fields)) {
+                    if (field.type === 'number' && field.valueSource === 'formula' && field.formula) {
+                        const validation = validateFormula(field.formula, allIds, allNames, field.id);
+                        if (!validation.valid) {
+                            alert(`Formula error in "${field.label}": ${validation.error}`);
+                            return;
+                        }
+                        const deps = field.dependencies ?? parseFormulaDependencies(field.formula);
+                        if (detectCircularDependency(schema, field.id, field.formula, deps)) {
+                            alert(`Circular dependency in formula for "${field.label}"`);
+                            return;
+                        }
+                    }
+                }
+
                 // Debug: Log validation state for number fields before save
                 schema.sections.forEach((section: any) => {
                     section.fields?.forEach((field: any) => {
@@ -917,6 +942,109 @@ export class FormBuilder {
             }
         }));
         body.appendChild(labelGroup);
+
+        // --- Number field: Value Source (Manual / Formula) ---
+        if (selectedField.type === 'number') {
+            const valueSourceHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4', text: 'Value Source' });
+            body.appendChild(valueSourceHeader);
+            const valueSourceGroup = createElement('div', { className: 'mb-3' });
+            valueSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Source' }));
+            const valueSourceSelect = createElement('select', {
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.valueSource || 'manual',
+                onchange: (e: Event) => {
+                    const source = (e.target as HTMLSelectElement).value as 'manual' | 'formula';
+                    const updates: Partial<typeof selectedField> = { valueSource: source };
+                    if (source === 'manual') {
+                        updates.formula = undefined;
+                        updates.dependencies = undefined;
+                    } else if (source === 'formula') {
+                        updates.formula = selectedField.formula || '';
+                        updates.dependencies = selectedField.dependencies || [];
+                    }
+                    formStore.getState().updateField(selectedField.id, updates);
+                    this.render();
+                }
+            });
+            valueSourceSelect.appendChild(createElement('option', { value: 'manual', text: 'Manual', selected: (selectedField.valueSource || 'manual') === 'manual' }));
+            valueSourceSelect.appendChild(createElement('option', { value: 'formula', text: 'Formula', selected: selectedField.valueSource === 'formula' }));
+            valueSourceGroup.appendChild(valueSourceSelect);
+            body.appendChild(valueSourceGroup);
+
+            // Formula configuration (when valueSource === 'formula')
+            if (selectedField.valueSource === 'formula') {
+                const schema = formStore.getState().schema;
+                const numericFields = getNumericFieldsForFormula(schema, selectedField.id);
+                const availableIds = numericFields.map(f => f.id);
+                const availableNames = numericFields.map(f => f.fieldName);
+
+                const formulaGroup = createElement('div', { className: 'mb-3' });
+                formulaGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Formula' }));
+                const formulaInput = createElement('input', {
+                    type: 'text',
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono text-sm',
+                    value: selectedField.formula || '',
+                    placeholder: 'e.g. quantity * price',
+                    'data-focus-id': `field-formula-${selectedField.id}`,
+                    oninput: (e: Event) => {
+                        const formula = (e.target as HTMLInputElement).value.trim();
+                        const deps = parseFormulaDependencies(formula);
+                        const validation = validateFormula(formula, availableIds, availableNames, selectedField.id);
+                        const hasCircular = deps.length > 0 && detectCircularDependency(schema, selectedField.id, formula, deps);
+                        const errEl = formulaGroup.querySelector('.formula-error') as HTMLElement | null;
+                        if (errEl) {
+                            if (validation.valid && !hasCircular) {
+                                errEl.textContent = '';
+                                errEl.classList.add('hidden');
+                            } else {
+                                errEl.textContent = !validation.valid ? validation.error : 'Circular dependency detected';
+                                errEl.classList.remove('hidden');
+                            }
+                        }
+                        formStore.getState().updateField(selectedField.id, { formula, dependencies: deps });
+                    }
+                }) as HTMLInputElement;
+                formulaGroup.appendChild(formulaInput);
+                const formulaError = createElement('div', { className: 'text-xs text-red-600 dark:text-red-400 mt-1 formula-error hidden' });
+                formulaGroup.appendChild(formulaError);
+                body.appendChild(formulaGroup);
+
+                // Insert field dropdown - quick insert into formula
+                const insertGroup = createElement('div', { className: 'mb-3' });
+                insertGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Insert Field' }));
+                const insertSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                    onchange: (e: Event) => {
+                        const sel = e.target as HTMLSelectElement;
+                        const ref = sel.value;
+                        if (!ref) return;
+                        const current = selectedField.formula || '';
+                        const insert = current ? ` ${ref} ` : ref;
+                        const newFormula = current + insert;
+                        formStore.getState().updateField(selectedField.id, {
+                            formula: newFormula,
+                            dependencies: parseFormulaDependencies(newFormula)
+                        });
+                        formulaInput.value = newFormula;
+                        sel.value = '';
+                        this.render();
+                    }
+                });
+                insertSelect.appendChild(createElement('option', { value: '', text: 'Select field to insert...', selected: true }));
+                numericFields.forEach(f => {
+                    const ref = f.fieldName !== f.id ? f.fieldName : f.id;
+                    insertSelect.appendChild(createElement('option', { value: ref, text: `${f.label} (${ref})` }));
+                });
+                insertGroup.appendChild(insertSelect);
+                body.appendChild(insertGroup);
+
+                const hintEl = createElement('p', {
+                    className: 'text-xs text-gray-500 dark:text-gray-400 mb-2',
+                    text: 'Use +, -, *, / and parentheses. Reference fields by their name or ID.'
+                });
+                body.appendChild(hintEl);
+            }
+        }
 
         // Placeholder (skip for image - uses Image section instead)
         if (selectedField.type !== 'image') {

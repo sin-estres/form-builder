@@ -153,6 +153,10 @@ export interface FormField {
     isd?: ISDConfig;
     // Image field - URL or base64 data
     imageUrl?: string;
+    // Number field formula configuration
+    valueSource?: 'manual' | 'formula';
+    formula?: string;
+    dependencies?: string[]; // Field IDs or fieldNames used in formula
 }
 
 /**

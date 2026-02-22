@@ -3,6 +3,7 @@ export * from './builder/FormBuilder';
 export * from './renderer/FormRenderer';
 export * from './core/useFormStore';
 export * from './utils/mapper';
+export * from './utils/formula';
 import { FormBuilder, FormBuilderOptions } from './builder/FormBuilder';
 import './index.css';
 

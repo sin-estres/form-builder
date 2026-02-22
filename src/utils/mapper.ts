@@ -363,6 +363,10 @@ function transformField(field: any): FormField {
     if (field.visible !== undefined) transformed.visible = field.visible;
     if (field.isd !== undefined) transformed.isd = field.isd; // Phone ISD config (showFlag, allowCountryChange, defaultCountry)
     if (field.imageUrl !== undefined) transformed.imageUrl = field.imageUrl; // Image field
+    // Number field formula (valueSource, formula, dependencies)
+    if (field.valueSource !== undefined) transformed.valueSource = field.valueSource;
+    if (field.formula !== undefined) transformed.formula = field.formula;
+    if (field.dependencies !== undefined && Array.isArray(field.dependencies)) transformed.dependencies = field.dependencies;
     // Order is already set above
     if (field.css !== undefined) transformed.css = field.css; // Preserve CSS
     if (field.optionsSource !== undefined) transformed.optionsSource = field.optionsSource;
@@ -584,6 +588,10 @@ function fieldToPayload(field: FormField): any {
     if (field.lookupLabelField !== undefined) payload.lookupLabelField = field.lookupLabelField;
     if (field.isd !== undefined) payload.isd = field.isd;
     if (field.imageUrl !== undefined) payload.imageUrl = field.imageUrl;
+    // Number field formula
+    if (field.valueSource !== undefined) payload.valueSource = field.valueSource;
+    if (field.formula !== undefined) payload.formula = field.formula;
+    if (field.dependencies !== undefined && Array.isArray(field.dependencies)) payload.dependencies = field.dependencies;
 
     // Options for select/radio/checkbox - include when present (STATIC/custom options, or from MASTER/LOOKUP)
     // Do not strip options: preserve custom options for STATIC fields even when lookup/masterTypeName absent

@@ -1,6 +1,7 @@
 import { FormSchema, FormField, getColSpanFromWidth, ValidationObject, ValidationRule } from '../core/schemaTypes';
 import { FieldRenderer } from './FieldRenderer';
 import { createElement } from '../utils/dom';
+import { evaluateFormula } from '../utils/formula';
 
 // Helper function to convert validation object to array format for validation logic
 function convertValidationToArray(validation: ValidationRule[] | ValidationObject | undefined): ValidationRule[] {
@@ -115,6 +116,63 @@ function getModelKey(field: { id: string; fieldName?: string }): string {
     return field.fieldName ?? field.id;
 }
 
+/** Build values map for formula evaluation - includes manual values and computed formula values in dependency order */
+function buildFormulaValuesMap(schema: FormSchema, data: Record<string, any>): Record<string, number | string | undefined> {
+    const values: Record<string, number | string | undefined> = {};
+    const allFields: FormField[] = schema.sections.flatMap(s => s.fields);
+
+    // First pass: add manual field values
+    for (const field of allFields) {
+        const modelKey = getModelKey(field);
+        const val = data[modelKey];
+        values[modelKey] = val;
+        values[field.id] = val;
+        if (field.fieldName) values[field.fieldName] = val;
+    }
+
+    // Compute formula fields (iterate to handle formula chains: A=B+C, D=A*2)
+    const formulaFields = allFields.filter(f => f.type === 'number' && f.valueSource === 'formula' && f.formula);
+    for (let pass = 0; pass < Math.max(1, formulaFields.length); pass++) {
+        for (const field of formulaFields) {
+            const modelKey = getModelKey(field);
+            const result = evaluateFormula(field.formula!, values);
+            const newVal = isNaN(result) ? undefined : result;
+            values[modelKey] = newVal;
+            values[field.id] = newVal;
+            if (field.fieldName) values[field.fieldName] = newVal;
+        }
+    }
+    return values;
+}
+
+/** Compute value for a formula field */
+function computeFormulaValue(field: FormField, schema: FormSchema, data: Record<string, any>): number | string | undefined {
+    if (field.type !== 'number' || field.valueSource !== 'formula' || !field.formula) return undefined;
+    const values = buildFormulaValuesMap(schema, data);
+    const modelKey = getModelKey(field);
+    const result = values[modelKey];
+    if (typeof result !== 'number') return undefined;
+    // Apply decimal places from validations
+    const decimalPlaces = field.validations?.decimalPlaces ?? (field.validations?.allowDecimal ? 2 : 0);
+    const rounded = decimalPlaces > 0
+        ? Math.round(result * Math.pow(10, decimalPlaces)) / Math.pow(10, decimalPlaces)
+        : Math.round(result);
+    return rounded;
+}
+
+/** Check if any formula field depends on the given field (by modelKey or id) */
+function isFormulaDependency(schema: FormSchema, modelKey: string, fieldId?: string): boolean {
+    for (const section of schema.sections) {
+        for (const field of section.fields) {
+            if (field.type === 'number' && field.valueSource === 'formula' && field.dependencies) {
+                if (field.dependencies.includes(modelKey)) return true;
+                if (fieldId && field.dependencies.includes(fieldId)) return true;
+            }
+        }
+    }
+    return false;
+}
+
 export class FormRenderer {
     private container: HTMLElement;
     private schema: FormSchema;
@@ -183,20 +241,37 @@ export class FormRenderer {
                 fieldWrapper.className = spanClass;
 
                 const modelKey = getModelKey(field);
-                // For image fields, use field.imageUrl when form data is empty (edit mode / configured image)
-                const fieldValue = field.type === 'image'
-                    ? (this.data[modelKey] ?? field.imageUrl ?? field.defaultValue)
-                    : this.data[modelKey];
-                const fieldEl = FieldRenderer.render(field, fieldValue, (val) => {
-                    this.data[modelKey] = val;
-                    // Emit dropdownValueChange event for select fields (Angular integration)
-                    if (field.type === 'select' && this.onDropdownValueChange) {
-                        this.onDropdownValueChange({
-                            fieldId: field.id,
-                            value: val || ''
-                        });
-                    }
-                });
+                // For formula number fields, compute value from formula
+                let fieldValue: any;
+                if (field.type === 'number' && field.valueSource === 'formula' && field.formula) {
+                    const computed = computeFormulaValue(field, this.schema, this.data);
+                    fieldValue = computed;
+                    this.data[modelKey] = computed; // Keep data in sync for submit
+                } else if (field.type === 'image') {
+                    fieldValue = this.data[modelKey] ?? field.imageUrl ?? field.defaultValue;
+                } else {
+                    fieldValue = this.data[modelKey];
+                }
+                const isFormulaField = field.type === 'number' && field.valueSource === 'formula';
+                const fieldEl = FieldRenderer.render(
+                    field,
+                    fieldValue,
+                    (val) => {
+                        this.data[modelKey] = val;
+                        // Emit dropdownValueChange event for select fields (Angular integration)
+                        if (field.type === 'select' && this.onDropdownValueChange) {
+                            this.onDropdownValueChange({
+                                fieldId: field.id,
+                                value: val || ''
+                            });
+                        }
+                        // Re-render when a formula dependency changes
+                        if (isFormulaDependency(this.schema, modelKey, field.id)) {
+                            this.render();
+                        }
+                    },
+                    isFormulaField // Formula fields are read-only
+                );
 
                 fieldWrapper.appendChild(fieldEl);
                 grid.appendChild(fieldWrapper);
