@@ -1,7 +1,6 @@
 import { FormField, FormSchema } from '../core/schemaTypes';
 
-/** Allowed operators and parentheses in formula expressions */
-const FORMULA_OPERATORS = ['+', '-', '*', '/', '(', ')'];
+/** Operators and parentheses used in formula expressions */
 const FORMULA_OPERATOR_REGEX = /[\+\-\*\/\(\)]/g;
 
 /**
@@ -35,7 +34,7 @@ export function validateFormula(
     formula: string,
     availableFieldIds: string[],
     availableFieldNames: string[],
-    currentFieldId?: string
+    _currentFieldId?: string
 ): { valid: true } | { valid: false; error: string } {
     if (!formula || typeof formula !== 'string') {
         return { valid: false, error: 'Formula cannot be empty' };
@@ -70,7 +69,7 @@ export function validateFormula(
 export function detectCircularDependency(
     schema: FormSchema,
     formulaFieldId: string,
-    formula: string,
+    _formula: string,
     dependencies: string[]
 ): boolean {
     const visited = new Set<string>();
