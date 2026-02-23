@@ -1256,148 +1256,6 @@ export class FormBuilder {
             ));
         }
 
-        // --- Master List (Select/Dropdown only - shown when optionSource is MASTER) ---
-        if (selectedField.type === 'select' && selectedField.optionSource === 'MASTER') {
-            const masterTypes = formStore.getState().masterTypes;
-            const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
-            const dropdownOptionsMap = formStore.getState().dropdownOptionsMap;
-
-            // Helper function to convert master type indexes to options format
-            const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
-                if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
-                    return [];
-                }
-
-                return indexes.map((item, index) => {
-                    // If item is a string, use it as both label and value
-                    if (typeof item === 'string') {
-                        return { label: item, value: item };
-                    }
-                    // If item is an object, try to extract label and value
-                    if (typeof item === 'object' && item !== null) {
-                        const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
-                        const value = item.value || item.id || item.name || String(index);
-                        return { label, value };
-                    }
-                    // Fallback
-                    return { label: String(item), value: String(item) };
-                });
-            };
-
-            if (activeMasterTypes.length > 0) {
-                const groupNameGroup = createElement('div', { className: 'mb-4' });
-                groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Master List' }));
-                const groupNameSelect = createElement('select', {
-                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
-                    onchange: (e: Event) => {
-                        const selectedEnumName = (e.target as HTMLSelectElement).value;
-                        if (selectedEnumName) {
-                            const selectedMasterType = activeMasterTypes.find(mt => mt.enumName === selectedEnumName);
-                            if (selectedMasterType) {
-                                // Check if dropdownOptionsMap has options for this enumName
-                                let options: { label: string; value: string }[] = [];
-
-                                if (dropdownOptionsMap && dropdownOptionsMap[selectedEnumName]) {
-                                    // Use options from dropdownOptionsMap (Angular integration)
-                                    options = dropdownOptionsMap[selectedEnumName];
-                                } else if (selectedMasterType.indexes && selectedMasterType.indexes.length > 0) {
-                                    // Fallback to indexes from master type
-                                    options = convertIndexesToOptions(selectedMasterType.indexes);
-                                }
-
-                                formStore.getState().updateField(selectedField.id, {
-                                    groupName: {
-                                        id: selectedMasterType.id,
-                                        name: selectedMasterType.name
-                                    },
-                                    masterTypeName: selectedEnumName,
-                                    options: options.length > 0 ? options : undefined
-                                });
-
-                                // Emit groupSelectionChange event (Angular integration)
-                                if (this.options.onGroupSelectionChange) {
-                                    this.options.onGroupSelectionChange({
-                                        fieldId: selectedField.id,
-                                        groupEnumName: selectedEnumName
-                                    });
-                                }
-                            }
-                        } else {
-                            formStore.getState().updateField(selectedField.id, {
-                                groupName: undefined,
-                                masterTypeName: undefined,
-                                options: undefined // Clear options when groupName is cleared
-                            });
-                        }
-                    }
-                });
-
-                // Determine which master type is currently selected
-                // Priority: masterTypeName > groupName
-                let currentMasterType: MasterType | undefined;
-                if (selectedField.masterTypeName) {
-                    currentMasterType = activeMasterTypes.find(mt => mt.enumName === selectedField.masterTypeName);
-                } else if (selectedField.groupName) {
-                    currentMasterType = activeMasterTypes.find(mt =>
-                        mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name
-                    );
-                }
-
-                // Add empty option for clearing selection
-                groupNameSelect.appendChild(createElement('option', {
-                    value: '',
-                    text: 'None',
-                    selected: !currentMasterType
-                }));
-
-                // Add options from active masterTypes - use enumName as value, displayName as text
-                activeMasterTypes.forEach(mt => {
-                    // Check if this master type is selected by comparing enumName or groupName
-                    const isSelected = currentMasterType && (
-                        (selectedField.masterTypeName && mt.enumName === selectedField.masterTypeName) ||
-                        (selectedField.groupName && (mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name))
-                    );
-                    // Use enumName as value for Angular integration
-                    const optionValue = mt.enumName || mt.id || mt.name;
-                    groupNameSelect.appendChild(createElement('option', {
-                        value: optionValue,
-                        text: mt.displayName || mt.name,
-                        selected: !!isSelected
-                    }));
-                });
-
-                groupNameGroup.appendChild(groupNameSelect);
-                body.appendChild(groupNameGroup);
-
-                // If field has masterTypeName or groupName but no options, hydrate options
-                if (currentMasterType && (!selectedField.options || selectedField.options.length === 0)) {
-                    let options: { label: string; value: string }[] = [];
-
-                    // Check dropdownOptionsMap first (Angular integration)
-                    if (currentMasterType.enumName && dropdownOptionsMap && dropdownOptionsMap[currentMasterType.enumName]) {
-                        options = dropdownOptionsMap[currentMasterType.enumName];
-                    } else if (currentMasterType.indexes && currentMasterType.indexes.length > 0) {
-                        // Fallback to indexes from master type
-                        options = convertIndexesToOptions(currentMasterType.indexes);
-                    }
-
-                    if (options.length > 0) {
-                        formStore.getState().updateField(selectedField.id, { options });
-                    }
-
-                    // If groupName is missing but masterTypeName exists, set groupName
-                    if (selectedField.masterTypeName && !selectedField.groupName) {
-                        formStore.getState().updateField(selectedField.id, {
-                            groupName: {
-                                id: currentMasterType.id,
-                                name: currentMasterType.name
-                            }
-                        });
-                    }
-                }
-            }
-        }
-
         // --- Option Source (Select, Radio, Checkbox) ---
         if (['select', 'checkbox', 'radio'].includes(selectedField.type)) {
             const optionSourceHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Option Source' });
@@ -1412,17 +1270,24 @@ export class FormBuilder {
                     const source = (e.target as HTMLSelectElement).value as 'STATIC' | 'MASTER' | 'LOOKUP';
                     const updates: any = { optionSource: source };
 
-                    // If switching to MASTER and no masterTypeName/groupName exists, keep existing or clear options
-                    if (source === 'MASTER' && !selectedField.masterTypeName && !selectedField.groupName) {
-                        // Don't clear options yet - user needs to select a master type
+                    if (source === 'MASTER') {
+                        // Master List will appear; keep existing or clear if none selected
                     } else if (source === 'STATIC') {
                         // When switching to STATIC, ensure customOptionsEnabled is true
                         updates.customOptionsEnabled = true;
+                        // Clear Master List values when switching away from MASTER
+                        updates.groupName = undefined;
+                        updates.masterTypeName = undefined;
+                        updates.options = undefined;
                     } else if (source === 'LOOKUP') {
                         // Clear lookup-related fields when switching to LOOKUP if not already set
                         if (!selectedField.lookupSourceType) {
                             updates.lookupSourceType = 'MODULE';
                         }
+                        // Clear Master List values when switching away from MASTER
+                        updates.groupName = undefined;
+                        updates.masterTypeName = undefined;
+                        updates.options = undefined;
                     }
 
                     formStore.getState().updateField(selectedField.id, updates);
@@ -1438,6 +1303,112 @@ export class FormBuilder {
             }
             optionSourceGroup.appendChild(optionSourceSelect);
             body.appendChild(optionSourceGroup);
+
+            // --- Master List (Select/Dropdown only - shown when Source Type = MASTER) ---
+            if (selectedField.type === 'select' && selectedField.optionSource === 'MASTER') {
+                const masterTypes = formStore.getState().masterTypes;
+                const activeMasterTypes = masterTypes.filter(mt => mt.active === true);
+                const dropdownOptionsMap = formStore.getState().dropdownOptionsMap;
+
+                const convertIndexesToOptions = (indexes: any[]): { label: string; value: string }[] => {
+                    if (!indexes || !Array.isArray(indexes) || indexes.length === 0) {
+                        return [];
+                    }
+                    return indexes.map((item, index) => {
+                        if (typeof item === 'string') {
+                            return { label: item, value: item };
+                        }
+                        if (typeof item === 'object' && item !== null) {
+                            const label = item.label || item.name || item.displayName || item.text || `Option ${index + 1}`;
+                            const value = item.value || item.id || item.name || String(index);
+                            return { label, value };
+                        }
+                        return { label: String(item), value: String(item) };
+                    });
+                };
+
+                if (activeMasterTypes.length > 0) {
+                    const groupNameGroup = createElement('div', { className: 'mb-4' });
+                    groupNameGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Master List' }));
+                    const groupNameSelect = createElement('select', {
+                        className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                        onchange: (e: Event) => {
+                            const selectedEnumName = (e.target as HTMLSelectElement).value;
+                            if (selectedEnumName) {
+                                const selectedMasterType = activeMasterTypes.find(mt => mt.enumName === selectedEnumName);
+                                if (selectedMasterType) {
+                                    let options: { label: string; value: string }[] = [];
+                                    if (dropdownOptionsMap && dropdownOptionsMap[selectedEnumName]) {
+                                        options = dropdownOptionsMap[selectedEnumName];
+                                    } else if (selectedMasterType.indexes && selectedMasterType.indexes.length > 0) {
+                                        options = convertIndexesToOptions(selectedMasterType.indexes);
+                                    }
+                                    formStore.getState().updateField(selectedField.id, {
+                                        groupName: { id: selectedMasterType.id, name: selectedMasterType.name },
+                                        masterTypeName: selectedEnumName,
+                                        options: options.length > 0 ? options : undefined
+                                    });
+                                    if (this.options.onGroupSelectionChange) {
+                                        this.options.onGroupSelectionChange({
+                                            fieldId: selectedField.id,
+                                            groupEnumName: selectedEnumName
+                                        });
+                                    }
+                                }
+                            } else {
+                                formStore.getState().updateField(selectedField.id, {
+                                    groupName: undefined,
+                                    masterTypeName: undefined,
+                                    options: undefined
+                                });
+                            }
+                        }
+                    });
+
+                    let currentMasterType: MasterType | undefined;
+                    if (selectedField.masterTypeName) {
+                        currentMasterType = activeMasterTypes.find(mt => mt.enumName === selectedField.masterTypeName);
+                    } else if (selectedField.groupName) {
+                        currentMasterType = activeMasterTypes.find(mt =>
+                            mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name
+                        );
+                    }
+
+                    groupNameSelect.appendChild(createElement('option', { value: '', text: 'None', selected: !currentMasterType }));
+                    activeMasterTypes.forEach(mt => {
+                        const isSelected = currentMasterType && (
+                            (selectedField.masterTypeName && mt.enumName === selectedField.masterTypeName) ||
+                            (selectedField.groupName && (mt.id === selectedField.groupName?.id || mt.name === selectedField.groupName?.name))
+                        );
+                        const optionValue = mt.enumName || mt.id || mt.name;
+                        groupNameSelect.appendChild(createElement('option', {
+                            value: optionValue,
+                            text: mt.displayName || mt.name,
+                            selected: !!isSelected
+                        }));
+                    });
+
+                    groupNameGroup.appendChild(groupNameSelect);
+                    body.appendChild(groupNameGroup);
+
+                    if (currentMasterType && (!selectedField.options || selectedField.options.length === 0)) {
+                        let options: { label: string; value: string }[] = [];
+                        if (currentMasterType.enumName && dropdownOptionsMap && dropdownOptionsMap[currentMasterType.enumName]) {
+                            options = dropdownOptionsMap[currentMasterType.enumName];
+                        } else if (currentMasterType.indexes && currentMasterType.indexes.length > 0) {
+                            options = convertIndexesToOptions(currentMasterType.indexes);
+                        }
+                        if (options.length > 0) {
+                            formStore.getState().updateField(selectedField.id, { options });
+                        }
+                        if (selectedField.masterTypeName && !selectedField.groupName) {
+                            formStore.getState().updateField(selectedField.id, {
+                                groupName: { id: currentMasterType.id, name: currentMasterType.name }
+                            });
+                        }
+                    }
+                }
+            }
 
             // --- Lookup Configuration (for LOOKUP optionSource) ---
             if (selectedField.type === 'select' && selectedField.optionSource === 'LOOKUP') {

@@ -371,8 +371,11 @@ function transformField(field: any): FormField {
     if (field.css !== undefined) transformed.css = field.css; // Preserve CSS
     if (field.optionsSource !== undefined) transformed.optionsSource = field.optionsSource;
     if (field.customOptionsEnabled !== undefined) transformed.customOptionsEnabled = field.customOptionsEnabled;
-    if (field.groupName !== undefined) transformed.groupName = field.groupName;
-    if (field.masterTypeName !== undefined) transformed.masterTypeName = field.masterTypeName;
+    // Master List only when optionSource is MASTER (avoids stale data when loading STATIC/LOOKUP)
+    if (transformed.optionSource === 'MASTER') {
+        if (field.groupName !== undefined) transformed.groupName = field.groupName;
+        if (field.masterTypeName !== undefined) transformed.masterTypeName = field.masterTypeName;
+    }
 
     // Options for select/radio/checkbox - normalize to { label, value } and preserve for edit mode
     if ((normalizedType === 'select' || normalizedType === 'radio' || normalizedType === 'checkbox') && field.options && Array.isArray(field.options)) {
@@ -579,8 +582,11 @@ function fieldToPayload(field: FormField): any {
     if (field.css !== undefined) payload.css = field.css;
     if (field.optionSource !== undefined) payload.optionSource = field.optionSource;
     if (field.customOptionsEnabled !== undefined) payload.customOptionsEnabled = field.customOptionsEnabled;
-    if (field.groupName !== undefined) payload.groupName = field.groupName;
-    if (field.masterTypeName !== undefined) payload.masterTypeName = field.masterTypeName;
+    // Master List (groupName, masterTypeName) only when Source Type = MASTER
+    if (field.optionSource === 'MASTER') {
+        if (field.groupName !== undefined) payload.groupName = field.groupName;
+        if (field.masterTypeName !== undefined) payload.masterTypeName = field.masterTypeName;
+    }
     // Lookup-related properties (for LOOKUP optionSource)
     if (field.lookupSourceType !== undefined) payload.lookupSourceType = field.lookupSourceType;
     if (field.lookupSource !== undefined) payload.lookupSource = field.lookupSource;
