@@ -190,6 +190,9 @@ function generatePreviewModel(fields: FieldLike[]): Record<string, any> {
             case 'file':
                 model[key] = { name: 'sample.pdf', size: 1024 };
                 break;
+            case 'image':
+                model[key] = (field as { imageUrl?: string }).imageUrl ?? '';
+                break;
             case 'number':
                 model[key] = 0;
                 break;

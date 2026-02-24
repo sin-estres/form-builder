@@ -1,6 +1,7 @@
-import { FormSchema, getColSpanFromWidth, ValidationObject, ValidationRule } from '../core/schemaTypes';
+import { FormSchema, FormField, getColSpanFromWidth, ValidationObject, ValidationRule } from '../core/schemaTypes';
 import { FieldRenderer } from './FieldRenderer';
 import { createElement } from '../utils/dom';
+import { evaluateFormula } from '../utils/formula';
 
 // Helper function to convert validation object to array format for validation logic
 function convertValidationToArray(validation: ValidationRule[] | ValidationObject | undefined): ValidationRule[] {
@@ -12,6 +13,8 @@ function convertValidationToArray(validation: ValidationRule[] | ValidationObjec
     if (obj.regex) rules.push({ type: 'pattern', regex: obj.regex, message: obj.regexMessage });
     if (obj.minLength !== undefined) rules.push({ type: 'minLength', value: obj.minLength });
     if (obj.maxLength !== undefined) rules.push({ type: 'maxLength', value: obj.maxLength });
+    if (obj.min !== undefined) rules.push({ type: 'min', value: obj.min });
+    if (obj.max !== undefined) rules.push({ type: 'max', value: obj.max });
     if (obj.minSelected !== undefined) rules.push({ type: 'minSelected', value: obj.minSelected });
     if (obj.maxSelected !== undefined) rules.push({ type: 'maxSelected', value: obj.maxSelected });
     if (obj.minDate) rules.push({ type: 'minDate', value: obj.minDate });
@@ -19,9 +22,155 @@ function convertValidationToArray(validation: ValidationRule[] | ValidationObjec
     return rules;
 }
 
+/** Get validation rules from field.validations (preferred) or field.validation (legacy) */
+function getValidationRulesForField(field: FormField): ValidationRule[] {
+    const v = field.validations;
+    if (v) {
+        const obj: ValidationObject = {};
+        if (v.required) obj.required = true;
+        if (v.pattern) obj.regex = v.pattern;
+        if (v.customErrorMessages?.pattern) obj.regexMessage = v.customErrorMessages.pattern;
+        if (v.minLength !== undefined) obj.minLength = v.minLength;
+        if (v.maxLength !== undefined) obj.maxLength = v.maxLength;
+        if (v.min !== undefined) obj.min = v.min;
+        if (v.max !== undefined) obj.max = v.max;
+        if (v.minSelected !== undefined) obj.minSelected = v.minSelected;
+        if (v.maxSelected !== undefined) obj.maxSelected = v.maxSelected;
+        if (v.minDate) obj.minDate = v.minDate;
+        if (v.maxDate) obj.maxDate = v.maxDate;
+        return convertValidationToArray(obj);
+    }
+    return convertValidationToArray(field.validation);
+}
+
+/**
+ * Returns the first validation error message for a field, or empty string if valid.
+ * Used on form submission to validate all field types including number min/max.
+ */
+function getFieldValidationError(field: FormField, fieldValue: any): string {
+    const isRequired = field.validations?.required ?? field.required;
+    if (isRequired && (!fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0))) {
+        return field.validations?.customErrorMessages?.required || 'This field is required';
+    }
+
+    // Pattern, minLength, maxLength for text, email, phone
+    if ((field.type === 'text' || field.type === 'email' || field.type === 'phone') && fieldValue) {
+        const validationArray = getValidationRulesForField(field);
+        const patternRule = validationArray.find((v: any) => v.type === 'pattern');
+        if (patternRule?.regex) {
+            try {
+                if (!new RegExp(patternRule.regex).test(String(fieldValue))) {
+                    return field.validations?.customErrorMessages?.pattern || patternRule.message || 'Invalid format';
+                }
+            } catch (_e) { /* invalid regex */ }
+        }
+        const minLenRule = validationArray.find((v: any) => v.type === 'minLength');
+        const maxLenRule = validationArray.find((v: any) => v.type === 'maxLength');
+        const len = String(fieldValue).length;
+        if (minLenRule && typeof minLenRule.value === 'number' && len < minLenRule.value) {
+            return field.validations?.customErrorMessages?.minLength || `Minimum length is ${minLenRule.value}`;
+        }
+        if (maxLenRule && typeof maxLenRule.value === 'number' && len > maxLenRule.value) {
+            return field.validations?.customErrorMessages?.maxLength || `Maximum length is ${maxLenRule.value}`;
+        }
+    }
+
+    // Min/max for number fields
+    if (field.type === 'number' && fieldValue !== '' && fieldValue !== undefined) {
+        const v = field.validations;
+        const num = parseFloat(String(fieldValue));
+        if (!isNaN(num)) {
+            if (v?.min !== undefined && num < v.min) {
+                return v.customErrorMessages?.min || `Value must be at least ${v.min}`;
+            }
+            if (v?.max !== undefined && num > v.max) {
+                return v.customErrorMessages?.max || `Value must be at most ${v.max}`;
+            }
+            if (v?.allowNegative === false && num < 0) {
+                return v.customErrorMessages?.min || 'Negative values are not allowed';
+            }
+        }
+    }
+
+    // MinSelected/maxSelected for checkbox
+    if (field.type === 'checkbox' && Array.isArray(fieldValue)) {
+        const validationArray = getValidationRulesForField(field);
+        const minSelectedRule = validationArray.find((v: any) => v.type === 'minSelected');
+        const maxSelectedRule = validationArray.find((v: any) => v.type === 'maxSelected');
+        const selectedCount = fieldValue.length;
+        const minSelected = typeof minSelectedRule?.value === 'number' ? minSelectedRule.value : undefined;
+        const maxSelected = typeof maxSelectedRule?.value === 'number' ? maxSelectedRule.value : undefined;
+        if (minSelected !== undefined && selectedCount < minSelected) {
+            return `Please select at least ${minSelected} option(s)`;
+        }
+        if (maxSelected !== undefined && selectedCount > maxSelected) {
+            return `Please select at most ${maxSelected} option(s)`;
+        }
+    }
+
+    return '';
+}
+
 // Model key for binding: fieldName (API convention) or id fallback
 function getModelKey(field: { id: string; fieldName?: string }): string {
     return field.fieldName ?? field.id;
+}
+
+/** Build values map for formula evaluation - includes manual values and computed formula values in dependency order */
+function buildFormulaValuesMap(schema: FormSchema, data: Record<string, any>): Record<string, number | string | undefined> {
+    const values: Record<string, number | string | undefined> = {};
+    const allFields: FormField[] = schema.sections.flatMap(s => s.fields);
+
+    // First pass: add manual field values
+    for (const field of allFields) {
+        const modelKey = getModelKey(field);
+        const val = data[modelKey];
+        values[modelKey] = val;
+        values[field.id] = val;
+        if (field.fieldName) values[field.fieldName] = val;
+    }
+
+    // Compute formula fields (iterate to handle formula chains: A=B+C, D=A*2)
+    const formulaFields = allFields.filter(f => f.type === 'number' && f.valueSource === 'formula' && f.formula);
+    for (let pass = 0; pass < Math.max(1, formulaFields.length); pass++) {
+        for (const field of formulaFields) {
+            const modelKey = getModelKey(field);
+            const result = evaluateFormula(field.formula!, values);
+            const newVal = isNaN(result) ? undefined : result;
+            values[modelKey] = newVal;
+            values[field.id] = newVal;
+            if (field.fieldName) values[field.fieldName] = newVal;
+        }
+    }
+    return values;
+}
+
+/** Compute value for a formula field */
+function computeFormulaValue(field: FormField, schema: FormSchema, data: Record<string, any>): number | string | undefined {
+    if (field.type !== 'number' || field.valueSource !== 'formula' || !field.formula) return undefined;
+    const values = buildFormulaValuesMap(schema, data);
+    const modelKey = getModelKey(field);
+    const result = values[modelKey];
+    if (typeof result !== 'number') return undefined;
+    // Apply decimal places from validations
+    const decimalPlaces = field.validations?.decimalPlaces ?? (field.validations?.allowDecimal ? 2 : 0);
+    const rounded = decimalPlaces > 0
+        ? Math.round(result * Math.pow(10, decimalPlaces)) / Math.pow(10, decimalPlaces)
+        : Math.round(result);
+    return rounded;
+}
+
+/** Check if any formula field depends on the given field (by modelKey or id) */
+function isFormulaDependency(schema: FormSchema, modelKey: string, fieldId?: string): boolean {
+    for (const section of schema.sections) {
+        for (const field of section.fields) {
+            if (field.type === 'number' && field.valueSource === 'formula' && field.dependencies) {
+                if (field.dependencies.includes(modelKey)) return true;
+                if (fieldId && field.dependencies.includes(fieldId)) return true;
+            }
+        }
+    }
+    return false;
 }
 
 export class FormRenderer {
@@ -92,16 +241,37 @@ export class FormRenderer {
                 fieldWrapper.className = spanClass;
 
                 const modelKey = getModelKey(field);
-                const fieldEl = FieldRenderer.render(field, this.data[modelKey], (val) => {
-                    this.data[modelKey] = val;
-                    // Emit dropdownValueChange event for select fields (Angular integration)
-                    if (field.type === 'select' && this.onDropdownValueChange) {
-                        this.onDropdownValueChange({
-                            fieldId: field.id,
-                            value: val || ''
-                        });
-                    }
-                });
+                // For formula number fields, compute value from formula
+                let fieldValue: any;
+                if (field.type === 'number' && field.valueSource === 'formula' && field.formula) {
+                    const computed = computeFormulaValue(field, this.schema, this.data);
+                    fieldValue = computed;
+                    this.data[modelKey] = computed; // Keep data in sync for submit
+                } else if (field.type === 'image') {
+                    fieldValue = this.data[modelKey] ?? field.imageUrl ?? field.defaultValue;
+                } else {
+                    fieldValue = this.data[modelKey];
+                }
+                const isFormulaField = field.type === 'number' && field.valueSource === 'formula';
+                const fieldEl = FieldRenderer.render(
+                    field,
+                    fieldValue,
+                    (val) => {
+                        this.data[modelKey] = val;
+                        // Emit dropdownValueChange event for select fields (Angular integration)
+                        if (field.type === 'select' && this.onDropdownValueChange) {
+                            this.onDropdownValueChange({
+                                fieldId: field.id,
+                                value: val || ''
+                            });
+                        }
+                        // Re-render when a formula dependency changes
+                        if (isFormulaDependency(this.schema, modelKey, field.id)) {
+                            this.render();
+                        }
+                    },
+                    isFormulaField // Formula fields are read-only
+                );
 
                 fieldWrapper.appendChild(fieldEl);
                 grid.appendChild(fieldWrapper);
@@ -134,127 +304,20 @@ export class FormRenderer {
                     const fieldValue = this.data[modelKey];
                     const fieldElement = form.querySelector(`input[id*="${field.id}"], textarea[id*="${field.id}"], select[id*="${field.id}"]`) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
 
-                    if (!fieldElement) {
-                        // Try alternative selector
-                        const altElement = Array.from(form.querySelectorAll('input, textarea, select')).find(el => {
-                            const wrapper = el.closest('div');
-                            return wrapper && wrapper.textContent?.includes(field.label);
-                        }) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
-                        if (altElement) {
-                            // Validate required fields
-                            if (field.required && (!fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0))) {
-                                isValid = false;
-                                altElement.setCustomValidity('This field is required');
-                                altElement.reportValidity();
-                                invalidFields.push(altElement);
-                            } else {
-                                altElement.setCustomValidity('');
-                            }
+                    const fieldError = getFieldValidationError(field, fieldValue);
+                    const element = fieldElement ?? Array.from(form.querySelectorAll('input, textarea, select')).find(el => {
+                        const wrapper = el.closest('div');
+                        return wrapper && wrapper.textContent?.includes(field.label);
+                    }) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
 
-                            // Check pattern validation for text and email fields
-                            if ((field.type === 'text' || field.type === 'email') && fieldValue) {
-                                // Handle both array and object validation formats
-                                const validationArray = convertValidationToArray(field.validation);
-                                const patternRule = validationArray.find((v: any) => v.type === 'pattern');
-                                if (patternRule?.regex) {
-                                    try {
-                                        const regex = new RegExp(patternRule.regex);
-                                        if (!regex.test(String(fieldValue))) {
-                                            isValid = false;
-                                            altElement.setCustomValidity(patternRule.message || 'Invalid format');
-                                            altElement.reportValidity();
-                                            invalidFields.push(altElement);
-                                        } else {
-                                            altElement.setCustomValidity('');
-                                        }
-                                    } catch (e) {
-                                        // Invalid regex - skip
-                                    }
-                                }
-                            }
-
-                            // Check minSelected/maxSelected validation for checkbox fields
-                            if (field.type === 'checkbox' && Array.isArray(fieldValue)) {
-                                const validationArray = convertValidationToArray(field.validation);
-                                const minSelectedRule = validationArray.find((v: any) => v.type === 'minSelected');
-                                const maxSelectedRule = validationArray.find((v: any) => v.type === 'maxSelected');
-                                const selectedCount = fieldValue.length;
-
-                                const minSelected = typeof minSelectedRule?.value === 'number' ? minSelectedRule.value : undefined;
-                                const maxSelected = typeof maxSelectedRule?.value === 'number' ? maxSelectedRule.value : undefined;
-
-                                if (minSelected !== undefined && selectedCount < minSelected) {
-                                    isValid = false;
-                                    altElement.setCustomValidity(`Please select at least ${minSelected} option(s)`);
-                                    altElement.reportValidity();
-                                    invalidFields.push(altElement);
-                                } else if (maxSelected !== undefined && selectedCount > maxSelected) {
-                                    isValid = false;
-                                    altElement.setCustomValidity(`Please select at most ${maxSelected} option(s)`);
-                                    altElement.reportValidity();
-                                    invalidFields.push(altElement);
-                                } else {
-                                    altElement.setCustomValidity('');
-                                }
-                            }
-                        }
-                        return;
-                    }
-
-                    // Check required validation
-                    if (field.required && (!fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0))) {
-                        isValid = false;
-                        fieldElement.setCustomValidity('This field is required');
-                        fieldElement.reportValidity();
-                        invalidFields.push(fieldElement);
-                    } else {
-                        fieldElement.setCustomValidity('');
-                    }
-
-                    // Check pattern validation for text and email fields
-                    if ((field.type === 'text' || field.type === 'email') && fieldValue) {
-                        // Handle both array and object validation formats
-                        const validationArray = convertValidationToArray(field.validation);
-                        const patternRule = validationArray.find((v: any) => v.type === 'pattern');
-                        if (patternRule?.regex) {
-                            try {
-                                const regex = new RegExp(patternRule.regex);
-                                if (!regex.test(String(fieldValue))) {
-                                    isValid = false;
-                                    fieldElement.setCustomValidity(patternRule.message || 'Invalid format');
-                                    fieldElement.reportValidity();
-                                    invalidFields.push(fieldElement);
-                                } else {
-                                    fieldElement.setCustomValidity('');
-                                }
-                            } catch (e) {
-                                // Invalid regex - skip
-                            }
-                        }
-                    }
-
-                    // Check minSelected/maxSelected validation for checkbox fields
-                    if (field.type === 'checkbox' && Array.isArray(fieldValue)) {
-                        const validationArray = convertValidationToArray(field.validation);
-                        const minSelectedRule = validationArray.find((v: any) => v.type === 'minSelected');
-                        const maxSelectedRule = validationArray.find((v: any) => v.type === 'maxSelected');
-                        const selectedCount = fieldValue.length;
-
-                        const minSelected = typeof minSelectedRule?.value === 'number' ? minSelectedRule.value : undefined;
-                        const maxSelected = typeof maxSelectedRule?.value === 'number' ? maxSelectedRule.value : undefined;
-
-                        if (minSelected !== undefined && selectedCount < minSelected) {
+                    if (element) {
+                        if (fieldError) {
                             isValid = false;
-                            fieldElement.setCustomValidity(`Please select at least ${minSelected} option(s)`);
-                            fieldElement.reportValidity();
-                            invalidFields.push(fieldElement);
-                        } else if (maxSelected !== undefined && selectedCount > maxSelected) {
-                            isValid = false;
-                            fieldElement.setCustomValidity(`Please select at most ${maxSelected} option(s)`);
-                            fieldElement.reportValidity();
-                            invalidFields.push(fieldElement);
+                            element.setCustomValidity(fieldError);
+                            element.reportValidity();
+                            invalidFields.push(element);
                         } else {
-                            fieldElement.setCustomValidity('');
+                            element.setCustomValidity('');
                         }
                     }
                 });
