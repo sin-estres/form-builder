@@ -532,7 +532,7 @@ export class FieldRenderer {
 
         // Preview area
         const previewWrap = createElement('div', {
-            className: 'relative rounded-md border border-input bg-gray-50 dark:bg-gray-800 overflow-hidden min-h-[120px] flex items-center justify-center'
+            className: 'relative rounded-md border border-input bg-gray-50 dark:bg-gray-800 overflow-hidden min-h-[100px] flex items-center justify-center'
         });
 
         if (imageValue) {

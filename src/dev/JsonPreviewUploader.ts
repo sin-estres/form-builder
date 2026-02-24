@@ -385,7 +385,7 @@ function openJsonPastePopup(container: HTMLElement): void {
 function createUploadButton(container: HTMLElement): HTMLElement {
     const btn = createElement('button', {
         type: 'button',
-        className: 'flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors',
+        className: 'flex items-center justify-center absolute top-2 right-[16%] px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors',
         title: 'Upload JSON (dev only)',
         [DEV_BUTTON_ATTR]: 'true',
         onclick: () => openJsonPastePopup(container)

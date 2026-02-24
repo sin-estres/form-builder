@@ -1648,11 +1648,11 @@ export class FormBuilder {
                 const optionsList = createElement('div', { className: 'space-y-2 mb-3' });
 
                 options.forEach((opt: { label: string; value: string }, index: number) => {
-                    const optionRow = createElement('div', { className: 'flex gap-2 items-center' });
+                    const optionRow = createElement('div', { className: 'flex gap-2 items-center w-[256px]' });
 
                     const labelInput = createElement('input', {
                         type: 'text',
-                        className: 'flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                        className: 'flex-1 px-2 py-1.5 border border-gray-300 w-full dark:border-gray-700 rounded-md bg-transparent text-sm',
                         value: opt.label,
                         placeholder: 'Option label',
                         'data-focus-id': `field-option-label-${selectedField.id}-${index}`,
@@ -1668,7 +1668,7 @@ export class FormBuilder {
 
                     const valueInput = createElement('input', {
                         type: 'text',
-                        className: 'flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                        className: 'flex-1 px-2 py-1.5 border border-gray-300 w-full dark:border-gray-700 rounded-md bg-transparent text-sm',
                         value: opt.value,
                         placeholder: 'Option value',
                         'data-focus-id': `field-option-value-${selectedField.id}-${index}`,
@@ -1708,7 +1708,7 @@ export class FormBuilder {
                 // Add Option button - use getCurrentOptions() to avoid stale closure (preserves user-typed values)
                 const addOptionBtn = createElement('button', {
                     type: 'button',
-                    className: 'w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
+                    className: 'w-full mt-6 py-2  dark:border-gray-700 rounded-md text-sm text-gray-500 bg-[#635bff]   text-white transition-colors flex items-center justify-center font-medium transition-colors',
                     text: 'Add Option',
                     onclick: () => {
                         const currentOptions = getCurrentOptions();
