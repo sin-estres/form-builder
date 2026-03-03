@@ -1211,6 +1211,126 @@ export class FormBuilder {
             `visible-${selectedField.id}`
         ));
 
+        // --- Binary Choice (Yes/No Toggle) Configuration ---
+        if (selectedField.type === 'binary_choice') {
+            const bcHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Yes/No Toggle Settings' });
+            body.appendChild(bcHeader);
+
+            // Option labels
+            const firstLabelGroup = createElement('div', { className: 'mb-3' });
+            firstLabelGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'First Label (e.g. YES / ON)' }));
+            firstLabelGroup.appendChild(createElement('input', {
+                type: 'text',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.optionOnLabel ?? 'YES',
+                placeholder: 'YES',
+                oninput: (e: Event) => {
+                    const v = (e.target as HTMLInputElement).value;
+                    formStore.getState().updateField(selectedField.id, { optionOnLabel: v || 'YES', valueOn: v || 'YES' });
+                }
+            }));
+            body.appendChild(firstLabelGroup);
+
+            const secondLabelGroup = createElement('div', { className: 'mb-3' });
+            secondLabelGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Second Label (e.g. NO / OFF)' }));
+            secondLabelGroup.appendChild(createElement('input', {
+                type: 'text',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.optionOffLabel ?? 'NO',
+                placeholder: 'NO',
+                oninput: (e: Event) => {
+                    const v = (e.target as HTMLInputElement).value;
+                    formStore.getState().updateField(selectedField.id, { optionOffLabel: v || 'NO', valueOff: v || 'NO' });
+                }
+            }));
+            body.appendChild(secondLabelGroup);
+
+            // Default selection
+            const defaultSelGroup = createElement('div', { className: 'mb-3' });
+            defaultSelGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Default Selection' }));
+            const defaultSelSelect = createElement('select', {
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                onchange: (e: Event) => {
+                    const val = (e.target as HTMLSelectElement).value;
+                    const valueOn = selectedField.valueOn ?? selectedField.optionOnLabel ?? 'YES';
+                    const valueOff = selectedField.valueOff ?? selectedField.optionOffLabel ?? 'NO';
+                    formStore.getState().updateField(selectedField.id, { defaultValue: val === 'YES' ? valueOn : valueOff });
+                }
+            });
+            const valueOn = selectedField.valueOn ?? selectedField.optionOnLabel ?? 'YES';
+            const valueOff = selectedField.valueOff ?? selectedField.optionOffLabel ?? 'NO';
+            const currentDefault = selectedField.defaultValue;
+            defaultSelSelect.appendChild(createElement('option', { value: 'YES', text: 'Yes', selected: currentDefault === valueOn }));
+            defaultSelSelect.appendChild(createElement('option', { value: 'NO', text: 'No', selected: (currentDefault === valueOff || currentDefault === undefined) }));
+            defaultSelGroup.appendChild(defaultSelSelect);
+            body.appendChild(defaultSelGroup);
+
+            // Visibility: Show when Toggle = Yes
+            const allFields = state.schema.sections.flatMap((s: any) => s.fields).filter((f: any) => f.id !== selectedField.id);
+            const showWhenYesGroup = createElement('div', { className: 'mb-3' });
+            showWhenYesGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Show when Toggle = Yes' }));
+            const showWhenYesSelect = createElement('select', {
+                multiple: true,
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent min-h-[80px]',
+                onchange: () => {
+                    const opts = Array.from((showWhenYesSelect as HTMLSelectElement).selectedOptions).map(o => o.value);
+                    formStore.getState().updateField(selectedField.id, { showWhenValueOnFields: opts });
+                }
+            });
+            allFields.forEach((f: any) => {
+                const opt = createElement('option', { value: f.id, text: f.label || f.id });
+                if ((selectedField.showWhenValueOnFields || []).includes(f.id)) (opt as HTMLOptionElement).selected = true;
+                showWhenYesSelect.appendChild(opt);
+            });
+            showWhenYesGroup.appendChild(createElement('p', { className: 'text-xs text-gray-500 mt-1', text: 'Hold Ctrl/Cmd to select multiple' }));
+            showWhenYesGroup.appendChild(showWhenYesSelect);
+            body.appendChild(showWhenYesGroup);
+
+            // Visibility: Show when Toggle = No
+            const showWhenNoGroup = createElement('div', { className: 'mb-3' });
+            showWhenNoGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Show when Toggle = No' }));
+            const showWhenNoSelect = createElement('select', {
+                multiple: true,
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent min-h-[80px]',
+                onchange: () => {
+                    const opts = Array.from((showWhenNoSelect as HTMLSelectElement).selectedOptions).map(o => o.value);
+                    formStore.getState().updateField(selectedField.id, { showWhenValueOffFields: opts });
+                }
+            });
+            allFields.forEach((f: any) => {
+                const opt = createElement('option', { value: f.id, text: f.label || f.id });
+                if ((selectedField.showWhenValueOffFields || []).includes(f.id)) (opt as HTMLOptionElement).selected = true;
+                showWhenNoSelect.appendChild(opt);
+            });
+            showWhenNoGroup.appendChild(createElement('p', { className: 'text-xs text-gray-500 mt-1', text: 'Hold Ctrl/Cmd to select multiple' }));
+            showWhenNoGroup.appendChild(showWhenNoSelect);
+            body.appendChild(showWhenNoGroup);
+        }
+
+        // --- Repeater Configuration ---
+        if (selectedField.type === 'repeater') {
+            const repHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Repeater Settings' });
+            body.appendChild(repHeader);
+
+            const repItemLabelGroup = createElement('div', { className: 'mb-3' });
+            repItemLabelGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Item Label' }));
+            repItemLabelGroup.appendChild(createElement('input', {
+                type: 'text',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.repeatItemLabel ?? 'Item',
+                placeholder: 'Item',
+                oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { repeatItemLabel: (e.target as HTMLInputElement).value || 'Item' })
+            }));
+            body.appendChild(repItemLabelGroup);
+
+            body.appendChild(this.createCheckboxField(
+                'Repeat Increment Enabled',
+                selectedField.repeatIncrementEnabled === true,
+                (checked) => formStore.getState().updateField(selectedField.id, { repeatIncrementEnabled: checked }),
+                `repeat-increment-${selectedField.id}`
+            ));
+        }
+
         // --- Phone ISD Configuration (Phone fields only) ---
         if (selectedField.type === 'phone') {
             const isdHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Phone ISD Settings' });
@@ -1789,6 +1909,39 @@ export class FormBuilder {
 
         // Collect validation rule elements
         const validationElements: HTMLElement[] = [];
+
+        // --- Repeater field validation (min/max) ---
+        if (selectedField.type === 'repeater') {
+            const repMinValGroup = createElement('div', { className: 'mb-3' });
+            repMinValGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Min Items' }));
+            repMinValGroup.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: getValidationsValue('min') || '',
+                placeholder: 'e.g. 2',
+                min: '0',
+                oninput: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidations({ min: val !== '' ? parseInt(val) : undefined });
+                }
+            }));
+            validationElements.push(repMinValGroup);
+
+            const repMaxValGroup = createElement('div', { className: 'mb-3' });
+            repMaxValGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Max Items' }));
+            repMaxValGroup.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: getValidationsValue('max') || '',
+                placeholder: 'e.g. 4',
+                min: '1',
+                oninput: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidations({ max: val !== '' ? parseInt(val) : undefined });
+                }
+            }));
+            validationElements.push(repMaxValGroup);
+        }
 
         // --- Number field validation ---
         if (selectedField.type === 'number') {

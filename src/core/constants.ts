@@ -13,6 +13,8 @@ export const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
     { type: 'checkbox', label: 'Checkbox', icon: 'CheckSquare' },
     { type: 'radio', label: 'Radio Group', icon: 'CircleDot' },
     { type: 'toggle', label: 'Toggle', icon: 'ToggleSwitch' },
+    { type: 'binary_choice', label: 'Yes/No Toggle', icon: 'ToggleLeft' },
+    { type: 'repeater', label: 'Repeater', icon: 'Copy' },
     { type: 'file', label: 'File Upload', icon: 'Upload' },
     { type: 'image', label: 'Image', icon: 'Image' },
 ];
@@ -41,6 +43,25 @@ export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
     checkbox: { label: 'Checkbox', options: [], width: '100%', enabled: true, visible: true },
     radio: { label: 'Radio Group', options: [], width: '100%', enabled: true, visible: true },
     toggle: { label: 'Toggle', width: '50%', enabled: true, visible: true },
+    binary_choice: {
+        label: 'Yes/No Toggle',
+        width: '50%',
+        enabled: true,
+        visible: true,
+        optionOnLabel: 'YES',
+        optionOffLabel: 'NO',
+        valueOn: 'YES',
+        valueOff: 'NO',
+        defaultValue: 'NO'
+    },
+    repeater: {
+        label: 'Repeater',
+        width: '100%',
+        enabled: true,
+        visible: true,
+        repeatItemLabel: 'Item',
+        repeatIncrementEnabled: false
+    },
     file: { label: 'File Upload', width: '100%', enabled: true, visible: true },
     image: { label: 'Image', width: '50%', enabled: true, visible: true },
 };

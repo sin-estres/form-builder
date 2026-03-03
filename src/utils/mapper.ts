@@ -135,11 +135,14 @@ function convertSpanToWidth(span: number | undefined, totalColumns: number = 12)
  */
 function normalizeFieldType(type: any): string {
     if (!type) return 'text';
-    const normalized = String(type).toLowerCase().replace(/_/g, '');
+    const str = String(type);
+    const normalized = str.toLowerCase().replace(/_/g, '');
     // Handle special cases
     if (normalized === 'decimal') return 'number';
     if (['phonenumber', 'telephone', 'mobile'].includes(normalized)) return 'phone';
-    return String(type).toLowerCase();
+    if (str === 'BINARY_CHOICE' || normalized === 'binarychoice') return 'binary_choice';
+    if (str === 'REPEATER' || normalized === 'repeater') return 'repeater';
+    return str.toLowerCase();
 }
 
 /**
@@ -367,6 +370,20 @@ function transformField(field: any): FormField {
     if (field.valueSource !== undefined) transformed.valueSource = field.valueSource;
     if (field.formula !== undefined) transformed.formula = field.formula;
     if (field.dependencies !== undefined && Array.isArray(field.dependencies)) transformed.dependencies = field.dependencies;
+    // Binary choice (Yes/No toggle) - option labels and conditional visibility
+    if (field.optionOnLabel !== undefined) transformed.optionOnLabel = field.optionOnLabel;
+    if (field.optionOffLabel !== undefined) transformed.optionOffLabel = field.optionOffLabel;
+    if (field.valueOn !== undefined) transformed.valueOn = field.valueOn;
+    if (field.valueOff !== undefined) transformed.valueOff = field.valueOff;
+    if (field.showWhenValueOnFields !== undefined && Array.isArray(field.showWhenValueOnFields)) {
+        transformed.showWhenValueOnFields = field.showWhenValueOnFields;
+    }
+    if (field.showWhenValueOffFields !== undefined && Array.isArray(field.showWhenValueOffFields)) {
+        transformed.showWhenValueOffFields = field.showWhenValueOffFields;
+    }
+    // Repeater field
+    if (field.repeatItemLabel !== undefined) transformed.repeatItemLabel = field.repeatItemLabel;
+    if (field.repeatIncrementEnabled !== undefined) transformed.repeatIncrementEnabled = field.repeatIncrementEnabled;
     // Order is already set above
     if (field.css !== undefined) transformed.css = field.css; // Preserve CSS
     if (field.optionsSource !== undefined) transformed.optionsSource = field.optionsSource;
@@ -603,6 +620,36 @@ function fieldToPayload(field: FormField): any {
     // Do not strip options: preserve custom options for STATIC fields even when lookup/masterTypeName absent
     if ((field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && field.options && Array.isArray(field.options)) {
         payload.options = field.options.map(opt => ({ label: opt.label, value: opt.value }));
+    }
+
+    // Binary choice (Yes/No toggle) - payload format for BINARY_CHOICE
+    if (field.type === 'binary_choice') {
+        payload.fieldType = 'BINARY_CHOICE';
+        payload.type = 'binary_choice';
+        payload.optionOnLabel = field.optionOnLabel ?? 'YES';
+        payload.optionOffLabel = field.optionOffLabel ?? 'NO';
+        payload.valueOn = field.valueOn ?? field.optionOnLabel ?? 'YES';
+        payload.valueOff = field.valueOff ?? field.optionOffLabel ?? 'NO';
+        if (field.showWhenValueOnFields && field.showWhenValueOnFields.length > 0) {
+            payload.showWhenValueOnFields = field.showWhenValueOnFields;
+        }
+        if (field.showWhenValueOffFields && field.showWhenValueOffFields.length > 0) {
+            payload.showWhenValueOffFields = field.showWhenValueOffFields;
+        }
+    }
+
+    // Repeater - payload format for REPEATER
+    if (field.type === 'repeater') {
+        payload.fieldType = 'REPEATER';
+        payload.type = 'number'; // As per payload example
+        payload.repeatItemLabel = field.repeatItemLabel ?? 'Item';
+        payload.repeatIncrementEnabled = field.repeatIncrementEnabled ?? false;
+        if (field.validations?.min !== undefined || field.validations?.max !== undefined) {
+            const v = payload.validation || {};
+            if (field.validations.min !== undefined) v.min = field.validations.min;
+            if (field.validations.max !== undefined) v.max = field.validations.max;
+            payload.validation = v;
+        }
     }
 
     return payload;

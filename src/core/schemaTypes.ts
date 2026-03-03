@@ -9,6 +9,8 @@ export type FieldType =
     | 'checkbox'
     | 'radio'
     | 'toggle' // switch
+    | 'binary_choice' // Yes/No toggle with custom labels and conditional visibility
+    | 'repeater' // Repeatable section with min/max validation
     | 'file'
     | 'image'
     | 'email'
@@ -157,6 +159,16 @@ export interface FormField {
     valueSource?: 'manual' | 'formula';
     formula?: string;
     dependencies?: string[]; // Field IDs or fieldNames used in formula
+    // Binary choice (Yes/No toggle) - option labels and conditional visibility
+    optionOnLabel?: string; // e.g. YES / ON
+    optionOffLabel?: string; // e.g. NO / OFF
+    valueOn?: string; // Value when toggle is ON (defaults to optionOnLabel)
+    valueOff?: string; // Value when toggle is OFF (defaults to optionOffLabel)
+    showWhenValueOnFields?: string[]; // Field IDs to show when toggle = Yes
+    showWhenValueOffFields?: string[]; // Field IDs to show when toggle = No
+    // Repeater field
+    repeatItemLabel?: string; // Label for each repeated item (e.g. "Item")
+    repeatIncrementEnabled?: boolean; // Whether to show increment controls
 }
 
 /**

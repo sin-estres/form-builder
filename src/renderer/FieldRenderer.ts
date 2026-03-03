@@ -74,8 +74,8 @@ export class FieldRenderer {
         // Check if field is enabled (default to true if not specified)
         const isEnabled = field.enabled !== false && !readOnly;
 
-        // Label (except for checkbox which has its own layout)
-        if (field.type !== 'checkbox' && field.type !== 'toggle') {
+        // Label (except for checkbox, toggle, binary_choice which have their own layout)
+        if (field.type !== 'checkbox' && field.type !== 'toggle' && field.type !== 'binary_choice') {
             const label = createElement('label', {
                 className: 'text-xs sm:text-sm font-medium leading-none mb-2 block text-gray-900 dark:text-gray-100',
                 text: field.label
@@ -94,8 +94,8 @@ export class FieldRenderer {
                 label.appendChild(createElement('span', { className: 'text-red-500 ml-1', text: '*' }));
             }
             wrapper.appendChild(label);
-        } else if (field.type === 'toggle') {
-            // Toggle label (shown alongside the switch)
+        } else if (field.type === 'toggle' || field.type === 'binary_choice') {
+            // Toggle / Binary choice label (shown alongside the switch)
             const label = createElement('label', {
                 className: 'text-xs sm:text-sm font-medium leading-none mb-2 block text-gray-900 dark:text-gray-100',
                 text: field.label
@@ -313,7 +313,7 @@ export class FieldRenderer {
                 break;
 
             case 'toggle':
-                // Toggle switch
+                // Toggle switch (simple boolean)
                 input = createElement('div', { className: 'flex items-center' });
                 const toggleLabel = createElement('label', { className: 'relative inline-flex items-center cursor-pointer' });
                 const toggleInput = createElement('input', {
@@ -329,6 +329,85 @@ export class FieldRenderer {
                 toggleLabel.appendChild(toggleInput);
                 toggleLabel.appendChild(toggleSlider);
                 input.appendChild(toggleLabel);
+                break;
+
+            case 'binary_choice': {
+                // Yes/No toggle with custom labels displayed
+                const bcValueOn = field.valueOn ?? field.optionOnLabel ?? 'YES';
+                const bcValueOff = field.valueOff ?? field.optionOffLabel ?? 'NO';
+                const bcIsOn = value === bcValueOn || value === true || (value !== bcValueOff && value !== false && !!value);
+                input = createElement('div', { className: 'flex items-center gap-3' });
+                const bcOptionOff = field.optionOffLabel ?? 'NO';
+                const bcOptionOn = field.optionOnLabel ?? 'YES';
+                const offSpan = createElement('span', {
+                    className: `text-sm font-medium ${!bcIsOn ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`,
+                    text: bcOptionOff
+                });
+                const bcToggleLabel = createElement('label', { className: 'relative inline-flex items-center cursor-pointer' });
+                const bcToggleInput = createElement('input', {
+                    type: 'checkbox',
+                    className: 'sr-only peer',
+                    checked: bcIsOn,
+                    disabled: !isEnabled,
+                    onchange: (e: Event) => {
+                        const checked = (e.target as HTMLInputElement).checked;
+                        onChange?.(checked ? bcValueOn : bcValueOff);
+                    }
+                });
+                const bcToggleSlider = createElement('div', {
+                    className: `w-11 h-6 bg-gray-200 peer-focus:outline-none shadow-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#019FA2] ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}`
+                });
+                bcToggleLabel.appendChild(bcToggleInput);
+                bcToggleLabel.appendChild(bcToggleSlider);
+                const onSpan = createElement('span', {
+                    className: `text-sm font-medium ${bcIsOn ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`,
+                    text: bcOptionOn
+                });
+                input.appendChild(offSpan);
+                input.appendChild(bcToggleLabel);
+                input.appendChild(onSpan);
+                break;
+            }
+
+            case 'repeater':
+                // Repeater - renders a container with add/remove controls
+                const minCount = field.validations?.min ?? 0;
+                const maxCount = field.validations?.max ?? 999;
+                const itemLabel = field.repeatItemLabel ?? 'Item';
+                const currentCount = Array.isArray(value) ? value.length : (typeof value === 'number' ? value : 0);
+                const repeaterContainer = createElement('div', { className: 'repeater-field border border-gray-200 dark:border-gray-700 rounded-md p-4' });
+                const repeaterHeader = createElement('div', { className: 'flex items-center justify-between mb-3' });
+                repeaterHeader.appendChild(createElement('span', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300', text: `${itemLabel}s (${currentCount})` }));
+                const repeaterControls = createElement('div', { className: 'flex gap-2' });
+                const addBtn = createElement('button', {
+                    type: 'button',
+                    className: 'px-2 py-1 text-xs text-white bg-[#019FA2] rounded hover:bg-[#018a8d] disabled:opacity-50 disabled:cursor-not-allowed',
+                    text: 'Add',
+                    disabled: !isEnabled || currentCount >= maxCount,
+                    onclick: () => {
+                        const newCount = currentCount + 1;
+                        onChange?.(Array.isArray(value) ? [...value, {}] : newCount);
+                    }
+                });
+                const removeBtn = createElement('button', {
+                    type: 'button',
+                    className: 'px-2 py-1 text-xs text-red-600 border border-red-300 rounded hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed',
+                    text: 'Remove',
+                    disabled: !isEnabled || currentCount <= minCount,
+                    onclick: () => {
+                        const newCount = Math.max(minCount, currentCount - 1);
+                        onChange?.(Array.isArray(value) ? (value as any[]).slice(0, -1) : newCount);
+                    }
+                });
+                repeaterControls.appendChild(addBtn);
+                repeaterControls.appendChild(removeBtn);
+                repeaterHeader.appendChild(repeaterControls);
+                repeaterContainer.appendChild(repeaterHeader);
+                repeaterContainer.appendChild(createElement('p', {
+                    className: 'text-xs text-gray-500 dark:text-gray-400',
+                    text: `Min: ${minCount}, Max: ${maxCount}`
+                }));
+                input = repeaterContainer;
                 break;
 
             case 'phone':
