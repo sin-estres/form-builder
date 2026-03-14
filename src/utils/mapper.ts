@@ -1,4 +1,5 @@
 import { FormSchema, FormField, ValidationRule, ValidationObject, FieldValidations, FieldWidth, parseWidth } from '../core/schemaTypes';
+import { DEFAULT_FIELD_CONFIG } from '../core/constants';
 
 /**
  * Converts FieldValidations to legacy ValidationObject (for backward compatibility)
@@ -21,19 +22,23 @@ function validationsToValidationObject(v: FieldValidations | undefined): Validat
 }
 
 /**
- * Converts legacy ValidationObject to FieldValidations
+ * Converts legacy ValidationObject to FieldValidations.
+ * Accepts both regex (legacy) and pattern (API format) for pattern validation.
  */
 function validationObjectToValidations(v: ValidationObject | undefined): FieldValidations | undefined {
     if (!v) return undefined;
+    const vAny = v as ValidationObject & { pattern?: string; customErrorMessages?: { pattern?: string } };
     const validations: FieldValidations = {};
     if (v.required !== undefined) validations.required = v.required;
-    if (v.regex) validations.pattern = v.regex;
+    const patternVal = v.regex || vAny.pattern;
+    if (patternVal) validations.pattern = patternVal;
     if (v.minLength !== undefined) validations.minLength = v.minLength;
     if (v.maxLength !== undefined) validations.maxLength = v.maxLength;
     if (v.min !== undefined) validations.min = v.min;
     if (v.max !== undefined) validations.max = v.max;
-    if (v.regexMessage) {
-        validations.customErrorMessages = { pattern: v.regexMessage };
+    const patternMsg = v.regexMessage || vAny.customErrorMessages?.pattern;
+    if (patternMsg) {
+        validations.customErrorMessages = { ...validations.customErrorMessages, pattern: patternMsg };
     }
     if (v.minSelected !== undefined) validations.minSelected = v.minSelected;
     if (v.maxSelected !== undefined) validations.maxSelected = v.maxSelected;
@@ -284,6 +289,24 @@ function transformField(field: any): FormField {
         transformed.required = field.required;
         transformed.validation = { required: field.required };
         transformed.validations = { required: field.required };
+    }
+
+    // Apply default email pattern when email field has validation but no pattern (e.g. from API with only required: true)
+    if (normalizedType === 'email' && transformed.validations && !transformed.validations.pattern) {
+        const emailDefault = DEFAULT_FIELD_CONFIG.email?.validation;
+        if (Array.isArray(emailDefault)) {
+            const patternRule = emailDefault.find((r: any) => r.type === 'pattern' && r.regex);
+            if (patternRule) {
+                transformed.validations = {
+                    ...transformed.validations,
+                    pattern: patternRule.regex,
+                    customErrorMessages: { ...transformed.validations.customErrorMessages, pattern: patternRule.message || 'Invalid email format' }
+                };
+                transformed.validation = transformed.validation || {};
+                (transformed.validation as any).regex = patternRule.regex;
+                (transformed.validation as any).regexMessage = patternRule.message || 'Invalid email format';
+            }
+        }
     }
 
     // Handle multiSelect for select fields - REQUIRED property
@@ -578,9 +601,21 @@ function fieldToPayload(field: FormField): any {
         }
     }
     // Validation (legacy object format - for backward compatibility)
-    payload.validation = field.validations
+    // Output includes both regex/regexMessage and pattern/customErrorMessages for API compatibility
+    const baseValidation = field.validations
         ? validationsToValidationObject(field.validations)
         : convertValidationArrayToObject(field.validation);
+    payload.validation = baseValidation;
+    // Add pattern and customErrorMessages for API payload format (reference: website field)
+    const pattern = baseValidation?.regex ?? field.validations?.pattern;
+    const patternMsg = baseValidation?.regexMessage ?? field.validations?.customErrorMessages?.pattern;
+    if (baseValidation && pattern) {
+        payload.validation = {
+            ...baseValidation,
+            pattern,
+            ...(patternMsg && { customErrorMessages: { pattern: patternMsg } })
+        };
+    }
     if (payload.validation?.required || payload.validations?.required) {
         payload.required = true;
     }
