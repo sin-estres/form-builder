@@ -133,6 +133,21 @@ function convertSpanToWidth(span: number | undefined, totalColumns: number = 12)
     return Math.max(10, Math.min(100, Math.round(percentage)));
 }
 
+/** Email regex from DEFAULT_FIELD_CONFIG - used when upgrading text→email */
+const EMAIL_REGEX = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$';
+const EMAIL_REGEX_MESSAGE = 'Invalid email format';
+
+/**
+ * Detects if a text field is intended as an email field based on label, fieldName, or placeholder.
+ * Used to auto-upgrade type "text" to "email" when the field is clearly for email input.
+ */
+function isEmailLikeField(field: any): boolean {
+    const label = (field.label || '').toLowerCase();
+    const fieldName = (field.fieldName || field.name || '').toLowerCase();
+    const placeholder = (field.placeholder || '').toLowerCase();
+    return /email/.test(label) || /email/.test(fieldName) || /@/.test(placeholder) || /email/.test(placeholder);
+}
+
 /**
  * Normalizes field type from various formats to lowercase
  * Handles: "SELECT" -> "select", "TEXT" -> "text", etc.
@@ -168,8 +183,12 @@ function transformField(field: any): FormField {
     
     // Handle fieldType -> type conversion with normalization
     const fieldType = field.type || field.fieldType;
-    const normalizedType = normalizeFieldType(fieldType);
-    
+    let normalizedType = normalizeFieldType(fieldType);
+    // Auto-upgrade text to email when label/fieldName/placeholder indicates email field
+    if (normalizedType === 'text' && isEmailLikeField(field)) {
+        normalizedType = 'email';
+    }
+
     const transformed: any = {
         id: fieldId,
         type: normalizedType,
@@ -557,9 +576,21 @@ function convertWidthToSpan(width: FieldWidth | undefined, totalColumns: number 
  * @returns Field in payload format
  */
 function fieldToPayload(field: FormField): any {
+    // Auto-upgrade text to email when outputting: if field is email-like, output as email with regex
+    let outputType = field.type;
+    let outputValidations: FieldValidations | undefined = field.validations ? { ...field.validations } : undefined;
+    if (field.type === 'text' && isEmailLikeField(field)) {
+        outputType = 'email';
+        outputValidations = field.validations ? { ...field.validations } : {};
+        if (!outputValidations.pattern) {
+            outputValidations.pattern = EMAIL_REGEX;
+            outputValidations.customErrorMessages = { ...outputValidations.customErrorMessages, pattern: EMAIL_REGEX_MESSAGE };
+        }
+    }
+
     const payload: any = {
         id: field.id,
-        type: field.type,
+        type: outputType,
         label: field.label,
         name: field.fieldName || field.id, // Model key for binding (API / host app)
         order: field.order !== undefined ? field.order : 0
@@ -589,21 +620,22 @@ function fieldToPayload(field: FormField): any {
     }
 
     // Validations (comprehensive format - preferred for payload)
-    if (field.validations) {
-        let validations = { ...field.validations };
+    const validationsToUse = outputValidations ?? field.validations;
+    if (validationsToUse) {
+        let validations = { ...validationsToUse };
         // Backward compatibility: never output validationType 'age', convert to 'custom' (age removed from UI)
         if ((validations as { validationType?: string }).validationType === 'age') {
             validations = { ...validations, validationType: 'custom' };
         }
         payload.validations = validations;
-        if (field.validations.required) {
+        if (validationsToUse.required) {
             payload.required = true;
         }
     }
     // Validation (legacy object format - for backward compatibility)
     // Output includes both regex/regexMessage and pattern/customErrorMessages for API compatibility
-    const baseValidation = field.validations
-        ? validationsToValidationObject(field.validations)
+    const baseValidation = validationsToUse
+        ? validationsToValidationObject(validationsToUse)
         : convertValidationArrayToObject(field.validation);
     payload.validation = baseValidation;
     // Add pattern and customErrorMessages for API payload format (reference: website field)
