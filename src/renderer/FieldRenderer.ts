@@ -1,4 +1,4 @@
-import { FormField, ISDConfig, FieldValidations } from '../core/schemaTypes';
+import { FormField, ISDConfig } from '../core/schemaTypes';
 import { createElement } from '../utils/dom';
 import { COUNTRY_CODES, getCountryByDialCode, getDefaultCountry, CountryCode } from '../core/countryData';
 
@@ -75,8 +75,126 @@ function isNumericTextField(field: FormField): boolean {
     return !!(v?.validationType && ['postalCode', 'phoneNumber', 'otp'].includes(v.validationType));
 }
 
+// ─── Date constraint helpers ───────────────────────────────────────────────
+
+/** Format a Date to "YYYY-MM-DD" for date inputs */
+function toDateString(d: Date): string {
+    return d.toISOString().split('T')[0];
+}
+
+/** Format a Date to "YYYY-MM-DDTHH:mm" for datetime-local inputs */
+function toDatetimeString(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * Resolves the HTML min/max attribute values for a date/datetime field based on its dateConstraints.
+ * Returns { min?, max? } to set on the input element, or null when no constraint is active.
+ */
+function resolveDateConstraintBounds(
+    field: FormField,
+    allFields?: FormField[],
+    formData?: Record<string, any>
+): { min?: string; max?: string } | null {
+    const constraint = field.dateConstraints;
+    if (!constraint) return null;
+
+    const isDatetime = field.type === 'datetime';
+    let constraintDate: Date | null = null;
+
+    if (constraint.compareWith === 'CURRENT_DATE') {
+        constraintDate = new Date();
+        if (!isDatetime) constraintDate.setHours(0, 0, 0, 0);
+    } else if (constraint.compareWith === 'FIELD' && constraint.fieldName) {
+        const refField = allFields?.find(
+            f => f.fieldName === constraint.fieldName || f.id === constraint.fieldName
+        );
+        if (refField && formData) {
+            const key = refField.fieldName ?? refField.id;
+            const raw = formData[key];
+            if (raw) constraintDate = new Date(raw);
+        }
+    }
+
+    if (!constraintDate || isNaN(constraintDate.getTime())) return null;
+
+    const MS_MIN = 60_000;
+    const MS_DAY = 86_400_000;
+    const { operator } = constraint;
+
+    if (isDatetime) {
+        if (operator === 'LESS_THAN')        return { max: toDatetimeString(new Date(constraintDate.getTime() - MS_MIN)) };
+        if (operator === 'LESS_THAN_EQUAL')  return { max: toDatetimeString(constraintDate) };
+        if (operator === 'GREATER_THAN')     return { min: toDatetimeString(new Date(constraintDate.getTime() + MS_MIN)) };
+        /* GREATER_THAN_EQUAL */              return { min: toDatetimeString(constraintDate) };
+    } else {
+        if (operator === 'LESS_THAN')        return { max: toDateString(new Date(constraintDate.getTime() - MS_DAY)) };
+        if (operator === 'LESS_THAN_EQUAL')  return { max: toDateString(constraintDate) };
+        if (operator === 'GREATER_THAN')     return { min: toDateString(new Date(constraintDate.getTime() + MS_DAY)) };
+        /* GREATER_THAN_EQUAL */              return { min: toDateString(constraintDate) };
+    }
+}
+
+/**
+ * Validates a date/datetime value against its dateConstraints.
+ * Returns an error message string, or '' when valid.
+ */
+function validateDateConstraint(
+    field: FormField,
+    value: string,
+    allFields?: FormField[],
+    formData?: Record<string, any>
+): string {
+    const constraint = field.dateConstraints;
+    if (!constraint || !value) return '';
+
+    const inputDate = new Date(value);
+    if (isNaN(inputDate.getTime())) return '';
+
+    let constraintDate: Date | null = null;
+    let constraintLabel = '';
+
+    if (constraint.compareWith === 'CURRENT_DATE') {
+        constraintDate = new Date();
+        if (field.type === 'date') constraintDate.setHours(0, 0, 0, 0);
+        constraintLabel = "today's date";
+    } else if (constraint.compareWith === 'FIELD' && constraint.fieldName) {
+        const refField = allFields?.find(
+            f => f.fieldName === constraint.fieldName || f.id === constraint.fieldName
+        );
+        if (refField && formData) {
+            const key = refField.fieldName ?? refField.id;
+            const raw = formData[key];
+            if (raw) {
+                constraintDate = new Date(raw);
+                constraintLabel = `"${refField.label || constraint.fieldName}"`;
+            }
+        }
+    }
+
+    if (!constraintDate || isNaN(constraintDate.getTime())) return '';
+
+    const { operator } = constraint;
+    if (operator === 'LESS_THAN'       && !(inputDate < constraintDate))  return `Date must be before ${constraintLabel}`;
+    if (operator === 'LESS_THAN_EQUAL' && !(inputDate <= constraintDate)) return `Date must be on or before ${constraintLabel}`;
+    if (operator === 'GREATER_THAN'    && !(inputDate > constraintDate))  return `Date must be after ${constraintLabel}`;
+    if (operator === 'GREATER_THAN_EQUAL' && !(inputDate >= constraintDate)) return `Date must be on or after ${constraintLabel}`;
+
+    return '';
+}
+
+// ─── End date constraint helpers ───────────────────────────────────────────
+
 export class FieldRenderer {
-    static render(field: FormField, value?: any, onChange?: (val: any) => void, readOnly: boolean = false): HTMLElement {
+    static render(
+        field: FormField,
+        value?: any,
+        onChange?: (val: any) => void,
+        readOnly: boolean = false,
+        allFields?: FormField[],
+        formData?: Record<string, any>
+    ): HTMLElement {
         const wrapper = createElement('div', { className: 'w-full form-row' });
 
         // Check if field is enabled (default to true if not specified)
@@ -172,6 +290,11 @@ export class FieldRenderer {
                         errorMessage = 'Date & time must be before the maximum';
                     }
                 }
+            }
+
+            // Dynamic date constraint validation (CURRENT_DATE or FIELD-based)
+            if (!errorMessage && (f.type === 'date' || f.type === 'datetime') && value && f.dateConstraints) {
+                errorMessage = validateDateConstraint(f, value, allFields, formData);
             }
 
             // Pattern/regex validation (for email, text, phone)
@@ -460,8 +583,17 @@ export class FieldRenderer {
                 };
 
                 // For datetime: min/max use datetime format; for date: min/max use date format
-                const minVal = field.type === 'datetime' ? (rules.minDateTime ?? rules.minDate) : (field.type === 'date' ? rules.minDate : (field.type === 'number' && rules.min !== undefined ? String(rules.min) : undefined));
-                const maxVal = field.type === 'datetime' ? (rules.maxDateTime ?? rules.maxDate) : (field.type === 'date' ? rules.maxDate : (field.type === 'number' && rules.max !== undefined ? String(rules.max) : undefined));
+                let minVal = field.type === 'datetime' ? (rules.minDateTime ?? rules.minDate) : (field.type === 'date' ? rules.minDate : (field.type === 'number' && rules.min !== undefined ? String(rules.min) : undefined));
+                let maxVal = field.type === 'datetime' ? (rules.maxDateTime ?? rules.maxDate) : (field.type === 'date' ? rules.maxDate : (field.type === 'number' && rules.max !== undefined ? String(rules.max) : undefined));
+
+                // Override/apply min/max from dynamic dateConstraints (CURRENT_DATE or FIELD-based)
+                if (field.type === 'date' || field.type === 'datetime') {
+                    const bounds = resolveDateConstraintBounds(field, allFields, formData);
+                    if (bounds) {
+                        if (bounds.min !== undefined) minVal = bounds.min;
+                        if (bounds.max !== undefined) maxVal = bounds.max;
+                    }
+                }
 
                 input = createElement('input', {
                     type: inputType,

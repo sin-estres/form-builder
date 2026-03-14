@@ -2428,6 +2428,120 @@ export class FormBuilder {
             validationElements.forEach(el => body.appendChild(el));
         }
 
+        // --- Date Constraint (Date / DateTime fields) ---
+        if (selectedField.type === 'date' || selectedField.type === 'datetime') {
+            const constraintHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Date Constraint' });
+            body.appendChild(constraintHeader);
+
+            // Helper: read the freshest version of dateConstraints from the store
+            const getConstraint = () => {
+                const f = formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
+                return f?.dateConstraints as { operator?: string; compareWith?: string; fieldName?: string } | undefined;
+            };
+
+            // Helper: persist dateConstraint changes
+            const updateConstraint = (patch: Record<string, any> | null) => {
+                if (patch === null) {
+                    // Remove the constraint entirely
+                    formStore.getState().updateField(selectedField.id, { dateConstraints: undefined } as any);
+                    return;
+                }
+                const current = getConstraint() || {};
+                const next = { ...current, ...patch };
+                formStore.getState().updateField(selectedField.id, { dateConstraints: next } as any);
+            };
+
+            const currentConstraint = getConstraint();
+
+            // Operator selector
+            const operatorGroup = createElement('div', { className: 'mb-3' });
+            operatorGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Operator' }));
+            const operatorSelect = createElement('select', {
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                onchange: (e: Event) => {
+                    const val = (e.target as HTMLSelectElement).value;
+                    if (!val) {
+                        updateConstraint(null);
+                    } else {
+                        updateConstraint({ operator: val, compareWith: getConstraint()?.compareWith || 'CURRENT_DATE' });
+                    }
+                    this.render(); // Refresh to show/hide fieldName selector
+                }
+            }) as HTMLSelectElement;
+            [
+                { value: '', label: 'None (no constraint)' },
+                { value: 'LESS_THAN', label: 'Less than (<)' },
+                { value: 'LESS_THAN_EQUAL', label: 'Less than or equal (≤)' },
+                { value: 'GREATER_THAN', label: 'Greater than (>)' },
+                { value: 'GREATER_THAN_EQUAL', label: 'Greater than or equal (≥)' },
+            ].forEach(opt => {
+                const option = createElement('option', { value: opt.value, text: opt.label }) as HTMLOptionElement;
+                if ((currentConstraint?.operator || '') === opt.value) option.selected = true;
+                operatorSelect.appendChild(option);
+            });
+            operatorGroup.appendChild(operatorSelect);
+            body.appendChild(operatorGroup);
+
+            // Only show compare-with and field-selector when an operator is active
+            if (currentConstraint?.operator) {
+                // Compare With selector
+                const compareGroup = createElement('div', { className: 'mb-3' });
+                compareGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Compare With' }));
+                const compareSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                    onchange: (e: Event) => {
+                        const val = (e.target as HTMLSelectElement).value as 'CURRENT_DATE' | 'FIELD';
+                        updateConstraint({ compareWith: val, fieldName: val === 'CURRENT_DATE' ? undefined : getConstraint()?.fieldName });
+                        this.render();
+                    }
+                }) as HTMLSelectElement;
+                [
+                    { value: 'CURRENT_DATE', label: 'Current date (today)' },
+                    { value: 'FIELD', label: 'Another date/datetime field' },
+                ].forEach(opt => {
+                    const option = createElement('option', { value: opt.value, text: opt.label }) as HTMLOptionElement;
+                    if ((currentConstraint?.compareWith || 'CURRENT_DATE') === opt.value) option.selected = true;
+                    compareSelect.appendChild(option);
+                });
+                compareGroup.appendChild(compareSelect);
+                body.appendChild(compareGroup);
+
+                // Field selector — only visible when compareWith === 'FIELD'
+                if ((currentConstraint?.compareWith || 'CURRENT_DATE') === 'FIELD') {
+                    const otherDateFields = formStore.getState().schema.sections
+                        .flatMap((s: any) => s.fields)
+                        .filter((f: any) => (f.type === 'date' || f.type === 'datetime') && f.id !== selectedField.id);
+
+                    const fieldGroup = createElement('div', { className: 'mb-3' });
+                    fieldGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Reference Field' }));
+
+                    if (otherDateFields.length === 0) {
+                        fieldGroup.appendChild(createElement('p', {
+                            className: 'text-xs text-gray-400 dark:text-gray-500 italic',
+                            text: 'No other date or datetime fields in this form.'
+                        }));
+                    } else {
+                        const fieldSelect = createElement('select', {
+                            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm',
+                            onchange: (e: Event) => {
+                                const val = (e.target as HTMLSelectElement).value;
+                                updateConstraint({ fieldName: val || undefined });
+                            }
+                        }) as HTMLSelectElement;
+                        fieldSelect.appendChild(createElement('option', { value: '', text: '— Select a field —' }) as HTMLOptionElement);
+                        otherDateFields.forEach((f: any) => {
+                            const refKey = f.fieldName || f.id;
+                            const option = createElement('option', { value: refKey, text: `${f.label} (${f.type})` }) as HTMLOptionElement;
+                            if (currentConstraint?.fieldName === refKey) option.selected = true;
+                            fieldSelect.appendChild(option);
+                        });
+                        fieldGroup.appendChild(fieldSelect);
+                    }
+                    body.appendChild(fieldGroup);
+                }
+            }
+        }
+
         // --- CSS Styling (Field Level) ---
         const cssHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Styling' });
         body.appendChild(cssHeader);

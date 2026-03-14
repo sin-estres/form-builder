@@ -175,6 +175,19 @@ export interface FormField {
     // Repeater field
     repeatItemLabel?: string; // Label for each repeated item (e.g. "Item")
     repeatIncrementEnabled?: boolean; // Whether to show increment controls
+    // Conditional date constraints (date / datetime fields only)
+    dateConstraints?: DateConstraint;
+}
+
+/**
+ * Conditional date constraint — evaluated at runtime against the current date or another field's value.
+ * Operators: LESS_THAN (<), LESS_THAN_EQUAL (<=), GREATER_THAN (>), GREATER_THAN_EQUAL (>=)
+ * compareWith: CURRENT_DATE uses system time; FIELD references another date/datetime field by fieldName or id.
+ */
+export interface DateConstraint {
+    operator: 'LESS_THAN' | 'LESS_THAN_EQUAL' | 'GREATER_THAN' | 'GREATER_THAN_EQUAL';
+    compareWith: 'CURRENT_DATE' | 'FIELD';
+    fieldName?: string; // When compareWith === 'FIELD': fieldName or id of the referenced date/datetime field
 }
 
 /**

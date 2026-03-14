@@ -46,8 +46,9 @@ function getValidationRulesForField(field: FormField): ValidationRule[] {
 /**
  * Returns the first validation error message for a field, or empty string if valid.
  * Used on form submission to validate all field types including number min/max.
+ * allFields and formData are required to evaluate FIELD-based dateConstraints.
  */
-function getFieldValidationError(field: FormField, fieldValue: any): string {
+function getFieldValidationError(field: FormField, fieldValue: any, allFields?: FormField[], formData?: Record<string, any>): string {
     const isRequired = field.validations?.required ?? field.required;
     if (isRequired && (!fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0))) {
         return field.validations?.customErrorMessages?.required || 'This field is required';
@@ -103,6 +104,40 @@ function getFieldValidationError(field: FormField, fieldValue: any): string {
         }
         if (maxDt && inputDt > new Date(maxDt)) {
             return 'Date & time must be before the maximum';
+        }
+    }
+
+    // Dynamic date constraint validation (CURRENT_DATE or FIELD-based)
+    if ((field.type === 'date' || field.type === 'datetime') && fieldValue && field.dateConstraints) {
+        const constraint = field.dateConstraints;
+        const inputDate = new Date(fieldValue);
+        let constraintDate: Date | null = null;
+        let constraintLabel = '';
+
+        if (constraint.compareWith === 'CURRENT_DATE') {
+            constraintDate = new Date();
+            if (field.type === 'date') constraintDate.setHours(0, 0, 0, 0);
+            constraintLabel = "today's date";
+        } else if (constraint.compareWith === 'FIELD' && constraint.fieldName && allFields && formData) {
+            const refField = allFields.find(
+                f => f.fieldName === constraint.fieldName || f.id === constraint.fieldName
+            );
+            if (refField) {
+                const key = refField.fieldName ?? refField.id;
+                const raw = formData[key];
+                if (raw) {
+                    constraintDate = new Date(raw);
+                    constraintLabel = `"${refField.label || constraint.fieldName}"`;
+                }
+            }
+        }
+
+        if (constraintDate && !isNaN(constraintDate.getTime())) {
+            const { operator } = constraint;
+            if (operator === 'LESS_THAN'          && !(inputDate < constraintDate))  return `Date must be before ${constraintLabel}`;
+            if (operator === 'LESS_THAN_EQUAL'    && !(inputDate <= constraintDate)) return `Date must be on or before ${constraintLabel}`;
+            if (operator === 'GREATER_THAN'        && !(inputDate > constraintDate))  return `Date must be after ${constraintLabel}`;
+            if (operator === 'GREATER_THAN_EQUAL'  && !(inputDate >= constraintDate)) return `Date must be on or after ${constraintLabel}`;
         }
     }
 
@@ -187,6 +222,24 @@ function isFormulaDependency(schema: FormSchema, modelKey: string, fieldId?: str
     return false;
 }
 
+/**
+ * Returns true when any date/datetime field in the schema has a dateConstraints.compareWith === 'FIELD'
+ * that references the given modelKey or fieldId. Used to trigger a re-render when the referenced field
+ * value changes so that dependent min/max attributes stay current.
+ */
+function isDateConstraintDependency(schema: FormSchema, modelKey: string, fieldId?: string): boolean {
+    for (const section of schema.sections) {
+        for (const field of section.fields) {
+            const c = field.dateConstraints;
+            if (c && c.compareWith === 'FIELD' && c.fieldName) {
+                if (c.fieldName === modelKey) return true;
+                if (fieldId && c.fieldName === fieldId) return true;
+            }
+        }
+    }
+    return false;
+}
+
 export class FormRenderer {
     private container: HTMLElement;
     private schema: FormSchema;
@@ -224,13 +277,15 @@ export class FormRenderer {
         // Title
         form.appendChild(createElement('h1', { className: 'text-2xl font-semibold mb-2 text-[#3b497e] ', text: this.schema.title }));
 
+        // Collect all fields across sections once (used for formula and dateConstraints resolution)
+        const allFields = this.schema.sections.flatMap(s => s.fields);
+
         // Sections: sort fields by order (fallback when row/column conflict)
         this.schema.sections.forEach(section => {
             const sectionEl = createElement('div', { className: 'space-y-3 md:space-y-4 !m-0' });
             sectionEl.appendChild(createElement('h2', { className: 'text-xl  font-semibold text-[#3b497e] dark:text-gray-200 border-b pb-2', text: section.title }));
 
             const grid = createElement('div', { className: 'form-builder-grid' });
-
             const sortedFields = [...section.fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             sortedFields.forEach(field => {
                 // Check if field is visible (default to true if not specified)
@@ -282,9 +337,17 @@ export class FormRenderer {
                         // Re-render when a formula dependency changes
                         if (isFormulaDependency(this.schema, modelKey, field.id)) {
                             this.render();
+                            return;
+                        }
+                        // Re-render when a date/datetime field that is referenced by another field's
+                        // dateConstraints changes, so that dependent min/max attributes update
+                        if (isDateConstraintDependency(this.schema, modelKey, field.id)) {
+                            this.render();
                         }
                     },
-                    isFormulaField // Formula fields are read-only
+                    isFormulaField, // Formula fields are read-only
+                    allFields,
+                    this.data
                 );
 
                 fieldWrapper.appendChild(fieldEl);
@@ -318,7 +381,7 @@ export class FormRenderer {
                     const fieldValue = this.data[modelKey];
                     const fieldElement = form.querySelector(`input[id*="${field.id}"], textarea[id*="${field.id}"], select[id*="${field.id}"]`) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
 
-                    const fieldError = getFieldValidationError(field, fieldValue);
+                    const fieldError = getFieldValidationError(field, fieldValue, allFields, this.data);
                     const element = fieldElement ?? Array.from(form.querySelectorAll('input, textarea, select')).find(el => {
                         const wrapper = el.closest('div');
                         return wrapper && wrapper.textContent?.includes(field.label);

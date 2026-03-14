@@ -452,6 +452,8 @@ function transformField(field: any): FormField {
     // Repeater field
     if (field.repeatItemLabel !== undefined) transformed.repeatItemLabel = field.repeatItemLabel;
     if (field.repeatIncrementEnabled !== undefined) transformed.repeatIncrementEnabled = field.repeatIncrementEnabled;
+    // Date / DateTime conditional constraint
+    if (field.dateConstraints !== undefined) transformed.dateConstraints = field.dateConstraints;
     // Order is already set above
     if (field.css !== undefined) transformed.css = field.css; // Preserve CSS
     if (field.optionsSource !== undefined) transformed.optionsSource = field.optionsSource;
@@ -718,6 +720,9 @@ function fieldToPayload(field: FormField): any {
     if ((field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && field.options && Array.isArray(field.options)) {
         payload.options = field.options.map(opt => ({ label: opt.label, value: opt.value }));
     }
+
+    // Conditional date constraint (date / datetime fields)
+    if (field.dateConstraints !== undefined) payload.dateConstraints = field.dateConstraints;
 
     // DateTime - payload format for DATETIME (API compatibility)
     if (field.type === 'datetime') {
