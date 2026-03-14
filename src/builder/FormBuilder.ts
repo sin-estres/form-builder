@@ -1864,10 +1864,12 @@ export class FormBuilder {
                     else if (rule.type === 'maxSelected' && typeof rule.value === 'number') obj.maxSelected = rule.value;
                     else if (rule.type === 'minDate' && typeof rule.value === 'string') obj.minDate = rule.value;
                     else if (rule.type === 'maxDate' && typeof rule.value === 'string') obj.maxDate = rule.value;
+                    else if (rule.type === 'minDateTime' && typeof rule.value === 'string') (obj as any).minDateTime = rule.value;
+                    else if (rule.type === 'maxDateTime' && typeof rule.value === 'string') (obj as any).maxDateTime = rule.value;
                 });
                 return obj;
             }
-            const o = v as ValidationObject;
+            const o = v as ValidationObject & { minDateTime?: string; maxDateTime?: string };
             return {
                 required: o.required,
                 pattern: o.regex,
@@ -1879,6 +1881,8 @@ export class FormBuilder {
                 maxSelected: o.maxSelected,
                 minDate: o.minDate,
                 maxDate: o.maxDate,
+                minDateTime: o.minDateTime,
+                maxDateTime: o.maxDateTime,
                 customErrorMessages: o.regexMessage ? { pattern: o.regexMessage } : undefined
             };
         })();
@@ -2385,6 +2389,36 @@ export class FormBuilder {
                 }
             }));
             validationElements.push(maxDateGroup);
+        }
+
+        // Min/Max DateTime (Date & Time)
+        if (selectedField.type === 'datetime') {
+            const minMaxDt = (validationsObj as { minDateTime?: string; maxDateTime?: string; minDate?: string; maxDate?: string });
+            const minDateTimeGroup = createElement('div', { className: 'mb-3' });
+            minDateTimeGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Minimum Date & Time' }));
+            minDateTimeGroup.appendChild(createElement('input', {
+                type: 'datetime-local',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: minMaxDt.minDateTime || minMaxDt.minDate || '',
+                onchange: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidations({ minDateTime: val || undefined });
+                }
+            }));
+            validationElements.push(minDateTimeGroup);
+
+            const maxDateTimeGroup = createElement('div', { className: 'mb-3' });
+            maxDateTimeGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Maximum Date & Time' }));
+            maxDateTimeGroup.appendChild(createElement('input', {
+                type: 'datetime-local',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: minMaxDt.maxDateTime || minMaxDt.maxDate || '',
+                onchange: (e: Event) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    updateValidations({ maxDateTime: val || undefined });
+                }
+            }));
+            validationElements.push(maxDateTimeGroup);
         }
 
         // Only show Validation Rules header and elements if there are validation rules

@@ -13,6 +13,8 @@ function getValidationRules(field: FormField): {
     max?: number;
     minDate?: string;
     maxDate?: string;
+    minDateTime?: string;
+    maxDateTime?: string;
 } {
     const v = field.validations;
     if (v) {
@@ -25,7 +27,9 @@ function getValidationRules(field: FormField): {
             min: v.min,
             max: v.max,
             minDate: v.minDate,
-            maxDate: v.maxDate
+            maxDate: v.maxDate,
+            minDateTime: v.minDateTime,
+            maxDateTime: v.maxDateTime
         };
     }
     const val = field.validation;
@@ -44,6 +48,8 @@ function getValidationRules(field: FormField): {
             else if (r.type === 'max') rules.max = r.value;
             else if (r.type === 'minDate') rules.minDate = r.value;
             else if (r.type === 'maxDate') rules.maxDate = r.value;
+            else if (r.type === 'minDateTime') (rules as any).minDateTime = r.value;
+            else if (r.type === 'maxDateTime') (rules as any).maxDateTime = r.value;
         });
         return rules;
     }
@@ -57,7 +63,9 @@ function getValidationRules(field: FormField): {
         min: o.min,
         max: o.max,
         minDate: o.minDate,
-        maxDate: o.maxDate
+        maxDate: o.maxDate,
+        minDateTime: (o as any).minDateTime,
+        maxDateTime: (o as any).maxDateTime
     };
 }
 
@@ -113,8 +121,8 @@ export class FieldRenderer {
         const hasPatternValidation = !!validationRules.pattern;
         const hasNumericTextValidation = isNumericTextField(field);
 
-        // Create validation message container for date/email/text/number fields with validation
-        if (field.type === 'date' || field.type === 'email' || field.type === 'number' ||
+        // Create validation message container for date/datetime/email/text/number fields with validation
+        if (field.type === 'date' || field.type === 'datetime' || field.type === 'email' || field.type === 'number' ||
             (field.type === 'text' && (hasPatternValidation || hasNumericTextValidation || validationRules.minLength !== undefined || validationRules.maxLength !== undefined))) {
             validationMsg = createElement('div', { className: 'text-xs text-red-600 dark:text-red-400 mt-1 hidden', id: `validation-${field.id}` });
         }
@@ -143,6 +151,25 @@ export class FieldRenderer {
                     const maxDate = new Date(rules.maxDate);
                     if (inputDate > maxDate) {
                         errorMessage = 'Date must be before the maximum date';
+                    }
+                }
+            }
+
+            // DateTime validation
+            if (!errorMessage && f.type === 'datetime' && value) {
+                const inputDateTime = new Date(value);
+                const minDt = rules.minDateTime ?? rules.minDate;
+                const maxDt = rules.maxDateTime ?? rules.maxDate;
+                if (minDt) {
+                    const minDateTime = new Date(minDt);
+                    if (inputDateTime < minDateTime) {
+                        errorMessage = 'Date & time must be after the minimum';
+                    }
+                }
+                if (!errorMessage && maxDt) {
+                    const maxDateTime = new Date(maxDt);
+                    if (inputDateTime > maxDateTime) {
+                        errorMessage = 'Date & time must be before the maximum';
                     }
                 }
             }
@@ -420,17 +447,21 @@ export class FieldRenderer {
                 input = this.renderImageField(field, value ?? field.imageUrl ?? field.defaultValue, onChange, isEnabled);
                 break;
 
-            default: // text, number, email, date, etc.
+            default: // text, number, email, date, datetime, etc.
                 const rules = getValidationRules(field);
                 // For postal, phone, OTP: use type="text" to preserve leading zeros; prevent scientific notation (e, +, -)
                 const useNumericTextInput = field.type === 'text' && isNumericTextField(field);
-                const inputType = useNumericTextInput ? 'text' : (field.type === 'number' ? 'number' : field.type);
+                const inputType = useNumericTextInput ? 'text' : (field.type === 'number' ? 'number' : field.type === 'datetime' ? 'datetime-local' : field.type);
 
                 const runValidation = () => {
-                    if (validationMsg && (field.type === 'date' || field.type === 'email' || field.type === 'text' || field.type === 'number')) {
+                    if (validationMsg && (field.type === 'date' || field.type === 'datetime' || field.type === 'email' || field.type === 'text' || field.type === 'number')) {
                         validateField(field, (input as HTMLInputElement).value, input as HTMLInputElement, validationMsg);
                     }
                 };
+
+                // For datetime: min/max use datetime format; for date: min/max use date format
+                const minVal = field.type === 'datetime' ? (rules.minDateTime ?? rules.minDate) : (field.type === 'date' ? rules.minDate : (field.type === 'number' && rules.min !== undefined ? String(rules.min) : undefined));
+                const maxVal = field.type === 'datetime' ? (rules.maxDateTime ?? rules.maxDate) : (field.type === 'date' ? rules.maxDate : (field.type === 'number' && rules.max !== undefined ? String(rules.max) : undefined));
 
                 input = createElement('input', {
                     type: inputType,
@@ -439,8 +470,8 @@ export class FieldRenderer {
                     placeholder: field.placeholder,
                     value: value || '',
                     disabled: !isEnabled,
-                    min: field.type === 'date' ? rules.minDate : (field.type === 'number' ? (rules.min !== undefined ? String(rules.min) : undefined) : undefined),
-                    max: field.type === 'date' ? rules.maxDate : (field.type === 'number' ? (rules.max !== undefined ? String(rules.max) : undefined) : undefined),
+                    min: minVal,
+                    max: maxVal,
                     pattern: !useNumericTextInput ? (rules.pattern || undefined) : undefined,
                     oninput: (e: Event) => {
                         const inputEl = e.target as HTMLInputElement;

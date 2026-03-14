@@ -5,6 +5,7 @@ export type FieldType =
     | 'textarea'
     | 'number'
     | 'date'
+    | 'datetime'
     | 'select'
     | 'checkbox'
     | 'radio'
@@ -39,7 +40,7 @@ export function getColSpanFromWidth(width: FieldWidth): string {
 }
 
 export interface ValidationRule {
-    type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'email' | 'minDate' | 'maxDate' | 'minSelected' | 'maxSelected';
+    type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'email' | 'minDate' | 'maxDate' | 'minDateTime' | 'maxDateTime' | 'minSelected' | 'maxSelected';
     value?: string | number | boolean;
     message?: string;
     // For pattern/regex
@@ -59,6 +60,8 @@ export interface ValidationObject {
     maxSelected?: number; // For checkbox/select groups
     minDate?: string; // ISO date string
     maxDate?: string; // ISO date string
+    minDateTime?: string; // ISO datetime string (YYYY-MM-DDTHH:mm)
+    maxDateTime?: string; // ISO datetime string (YYYY-MM-DDTHH:mm)
 }
 
 /**
@@ -109,6 +112,9 @@ export interface FieldValidations {
     // Date range
     minDate?: string;
     maxDate?: string;
+    // DateTime range (for datetime field type)
+    minDateTime?: string;
+    maxDateTime?: string;
 }
 
 export interface AsyncOptionSource {

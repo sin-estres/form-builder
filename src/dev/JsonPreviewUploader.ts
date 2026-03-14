@@ -179,6 +179,23 @@ function generatePreviewModel(fields: FieldLike[]): Record<string, any> {
                 model[key] = dateStr;
                 break;
             }
+            case 'datetime': {
+                const v = validation as { minDateTime?: string; maxDateTime?: string; minDate?: string; maxDate?: string };
+                const minDt = v.minDateTime ?? v.minDate;
+                const maxDt = v.maxDateTime ?? v.maxDate;
+                let dateTimeStr: string;
+                if (minDt || maxDt) {
+                    const min = minDt ? new Date(minDt).getTime() : 0;
+                    const max = maxDt ? new Date(maxDt).getTime() : Date.now() + 365 * 24 * 60 * 60 * 1000;
+                    const mid = min + (max - min) / 2;
+                    const d = new Date(mid);
+                    dateTimeStr = d.toISOString().slice(0, 16);
+                } else {
+                    dateTimeStr = new Date().toISOString().slice(0, 16);
+                }
+                model[key] = dateTimeStr;
+                break;
+            }
             case 'checkbox':
             case 'radio':
             case 'boolean':

@@ -92,6 +92,20 @@ function getFieldValidationError(field: FormField, fieldValue: any): string {
         }
     }
 
+    // Min/max DateTime for datetime fields
+    if (field.type === 'datetime' && fieldValue) {
+        const v = field.validations;
+        const minDt = v?.minDateTime ?? v?.minDate;
+        const maxDt = v?.maxDateTime ?? v?.maxDate;
+        const inputDt = new Date(fieldValue);
+        if (minDt && inputDt < new Date(minDt)) {
+            return 'Date & time must be after the minimum';
+        }
+        if (maxDt && inputDt > new Date(maxDt)) {
+            return 'Date & time must be before the maximum';
+        }
+    }
+
     // MinSelected/maxSelected for checkbox
     if (field.type === 'checkbox' && Array.isArray(fieldValue)) {
         const validationArray = getValidationRulesForField(field);

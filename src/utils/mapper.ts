@@ -18,6 +18,8 @@ function validationsToValidationObject(v: FieldValidations | undefined): Validat
     if (v.maxSelected !== undefined) obj.maxSelected = v.maxSelected;
     if (v.minDate) obj.minDate = v.minDate;
     if (v.maxDate) obj.maxDate = v.maxDate;
+    if ((v as { minDateTime?: string }).minDateTime) (obj as any).minDateTime = (v as { minDateTime?: string }).minDateTime;
+    if ((v as { maxDateTime?: string }).maxDateTime) (obj as any).maxDateTime = (v as { maxDateTime?: string }).maxDateTime;
     return Object.keys(obj).length > 0 ? obj : undefined;
 }
 
@@ -27,7 +29,7 @@ function validationsToValidationObject(v: FieldValidations | undefined): Validat
  */
 function validationObjectToValidations(v: ValidationObject | undefined): FieldValidations | undefined {
     if (!v) return undefined;
-    const vAny = v as ValidationObject & { pattern?: string; customErrorMessages?: { pattern?: string } };
+    const vAny = v as ValidationObject & { pattern?: string; customErrorMessages?: { pattern?: string }; minDateTime?: string; maxDateTime?: string };
     const validations: FieldValidations = {};
     if (v.required !== undefined) validations.required = v.required;
     const patternVal = v.regex || vAny.pattern;
@@ -44,6 +46,8 @@ function validationObjectToValidations(v: ValidationObject | undefined): FieldVa
     if (v.maxSelected !== undefined) validations.maxSelected = v.maxSelected;
     if (v.minDate) validations.minDate = v.minDate;
     if (v.maxDate) validations.maxDate = v.maxDate;
+    if (vAny.minDateTime) (validations as any).minDateTime = vAny.minDateTime;
+    if (vAny.maxDateTime) (validations as any).maxDateTime = vAny.maxDateTime;
     return Object.keys(validations).length > 0 ? validations : undefined;
 }
 
@@ -74,7 +78,11 @@ export function convertValidationObjectToArray(validationObj: ValidationObject |
         obj.min !== undefined ||
         obj.max !== undefined ||
         obj.minSelected !== undefined ||
-        obj.maxSelected !== undefined
+        obj.maxSelected !== undefined ||
+        (obj as any).minDate ||
+        (obj as any).maxDate ||
+        (obj as any).minDateTime ||
+        (obj as any).maxDateTime
     );
 
     // Auto-set required to true if any validation property exists
@@ -114,6 +122,19 @@ export function convertValidationObjectToArray(validationObj: ValidationObject |
 
     if (obj.maxSelected !== undefined) {
         rules.push({ type: 'maxSelected', value: obj.maxSelected });
+    }
+
+    if ((obj as any).minDate && typeof (obj as any).minDate === 'string') {
+        rules.push({ type: 'minDate', value: (obj as any).minDate });
+    }
+    if ((obj as any).maxDate && typeof (obj as any).maxDate === 'string') {
+        rules.push({ type: 'maxDate', value: (obj as any).maxDate });
+    }
+    if ((obj as any).minDateTime && typeof (obj as any).minDateTime === 'string') {
+        rules.push({ type: 'minDateTime', value: (obj as any).minDateTime });
+    }
+    if ((obj as any).maxDateTime && typeof (obj as any).maxDateTime === 'string') {
+        rules.push({ type: 'maxDateTime', value: (obj as any).maxDateTime });
     }
 
     return rules;
@@ -162,6 +183,7 @@ function normalizeFieldType(type: any): string {
     if (['phonenumber', 'telephone', 'mobile'].includes(normalized)) return 'phone';
     if (str === 'BINARY_CHOICE' || normalized === 'binarychoice') return 'binary_choice';
     if (str === 'REPEATER' || normalized === 'repeater') return 'repeater';
+    if (str === 'DATETIME' || normalized === 'datetime') return 'datetime';
     return str.toLowerCase();
 }
 
@@ -287,6 +309,10 @@ function transformField(field: any): FormField {
                     validationObj.minDate = rule.value;
                 } else if (rule.type === 'maxDate' && typeof rule.value === 'string') {
                     validationObj.maxDate = rule.value;
+                } else if (rule.type === 'minDateTime' && typeof rule.value === 'string') {
+                    (validationObj as any).minDateTime = rule.value;
+                } else if (rule.type === 'maxDateTime' && typeof rule.value === 'string') {
+                    (validationObj as any).maxDateTime = rule.value;
                 }
             });
             transformed.validation = validationObj;
@@ -553,6 +579,10 @@ function convertValidationArrayToObject(validation: ValidationRule[] | Validatio
             obj.minDate = rule.value;
         } else if (rule.type === 'maxDate' && typeof rule.value === 'string') {
             obj.maxDate = rule.value;
+        } else if (rule.type === 'minDateTime' && typeof rule.value === 'string') {
+            (obj as any).minDateTime = rule.value;
+        } else if (rule.type === 'maxDateTime' && typeof rule.value === 'string') {
+            (obj as any).maxDateTime = rule.value;
         }
     });
     return Object.keys(obj).length > 0 ? obj : undefined;
@@ -687,6 +717,11 @@ function fieldToPayload(field: FormField): any {
     // Do not strip options: preserve custom options for STATIC fields even when lookup/masterTypeName absent
     if ((field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && field.options && Array.isArray(field.options)) {
         payload.options = field.options.map(opt => ({ label: opt.label, value: opt.value }));
+    }
+
+    // DateTime - payload format for DATETIME (API compatibility)
+    if (field.type === 'datetime') {
+        payload.fieldType = 'DATETIME';
     }
 
     // Binary choice (Yes/No toggle) - payload format for BINARY_CHOICE

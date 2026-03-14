@@ -9,6 +9,7 @@ export const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
     { type: 'email', label: 'Email', icon: 'Mail' },
     { type: 'phone', label: 'Phone', icon: 'Phone' },
     { type: 'date', label: 'Date Picker', icon: 'Calendar' },
+    { type: 'datetime', label: 'Date & Time', icon: 'Clock' },
     { type: 'select', label: 'Dropdown', icon: 'ListBullet' },
     { type: 'checkbox', label: 'Checkbox', icon: 'CheckSquare' },
     { type: 'radio', label: 'Radio Group', icon: 'CircleDot' },
@@ -39,6 +40,7 @@ export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
         }
     },
     date: { label: 'Date', width: '50%', enabled: true, visible: true },
+    datetime: { label: 'Date & Time', placeholder: 'Select date and time', width: '50%', enabled: true, visible: true },
     select: { label: 'Dropdown', options: [], width: '100%', enabled: true, visible: true, optionSource: 'STATIC' as const },
     checkbox: { label: 'Checkbox', options: [], width: '100%', enabled: true, visible: true },
     radio: { label: 'Radio Group', options: [], width: '100%', enabled: true, visible: true },
