@@ -2,6 +2,7 @@ import { FormSchema, FormField, getColSpanFromWidth, ValidationObject, Validatio
 import { FieldRenderer } from './FieldRenderer';
 import { createElement } from '../utils/dom';
 import { evaluateFormula } from '../utils/formula';
+import { generateName } from '../utils/nameGenerator';
 
 // Helper function to convert validation object to array format for validation logic
 function convertValidationToArray(validation: ValidationRule[] | ValidationObject | undefined): ValidationRule[] {
@@ -165,6 +166,19 @@ function getModelKey(field: { id: string; fieldName?: string }): string {
     return field.fieldName ?? field.id;
 }
 
+/** Find lookup children that depend on the given parent model key (for cascading dropdown reset) */
+function getLookupChildrenOfParent(schema: FormSchema, parentModelKey: string): FormField[] {
+    const children: FormField[] = [];
+    for (const section of schema.sections) {
+        for (const field of section.fields) {
+            if (field.type === 'select' && field.optionSource === 'LOOKUP' && field.lookupParentFieldName === parentModelKey) {
+                children.push(field);
+            }
+        }
+    }
+    return children;
+}
+
 /** Build values map for formula evaluation - includes manual values and computed formula values in dependency order */
 function buildFormulaValuesMap(schema: FormSchema, data: Record<string, any>): Record<string, number | string | undefined> {
     const values: Record<string, number | string | undefined> = {};
@@ -316,6 +330,13 @@ export class FormRenderer {
                     const computed = computeFormulaValue(field, this.schema, this.data);
                     fieldValue = computed;
                     this.data[modelKey] = computed; // Keep data in sync for submit
+                } else if (field.type === 'name_generator') {
+                    // Generate value on form load; use existing if already set (e.g. from edit mode)
+                    fieldValue = this.data[modelKey];
+                    if (!fieldValue) {
+                        fieldValue = generateName(field);
+                        this.data[modelKey] = fieldValue;
+                    }
                 } else if (field.type === 'image') {
                     fieldValue = this.data[modelKey] ?? field.imageUrl ?? field.defaultValue;
                 } else {
@@ -333,6 +354,16 @@ export class FormRenderer {
                                 fieldId: field.id,
                                 value: val || ''
                             });
+                        }
+                        // Cascading LOOKUP: when parent changes, reset child values and re-render
+                        const lookupChildren = getLookupChildrenOfParent(this.schema, modelKey);
+                        if (lookupChildren.length > 0) {
+                            for (const child of lookupChildren) {
+                                const childKey = getModelKey(child);
+                                this.data[childKey] = null;
+                            }
+                            this.render();
+                            return;
                         }
                         // Re-render when a formula dependency changes
                         if (isFormulaDependency(this.schema, modelKey, field.id)) {

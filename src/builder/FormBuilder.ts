@@ -7,6 +7,7 @@ import {
     detectCircularDependency,
     getNumericFieldsForFormula
 } from '../utils/formula';
+import { builderToPlatform } from '../utils/mapper';
 import { FormRenderer } from '../renderer/FormRenderer';
 import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject, FieldValidations } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
@@ -676,12 +677,14 @@ export class FormBuilder {
                     });
                 });
 
+                // Transform to platform payload (includes parentFieldName, nested lookup, etc.)
+                const payload = builderToPlatform(schema);
                 // Log what we are sending to the app using this npm package
-                console.log('[Form Builder] Schema being sent to app:', JSON.stringify(schema, null, 2));
+                console.log('[Form Builder] Schema being sent to app:', JSON.stringify(payload, null, 2));
 
-                // Call the callback if provided (schema is already cleaned by setSchema)
+                // Call the callback if provided (payload has platform format with parentFieldName for LOOKUP fields)
                 if (this.options.onSave) {
-                    this.options.onSave(schema);
+                    this.options.onSave(payload);
                 }
             }
         }, [ createElement('span', { className: '', text: 'Save' })]);
@@ -1211,6 +1214,97 @@ export class FormBuilder {
             `visible-${selectedField.id}`
         ));
 
+        // --- Name Generator Configuration ---
+        if (selectedField.type === 'name_generator') {
+            const ngHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Name Generator Settings' });
+            body.appendChild(ngHeader);
+
+            const NAME_GENERATOR_FORMATS: { value: string; text: string }[] = [
+                { value: 'TEXT_HYPHEN_ID', text: 'Text-ID (e.g. RFQ-0001)' },
+                { value: 'TEXT_UNDERSCORE_ID', text: 'Text_ID (e.g. RFQ_0001)' },
+                { value: 'TEXT_SLASH_ID', text: 'Text/ID (e.g. RFQ/0001)' },
+                { value: 'TEXT_ID', text: 'TextID (e.g. RFQ0001)' },
+                { value: 'ID_HYPHEN_TEXT', text: 'ID-Text (e.g. 0001-RFQ)' },
+                { value: 'ID_UNDERSCORE_TEXT', text: 'ID_Text (e.g. 0001_RFQ)' },
+                { value: 'TEXT_YEAR_ID', text: 'Text-Year-ID (e.g. RFQ-2026-0001)' },
+                { value: 'TEXT_MONTH_ID', text: 'Text-Month-ID (e.g. RFQ-03-0001)' },
+                { value: 'TEXT_YEAR_MONTH_ID', text: 'Text-YearMonth-ID (e.g. RFQ-202603-0001)' },
+                { value: 'TEXT_ACCOUNT_CODE_ID', text: 'Text-AccountCode-ID' },
+                { value: 'TEXT_BRANCH_ID', text: 'Text-Branch-ID' },
+                { value: 'PREFIX_TEXT_ID', text: 'Prefix-Text-ID (e.g. CRM-RFQ-0001)' },
+                { value: 'TEXT_ID_SUFFIX', text: 'Text-ID-Suffix (e.g. RFQ-0001-IND)' },
+                { value: 'TEXT_RANDOM_4', text: 'Text-Random4 (e.g. RFQ-4821)' },
+                { value: 'TEXT_YEAR_MONTH_DAY_ID', text: 'Text-Year-Month-ID' },
+                { value: 'TEXT_HYPHEN_USER_INPUT', text: 'Text-UserInput (e.g. RFQ-P001)' },
+                { value: 'TEXT_UNDERSCORE_USER_INPUT', text: 'Text_UserInput' },
+                { value: 'TEXT_SLASH_USER_INPUT', text: 'Text/UserInput' },
+                { value: 'USER_INPUT_HYPHEN_TEXT', text: 'UserInput-Text (e.g. P001-RFQ)' },
+                { value: 'USER_INPUT_UNDERSCORE_TEXT', text: 'UserInput_Text' }
+            ];
+
+            const formatGroup = createElement('div', { className: 'mb-3' });
+            formatGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Format' }));
+            const formatSelect = createElement('select', {
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.nameGeneratorFormat ?? 'TEXT_ID',
+                onchange: (e: Event) => formStore.getState().updateField(selectedField.id, { nameGeneratorFormat: (e.target as HTMLSelectElement).value as any })
+            });
+            NAME_GENERATOR_FORMATS.forEach(opt => {
+                formatSelect.appendChild(createElement('option', { value: opt.value, text: opt.text, selected: (selectedField.nameGeneratorFormat ?? 'TEXT_ID') === opt.value }));
+            });
+            formatGroup.appendChild(formatSelect);
+            body.appendChild(formatGroup);
+
+            const staticTextGroup = createElement('div', { className: 'mb-3' });
+            staticTextGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Static Text' }));
+            staticTextGroup.appendChild(createElement('input', {
+                type: 'text',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.nameGeneratorText ?? '',
+                placeholder: 'e.g. RFQ',
+                oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { nameGeneratorText: (e.target as HTMLInputElement).value })
+            }));
+            body.appendChild(staticTextGroup);
+
+            const prefixGroup = createElement('div', { className: 'mb-3' });
+            prefixGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Prefix (Optional)' }));
+            prefixGroup.appendChild(createElement('input', {
+                type: 'text',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.nameGeneratorPrefix ?? '',
+                placeholder: 'e.g. CRM',
+                oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { nameGeneratorPrefix: (e.target as HTMLInputElement).value })
+            }));
+            body.appendChild(prefixGroup);
+
+            const suffixGroup = createElement('div', { className: 'mb-3' });
+            suffixGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Suffix (Optional)' }));
+            suffixGroup.appendChild(createElement('input', {
+                type: 'text',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: selectedField.nameGeneratorSuffix ?? '',
+                placeholder: 'e.g. IND',
+                oninput: (e: Event) => formStore.getState().updateField(selectedField.id, { nameGeneratorSuffix: (e.target as HTMLInputElement).value })
+            }));
+            body.appendChild(suffixGroup);
+
+            const paddingGroup = createElement('div', { className: 'mb-3' });
+            paddingGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'ID Padding' }));
+            paddingGroup.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: String(selectedField.nameGeneratorIdPadding ?? 4),
+                placeholder: '4',
+                min: '1',
+                max: '10',
+                oninput: (e: Event) => {
+                    const val = parseInt((e.target as HTMLInputElement).value, 10);
+                    formStore.getState().updateField(selectedField.id, { nameGeneratorIdPadding: isNaN(val) ? 4 : Math.max(1, Math.min(10, val)) });
+                }
+            }));
+            body.appendChild(paddingGroup);
+        }
+
         // --- Binary Choice (Yes/No Toggle) Configuration ---
         if (selectedField.type === 'binary_choice') {
             const bcHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Yes/No Toggle Settings' });
@@ -1694,6 +1788,31 @@ export class FormBuilder {
                 
                 lookupLabelFieldGroup.appendChild(lookupLabelFieldSelect);
                 body.appendChild(lookupLabelFieldGroup);
+
+                // Filter by Parent Field (cascading dropdown) - only for LOOKUP
+                const parentFieldOptions = formStore.getState().schema.sections.flatMap(s => s.fields)
+                    .filter(f => f.type === 'select' && f.id !== selectedField.id)
+                    .map(f => ({ value: f.fieldName || f.id, label: f.label || f.fieldName || f.id }));
+                const parentFieldGroup = createElement('div', { className: 'mb-4' });
+                parentFieldGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Filter by Parent Field' }));
+                const parentFieldSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                    value: selectedField.lookupParentFieldName || '',
+                    onchange: (e: Event) => {
+                        const val = (e.target as HTMLSelectElement).value;
+                        formStore.getState().updateField(selectedField.id, { lookupParentFieldName: val || null });
+                    }
+                });
+                parentFieldSelect.appendChild(createElement('option', { value: '', text: 'None (no parent)', selected: !selectedField.lookupParentFieldName }));
+                parentFieldOptions.forEach(opt => {
+                    parentFieldSelect.appendChild(createElement('option', {
+                        value: opt.value,
+                        text: opt.label,
+                        selected: selectedField.lookupParentFieldName === opt.value
+                    }));
+                });
+                parentFieldGroup.appendChild(parentFieldSelect);
+                body.appendChild(parentFieldGroup);
 
                 // Visibility checkbox
                 body.appendChild(this.createCheckboxField(

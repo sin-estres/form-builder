@@ -184,6 +184,7 @@ function normalizeFieldType(type: any): string {
     if (str === 'BINARY_CHOICE' || normalized === 'binarychoice') return 'binary_choice';
     if (str === 'REPEATER' || normalized === 'repeater') return 'repeater';
     if (str === 'DATETIME' || normalized === 'datetime') return 'datetime';
+    if (str === 'NAME_GENERATOR' || normalized === 'namegenerator') return 'name_generator';
     return str.toLowerCase();
 }
 
@@ -380,19 +381,22 @@ function transformField(field: any): FormField {
     let lookupValueField: string | undefined;
     let lookupLabelField: string | undefined;
     
+    let lookupParentFieldName: string | null | undefined;
     if (field.lookup) {
         // Handle nested lookup object format
-        // lookup: { sourceType, sourceKey, valueField, labelField }
+        // lookup: { sourceType, sourceKey, valueField, labelField, parentFieldName }
         lookupSourceType = field.lookup.sourceType;
         lookupSource = field.lookup.sourceKey || field.lookup.source;
         lookupValueField = field.lookup.valueField;
         lookupLabelField = field.lookup.labelField;
+        lookupParentFieldName = field.lookup.parentFieldName ?? undefined;
     } else {
         // Handle flat lookup properties format
         lookupSourceType = field.lookupSourceType;
         lookupSource = field.lookupSource;
         lookupValueField = field.lookupValueField;
         lookupLabelField = field.lookupLabelField;
+        lookupParentFieldName = field.lookupParentFieldName;
     }
 
     // Handle optionSource - REQUIRED for select/radio/checkbox
@@ -419,6 +423,7 @@ function transformField(field: any): FormField {
     if (lookupSource !== undefined) transformed.lookupSource = lookupSource;
     if (lookupValueField !== undefined) transformed.lookupValueField = lookupValueField;
     if (lookupLabelField !== undefined) transformed.lookupLabelField = lookupLabelField;
+    if (lookupParentFieldName !== undefined) transformed.lookupParentFieldName = lookupParentFieldName || null;
 
     // fieldName / name (model key for binding)
     if (field.fieldName !== undefined) transformed.fieldName = field.fieldName;
@@ -454,6 +459,12 @@ function transformField(field: any): FormField {
     if (field.repeatIncrementEnabled !== undefined) transformed.repeatIncrementEnabled = field.repeatIncrementEnabled;
     // Date / DateTime conditional constraint
     if (field.dateConstraints !== undefined) transformed.dateConstraints = field.dateConstraints;
+    // Name generator
+    if (field.nameGeneratorFormat !== undefined) transformed.nameGeneratorFormat = field.nameGeneratorFormat;
+    if (field.nameGeneratorText !== undefined) transformed.nameGeneratorText = field.nameGeneratorText;
+    if (field.nameGeneratorPrefix !== undefined) transformed.nameGeneratorPrefix = field.nameGeneratorPrefix;
+    if (field.nameGeneratorSuffix !== undefined) transformed.nameGeneratorSuffix = field.nameGeneratorSuffix;
+    if (field.nameGeneratorIdPadding !== undefined) transformed.nameGeneratorIdPadding = field.nameGeneratorIdPadding;
     // Order is already set above
     if (field.css !== undefined) transformed.css = field.css; // Preserve CSS
     if (field.optionsSource !== undefined) transformed.optionsSource = field.optionsSource;
@@ -708,6 +719,21 @@ function fieldToPayload(field: FormField): any {
     if (field.lookupSource !== undefined) payload.lookupSource = field.lookupSource;
     if (field.lookupValueField !== undefined) payload.lookupValueField = field.lookupValueField;
     if (field.lookupLabelField !== undefined) payload.lookupLabelField = field.lookupLabelField;
+    // parentFieldName: value selected in "Filter by Parent Field" dropdown (or null if none)
+    if (field.optionSource === 'LOOKUP') {
+        payload.parentFieldName = field.lookupParentFieldName ?? null;
+    }
+    if (field.lookupParentFieldName !== undefined) payload.lookupParentFieldName = field.lookupParentFieldName;
+    // Nested lookup object for API payload format (includes parentFieldName)
+    if (field.optionSource === 'LOOKUP' && (field.lookupSourceType || field.lookupSource)) {
+        payload.lookup = {
+            sourceType: field.lookupSourceType || 'MODULE',
+            sourceKey: field.lookupSource || '',
+            valueField: field.lookupValueField || '',
+            labelField: field.lookupLabelField || '',
+            parentFieldName: field.lookupParentFieldName ?? null
+        };
+    }
     if (field.isd !== undefined) payload.isd = field.isd;
     if (field.imageUrl !== undefined) payload.imageUrl = field.imageUrl;
     // Number field formula
@@ -723,6 +749,17 @@ function fieldToPayload(field: FormField): any {
 
     // Conditional date constraint (date / datetime fields)
     if (field.dateConstraints !== undefined) payload.dateConstraints = field.dateConstraints;
+
+    // Name generator - payload format for NAME_GENERATOR (API compatibility)
+    if (field.type === 'name_generator') {
+        payload.fieldType = 'NAME_GENERATOR';
+        payload.type = 'name_generator';
+        if (field.nameGeneratorFormat !== undefined) payload.nameGeneratorFormat = field.nameGeneratorFormat;
+        if (field.nameGeneratorIdPadding !== undefined) payload.nameGeneratorIdPadding = field.nameGeneratorIdPadding;
+        if (field.nameGeneratorPrefix !== undefined) payload.nameGeneratorPrefix = field.nameGeneratorPrefix;
+        if (field.nameGeneratorSuffix !== undefined) payload.nameGeneratorSuffix = field.nameGeneratorSuffix;
+        if (field.nameGeneratorText !== undefined) payload.nameGeneratorText = field.nameGeneratorText;
+    }
 
     // DateTime - payload format for DATETIME (API compatibility)
     if (field.type === 'datetime') {

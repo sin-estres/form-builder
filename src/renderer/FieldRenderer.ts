@@ -1,6 +1,7 @@
 import { FormField, ISDConfig } from '../core/schemaTypes';
 import { createElement } from '../utils/dom';
 import { COUNTRY_CODES, getCountryByDialCode, getDefaultCountry, CountryCode } from '../core/countryData';
+import { generateName } from '../utils/nameGenerator';
 
 /** Get validation rules from field.validations (preferred) or field.validation (legacy) */
 function getValidationRules(field: FormField): {
@@ -354,7 +355,15 @@ export class FieldRenderer {
                 });
                 break;
 
-            case 'select':
+            case 'select': {
+                // Cascading LOOKUP: when parent not selected, disable child and show "Select parent first"
+                const isLookupWithParent = field.optionSource === 'LOOKUP' && field.lookupParentFieldName;
+                const parentValue = formData?.[field.lookupParentFieldName!];
+                const parentNotSelected = Boolean(isLookupWithParent && (parentValue === undefined || parentValue === null || parentValue === ''));
+                const effectiveOptions = parentNotSelected ? [] : (field.options || []);
+                const placeholder = parentNotSelected ? 'Select parent first' : 'Select an option';
+                const selectDisabled = !isEnabled || parentNotSelected;
+
                 // Use multiSelect (standard), fallback to multiselect (legacy) for backward compatibility
                 const isMultiSelect = field.multiSelect === true || field.multiselect === true;
                 if (isMultiSelect) {
@@ -362,7 +371,7 @@ export class FieldRenderer {
                     input = createElement('select', {
                         multiple: true,
                         className: 'flex min-h-touch w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-                        disabled: !isEnabled,
+                        disabled: selectDisabled,
                         onchange: (e: Event) => {
                             const select = e.target as HTMLSelectElement;
                             const selectedValues = Array.from(select.selectedOptions).map(opt => opt.value);
@@ -370,7 +379,7 @@ export class FieldRenderer {
                         }
                     });
                     const currentValues = Array.isArray(value) ? value : (value ? [value] : []);
-                    field.options?.forEach(opt => {
+                    effectiveOptions.forEach(opt => {
                         const option = createElement('option', { value: opt.value, text: opt.label });
                         if (currentValues.includes(opt.value)) {
                             (option as HTMLOptionElement).selected = true;
@@ -382,15 +391,16 @@ export class FieldRenderer {
                     input = createElement('select', {
                         className: 'flex min-h-touch w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                         value: value || '',
-                        disabled: !isEnabled,
+                        disabled: selectDisabled,
                         onchange: (e: Event) => onChange?.((e.target as HTMLSelectElement).value)
                     });
-                    input.appendChild(createElement('option', { value: '', text: 'Select an option', disabled: true, selected: !value }));
-                    field.options?.forEach(opt => {
+                    input.appendChild(createElement('option', { value: '', text: placeholder, disabled: true, selected: !value }));
+                    effectiveOptions.forEach(opt => {
                         input.appendChild(createElement('option', { value: opt.value, text: opt.label, selected: value === opt.value }));
                     });
                 }
                 break;
+            }
 
             case 'checkbox':
                 // Support multiple checkbox options
@@ -569,6 +579,20 @@ export class FieldRenderer {
                 // Image field: upload, preview, remove/replace
                 input = this.renderImageField(field, value ?? field.imageUrl ?? field.defaultValue, onChange, isEnabled);
                 break;
+
+            case 'name_generator': {
+                // Readonly auto-generated field - display value (computed by FormRenderer)
+                const displayValue = value ?? generateName(field);
+                input = createElement('input', {
+                    type: 'text',
+                    className: 'flex min-h-touch w-full rounded-md border border-input bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm sm:text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+                    placeholder: field.placeholder || 'Auto-generated',
+                    value: displayValue,
+                    readonly: true,
+                    disabled: true
+                });
+                break;
+            }
 
             default: // text, number, email, date, datetime, etc.
                 const rules = getValidationRules(field);

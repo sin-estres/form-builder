@@ -18,6 +18,7 @@ export const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
     { type: 'repeater', label: 'Repeater', icon: 'Copy' },
     { type: 'file', label: 'File Upload', icon: 'Upload' },
     { type: 'image', label: 'Image', icon: 'Image' },
+    { type: 'name_generator', label: 'Name Generator', icon: 'Hash' },
 ];
 
 export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
@@ -66,6 +67,16 @@ export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
     },
     file: { label: 'File Upload', width: '100%', enabled: true, visible: true },
     image: { label: 'Image', width: '50%', enabled: true, visible: true },
+    name_generator: {
+        label: 'Name Generator',
+        placeholder: 'Auto-generated',
+        width: '100%',
+        enabled: true,
+        visible: true,
+        nameGeneratorFormat: 'TEXT_ID',
+        nameGeneratorText: '',
+        nameGeneratorIdPadding: 4
+    },
 };
 
 export interface RegexPreset {

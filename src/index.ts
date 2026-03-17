@@ -4,6 +4,7 @@ export * from './renderer/FormRenderer';
 export * from './core/useFormStore';
 export * from './utils/mapper';
 export * from './utils/formula';
+export * from './utils/nameGenerator';
 import { FormBuilder, FormBuilderOptions } from './builder/FormBuilder';
 import './index.css';
 

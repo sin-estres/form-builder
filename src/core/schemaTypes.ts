@@ -15,7 +15,31 @@ export type FieldType =
     | 'file'
     | 'image'
     | 'email'
-    | 'phone';
+    | 'phone'
+    | 'name_generator'; // Auto-generated name based on format (e.g. RFQ-0001)
+
+/** Name generator format options for name_generator field type */
+export type NameGeneratorFormat =
+    | 'TEXT_HYPHEN_ID'
+    | 'TEXT_UNDERSCORE_ID'
+    | 'TEXT_SLASH_ID'
+    | 'TEXT_ID'
+    | 'ID_HYPHEN_TEXT'
+    | 'ID_UNDERSCORE_TEXT'
+    | 'TEXT_YEAR_ID'
+    | 'TEXT_MONTH_ID'
+    | 'TEXT_YEAR_MONTH_ID'
+    | 'TEXT_ACCOUNT_CODE_ID'
+    | 'TEXT_BRANCH_ID'
+    | 'PREFIX_TEXT_ID'
+    | 'TEXT_ID_SUFFIX'
+    | 'TEXT_RANDOM_4'
+    | 'TEXT_YEAR_MONTH_DAY_ID'
+    | 'TEXT_HYPHEN_USER_INPUT'
+    | 'TEXT_UNDERSCORE_USER_INPUT'
+    | 'TEXT_SLASH_USER_INPUT'
+    | 'USER_INPUT_HYPHEN_TEXT'
+    | 'USER_INPUT_UNDERSCORE_TEXT';
 
 // FieldWidth now supports both legacy string percentages and numeric values (10-100)
 // for the new slider control. String values are kept for backward compatibility.
@@ -157,6 +181,7 @@ export interface FormField {
     lookupSource?: string; // Selected module name or master type identifier
     lookupValueField?: string; // Field name to use as value in lookup
     lookupLabelField?: string; // Field name to use as label in lookup
+    lookupParentFieldName?: string | null; // Parent field name for cascading/dependent dropdown (filter by parent value)
     // Phone field ISD configuration
     isd?: ISDConfig;
     // Image field - URL or base64 data
@@ -177,6 +202,12 @@ export interface FormField {
     repeatIncrementEnabled?: boolean; // Whether to show increment controls
     // Conditional date constraints (date / datetime fields only)
     dateConstraints?: DateConstraint;
+    // Name generator field (auto-generated value based on format)
+    nameGeneratorFormat?: NameGeneratorFormat;
+    nameGeneratorText?: string;
+    nameGeneratorPrefix?: string;
+    nameGeneratorSuffix?: string;
+    nameGeneratorIdPadding?: number;
 }
 
 /**
