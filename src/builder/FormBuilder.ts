@@ -1,6 +1,6 @@
 import { formStore } from '../core/useFormStore';
 import { createElement, getIcon } from '../utils/dom';
-import { FIELD_TYPES, REGEX_PRESETS, VALIDATION_TYPE_PRESETS, RegexPreset } from '../core/constants';
+import { FIELD_TYPES, REGEX_PRESETS, VALIDATION_TYPE_PRESETS, RegexPreset, LOOKUP_SOURCE_TYPE_OPTIONS } from '../core/constants';
 import {
     parseFormulaDependencies,
     validateFormula,
@@ -9,7 +9,7 @@ import {
 } from '../utils/formula';
 import { builderToPlatform } from '../utils/mapper';
 import { FormRenderer } from '../renderer/FormRenderer';
-import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject, FieldValidations } from '../core/schemaTypes';
+import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject, FieldValidations, LookupSourceType } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
 import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
@@ -49,13 +49,15 @@ export interface FormBuilderOptions {
         }[];
     };
     moduleList?: string[]; // List of module names for Lookup source type
+    /** Settings entity registry (sourceKey + display label) — same list the host uses for Legal Entities, Operating Units, User Groups, etc. */
+    settingsEntities?: { label: string; value: string }[];
     lookupFieldOptionsMap?: {
         [lookupSource: string]: string[]; // Map lookup source to list of field names
     };
     // Angular integration outputs
     onGroupSelectionChange?: (event: { fieldId: string; groupEnumName: string }) => void;
     onDropdownValueChange?: (event: { fieldId: string; value: string }) => void;
-    onLookupSourceChange?: (event: { fieldId: string; lookupSourceType: 'MODULE' | 'MASTER_TYPE'; lookupSource: string }) => void;
+    onLookupSourceChange?: (event: { fieldId: string; lookupSourceType: LookupSourceType; lookupSource: string }) => void;
     onProfileClick?: () => void; // Callback for profile icon click
     onSettingsClick?: () => void; // Callback for settings icon click
 }
@@ -1214,6 +1216,14 @@ export class FormBuilder {
             `visible-${selectedField.id}`
         ));
 
+        // Unique (host/backend validation)
+        body.appendChild(this.createCheckboxField(
+            'Unique',
+            selectedField.isUnique === true,
+            (checked) => formStore.getState().updateField(selectedField.id, { isUnique: checked }),
+            `unique-${selectedField.id}`
+        ));
+
         // --- Name Generator Configuration ---
         if (selectedField.type === 'name_generator') {
             const ngHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Name Generator Settings' });
@@ -1633,7 +1643,7 @@ export class FormBuilder {
                     className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                     value: selectedField.lookupSourceType || 'MODULE',
                     onchange: (e: Event) => {
-                        const lookupSourceType = (e.target as HTMLSelectElement).value as 'MODULE' | 'MASTER_TYPE';
+                        const lookupSourceType = (e.target as HTMLSelectElement).value as LookupSourceType;
                         const updates: any = { lookupSourceType };
                         // Clear lookupSource when switching source type
                         if (lookupSourceType !== selectedField.lookupSourceType) {
@@ -1643,12 +1653,18 @@ export class FormBuilder {
                         this.render();
                     }
                 });
-                lookupSourceTypeSelect.appendChild(createElement('option', { value: 'MODULE', text: 'Module', selected: (selectedField.lookupSourceType || 'MODULE') === 'MODULE' }));
-                lookupSourceTypeSelect.appendChild(createElement('option', { value: 'MASTER_TYPE', text: 'Master Type', selected: selectedField.lookupSourceType === 'MASTER_TYPE' }));
+                const currentLookupSourceType = selectedField.lookupSourceType || 'MODULE';
+                LOOKUP_SOURCE_TYPE_OPTIONS.forEach(opt => {
+                    lookupSourceTypeSelect.appendChild(createElement('option', {
+                        value: opt.value,
+                        text: opt.label,
+                        selected: currentLookupSourceType === opt.value
+                    }));
+                });
                 lookupSourceTypeGroup.appendChild(lookupSourceTypeSelect);
                 body.appendChild(lookupSourceTypeGroup);
 
-                // Lookup Source dropdown (Module or Master Type)
+                // Lookup Source / Source Key (Module, Settings entity, or Master Type)
                 if (selectedField.lookupSourceType === 'MODULE') {
                     const moduleList = this.options.moduleList || [];
                     const lookupSourceGroup = createElement('div', { className: 'mb-4' });
@@ -1683,6 +1699,42 @@ export class FormBuilder {
                             value: module, 
                             text: module, 
                             selected: selectedField.lookupSource === module 
+                        }));
+                    });
+                    lookupSourceGroup.appendChild(lookupSourceSelect);
+                    body.appendChild(lookupSourceGroup);
+                } else if (selectedField.lookupSourceType === 'SETTINGS') {
+                    const settingsEntities = this.options.settingsEntities || [];
+                    const lookupSourceGroup = createElement('div', { className: 'mb-4' });
+                    lookupSourceGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Source Key' }));
+                    const lookupSourceSelect = createElement('select', {
+                        className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                        value: selectedField.lookupSource || '',
+                        onchange: (e: Event) => {
+                            const lookupSource = (e.target as HTMLSelectElement).value;
+                            formStore.getState().updateField(selectedField.id, { lookupSource: lookupSource || undefined });
+                            if (lookupSource) {
+                                formStore.getState().updateField(selectedField.id, {
+                                    lookupValueField: undefined,
+                                    lookupLabelField: undefined
+                                });
+                            }
+                            if (this.options.onLookupSourceChange && lookupSource) {
+                                this.options.onLookupSourceChange({
+                                    fieldId: selectedField.id,
+                                    lookupSourceType: 'SETTINGS',
+                                    lookupSource
+                                });
+                            }
+                            this.render();
+                        }
+                    });
+                    lookupSourceSelect.appendChild(createElement('option', { value: '', text: 'Select Settings Entity', selected: !selectedField.lookupSource }));
+                    settingsEntities.forEach(ent => {
+                        lookupSourceSelect.appendChild(createElement('option', {
+                            value: ent.value,
+                            text: ent.label,
+                            selected: selectedField.lookupSource === ent.value
                         }));
                     });
                     lookupSourceGroup.appendChild(lookupSourceSelect);

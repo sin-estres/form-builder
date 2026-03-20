@@ -148,6 +148,9 @@ export interface AsyncOptionSource {
     valueKey: string;
 }
 
+/** Lookup (Entity Fields) — source category for optionSource LOOKUP */
+export type LookupSourceType = 'MODULE' | 'MASTER_TYPE' | 'SETTINGS';
+
 export interface FormField {
     id: string;
     type: FieldType;
@@ -169,6 +172,8 @@ export interface FormField {
     masterTypeName?: string; // The enum name of the selected master type group (for Angular integration)
     enabled?: boolean; // Whether the field is enabled/disabled
     visible?: boolean; // Whether the field is visible/hidden
+    /** When true, host/backend may enforce uniqueness for this field’s value */
+    isUnique?: boolean;
     order?: number; // Field order in section (required for drag-and-drop persistence)
     css?: { class?: string; style?: Record<string, string> }; // CSS styling from payload
     // New properties
@@ -177,8 +182,8 @@ export interface FormField {
     multiSelect?: boolean; // Multi-select for dropdown (required: true | false, not optional)
     optionSource?: 'STATIC' | 'MASTER' | 'LOOKUP'; // Option source type: STATIC = custom options, MASTER = from master types, LOOKUP = entity fields lookup
     // Lookup configuration (for LOOKUP optionSource)
-    lookupSourceType?: 'MODULE' | 'MASTER_TYPE'; // Lookup source type: MODULE = from module list, MASTER_TYPE = from master types
-    lookupSource?: string; // Selected module name or master type identifier
+    lookupSourceType?: LookupSourceType; // MODULE / MASTER_TYPE / SETTINGS (settings entity key)
+    lookupSource?: string; // Module name, master type key, or settings entity sourceKey
     lookupValueField?: string; // Field name to use as value in lookup
     lookupLabelField?: string; // Field name to use as label in lookup
     lookupParentFieldName?: string | null; // Parent field name for cascading/dependent dropdown (filter by parent value)

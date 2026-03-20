@@ -1,4 +1,5 @@
 export * from './core/schemaTypes';
+export { LOOKUP_SOURCE_TYPE_OPTIONS } from './core/constants';
 export * from './builder/FormBuilder';
 export * from './renderer/FormRenderer';
 export * from './core/useFormStore';

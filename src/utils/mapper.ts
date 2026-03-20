@@ -437,6 +437,7 @@ function transformField(field: any): FormField {
     if (field.position !== undefined) transformed.position = field.position;
     if (field.enabled !== undefined) transformed.enabled = field.enabled;
     if (field.visible !== undefined) transformed.visible = field.visible;
+    if (field.isUnique !== undefined) transformed.isUnique = field.isUnique;
     if (field.isd !== undefined) transformed.isd = field.isd; // Phone ISD config (showFlag, allowCountryChange, defaultCountry)
     if (field.imageUrl !== undefined) transformed.imageUrl = field.imageUrl; // Image field
     // Number field formula (valueSource, formula, dependencies)
@@ -706,6 +707,7 @@ function fieldToPayload(field: FormField): any {
     if (field.defaultValue !== undefined) payload.defaultValue = field.defaultValue;
     if (field.enabled !== undefined) payload.enabled = field.enabled;
     if (field.visible !== undefined) payload.visible = field.visible;
+    if (field.isUnique !== undefined) payload.isUnique = field.isUnique;
     if (field.css !== undefined) payload.css = field.css;
     if (field.optionSource !== undefined) payload.optionSource = field.optionSource;
     if (field.customOptionsEnabled !== undefined) payload.customOptionsEnabled = field.customOptionsEnabled;

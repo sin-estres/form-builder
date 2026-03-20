@@ -1,4 +1,11 @@
-import { FieldType, FormField, FieldValidations } from './schemaTypes';
+import { FieldType, FormField, FieldValidations, LookupSourceType } from './schemaTypes';
+
+/** Labels for Lookup Source Type (Entity Fields) — values are the API `sourceType` strings */
+export const LOOKUP_SOURCE_TYPE_OPTIONS: { value: LookupSourceType; label: string }[] = [
+    { value: 'MODULE', label: 'Module' },
+    { value: 'MASTER_TYPE', label: 'Master Type' },
+    { value: 'SETTINGS', label: 'Settings Entity' },
+];
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
