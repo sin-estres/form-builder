@@ -14,6 +14,7 @@ describe('formStore', () => {
             history: [initialState],
             historyIndex: 0,
             selectedFieldId: null,
+            selectedSectionId: null,
             isPreviewMode: false
         });
     });

@@ -237,6 +237,15 @@ export interface ISDConfig {
     allowCustomCode: boolean;   // Allow manual ISD code entry (future feature)
 }
 
+/** Group / section position on the form canvas (payload: groups[].position) */
+export interface GroupPosition {
+    row: number;
+    column: number;
+    /** Grid span 1–12 (group width on parent grid) */
+    width: number;
+    order: number;
+}
+
 export interface FormSection {
     id: string;
     title: string;
@@ -246,6 +255,20 @@ export interface FormSection {
     order?: number; // Section order (required for drag-and-drop persistence)
     layout?: { type?: string; columns?: number; gap?: string }; // Section layout from payload (required)
     css?: { class?: string; style?: Record<string, string> }; // CSS styling from payload
+    /** API group name (payload groups[].name); mirrors title when set */
+    name?: string;
+    description?: string | null;
+    position?: GroupPosition;
+    /** Payload expanded (preferred); isExpanded kept for legacy */
+    expanded?: boolean;
+    visible?: boolean;
+    collapsible?: boolean;
+    parentGroupId?: string | null;
+    repeatable?: boolean;
+    dataKey?: string | null;
+    addButtonLabel?: string | null;
+    minInstances?: number | null;
+    maxInstances?: number | null;
 }
 
 export interface FormSchema {

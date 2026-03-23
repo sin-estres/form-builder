@@ -289,7 +289,17 @@ export class FormBuilder {
             const schemaHash = JSON.stringify({
                 sections: state.schema.sections.map((s) => ({
                     id: s.id,
-                    // Exclude title - prevents re-renders on section name typing
+                    title: s.title,
+                    description: s.description,
+                    visible: s.visible,
+                    position: s.position,
+                    expanded: s.expanded,
+                    collapsible: s.collapsible,
+                    parentGroupId: s.parentGroupId,
+                    repeatable: s.repeatable,
+                    minInstances: s.minInstances,
+                    maxInstances: s.maxInstances,
+                    css: s.css,
                     fields: s.fields.map((f) => ({
                         id: f.id,
                         type: f.type,
@@ -300,6 +310,7 @@ export class FormBuilder {
                     }))
                 })),
                 selectedField: state.selectedFieldId,
+                selectedSection: state.selectedSectionId,
                 isPreviewMode: state.isPreviewMode
             });
 
@@ -853,7 +864,7 @@ export class FormBuilder {
         inner.appendChild(formNameInput);
 
         // SectionList
-        const sectionList = new SectionList(state.schema, state.selectedFieldId);
+        const sectionList = new SectionList(state.schema, state.selectedFieldId, state.selectedSectionId);
         inner.appendChild(sectionList.getElement());
 
         // Add Section Button
@@ -904,14 +915,522 @@ export class FormBuilder {
         return container;
     }
 
+    /**
+     * Shared 1–12 grid span control (Field Settings + Group Settings).
+     */
+    private createGridSpanSelector(options: {
+        currentSpan: number;
+        badgeElementId: string;
+        onSelect: (span: number) => void;
+    }): HTMLElement {
+        const layoutGroup = createElement('div', { className: 'layout-span-group' });
+        const layoutLabelRow = createElement('div', { className: 'flex items-center justify-between mb-2' });
+        layoutLabelRow.appendChild(createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300', text: 'Grid Span' }));
+        const spanValueDisplay = createElement('span', {
+            className: 'span-value-badge px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded-full',
+            text: `${options.currentSpan}/12`,
+            id: options.badgeElementId
+        });
+        layoutLabelRow.appendChild(spanValueDisplay);
+        layoutGroup.appendChild(layoutLabelRow);
+
+        const spanButtonsContainer = createElement('div', { className: 'grid grid-cols-6 gap-2 mt-2' });
+        for (let span = 1; span <= 12; span++) {
+            const isActive = options.currentSpan === span;
+            const spanBtn = createElement('button', {
+                type: 'button',
+                className: `span-preset-btn px-2 py-1.5 text-xs rounded transition-colors cursor-pointer ${isActive ? 'bg-[#e7e7ff] text-[#635bff] font-semibold' : 'bg-white border-2 border-[#e7e7ff] dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
+                text: `${span}`,
+                title: `${span} column${span > 1 ? 's' : ''} (${Math.round((span / 12) * 100)}%)`
+            });
+            spanBtn.addEventListener('click', (e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                options.onSelect(span);
+            });
+            spanButtonsContainer.appendChild(spanBtn);
+        }
+        layoutGroup.appendChild(spanButtonsContainer);
+        return layoutGroup;
+    }
+
+    /**
+     * Shared Styling block (Padding, Background, Alignment, CSS class, Advanced CSS) — same as Field Settings.
+     */
+    private appendSharedStylingSection(
+        body: HTMLElement,
+        target: { kind: 'field'; fieldId: string } | { kind: 'section'; sectionId: string },
+        focusState: { id: string; selectionStart: number | null; selectionEnd: number | null; value?: string } | null
+    ): void {
+        const cssHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Styling' });
+        body.appendChild(cssHeader);
+
+        const getEntity = () => {
+            const st = formStore.getState();
+            if (target.kind === 'field') {
+                return st.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === target.fieldId);
+            }
+            return st.schema.sections.find((s: any) => s.id === target.sectionId);
+        };
+
+        const getStyleValue = (prop: string): string => {
+            const ent = getEntity();
+            return ent?.css?.style?.[prop] || '';
+        };
+
+        const updateStyleProp = (prop: string, value: string) => {
+            const ent = getEntity();
+            if (!ent) return;
+            const currentStyle = ent.css?.style || {};
+            const newStyle = { ...currentStyle };
+            if (value) {
+                newStyle[prop] = value;
+            } else {
+                delete newStyle[prop];
+            }
+            const updatePayload = {
+                css: {
+                    style: Object.keys(newStyle).length > 0 ? newStyle : undefined
+                }
+            };
+            if (target.kind === 'field') {
+                formStore.getState().updateField(target.fieldId, updatePayload);
+            } else {
+                formStore.getState().updateSection(target.sectionId, updatePayload);
+            }
+        };
+
+        const entityId = target.kind === 'field' ? target.fieldId : target.sectionId;
+
+        const paddingGroup = createElement('div', { className: 'mb-3' });
+        paddingGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Padding' }));
+        const paddingSelect = createElement('select', {
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-sm',
+            onchange: (e: Event) => {
+                updateStyleProp('padding', (e.target as HTMLSelectElement).value);
+            }
+        });
+        const paddingOptions = [
+            { value: '', label: 'None' },
+            { value: '4px', label: '4px - Tight' },
+            { value: '8px', label: '8px - Normal' },
+            { value: '12px', label: '12px - Comfortable' },
+            { value: '16px', label: '16px - Spacious' },
+            { value: '24px', label: '24px - Large' }
+        ];
+        paddingOptions.forEach(opt => {
+            paddingSelect.appendChild(createElement('option', { value: opt.value, text: opt.label, selected: getStyleValue('padding') === opt.value }));
+        });
+        paddingGroup.appendChild(paddingSelect);
+        body.appendChild(paddingGroup);
+
+        const bgColorGroup = createElement('div', { className: 'mb-3' });
+        bgColorGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Background Color' }));
+        const bgColorRow = createElement('div', { className: 'flex items-center gap-2' });
+        const bgColorInput = createElement('input', {
+            type: 'color',
+            className: 'w-10 h-10 rounded border border-gray-300 cursor-pointer',
+            value: getStyleValue('backgroundColor') || '#ffffff',
+            onchange: (e: Event) => {
+                const color = (e.target as HTMLInputElement).value;
+                updateStyleProp('backgroundColor', color === '#ffffff' ? '' : color);
+            }
+        });
+        const bgColorClear = createElement('button', {
+            type: 'button',
+            className: 'px-2 py-1 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded',
+            text: 'Clear',
+            onclick: () => {
+                (bgColorInput as HTMLInputElement).value = '#ffffff';
+                updateStyleProp('backgroundColor', '');
+            }
+        });
+        bgColorRow.appendChild(bgColorInput);
+        bgColorRow.appendChild(bgColorClear);
+        bgColorGroup.appendChild(bgColorRow);
+        body.appendChild(bgColorGroup);
+
+        const alignGroup = createElement('div', { className: 'mb-3' });
+        alignGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Text Alignment' }));
+        const alignButtonsRow = createElement('div', { className: 'flex gap-1' });
+        const alignments = [
+            { value: 'left', icon: 'AlignLeft' },
+            { value: 'center', icon: 'AlignCenter' },
+            { value: 'right', icon: 'AlignRight' }
+        ];
+        const currentAlign = getStyleValue('textAlign') || 'left';
+        alignments.forEach(align => {
+            const isActive = currentAlign === align.value;
+            const btn = createElement('button', {
+                type: 'button',
+                className: `p-2 rounded border ${isActive ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`,
+                title: `Align ${align.value}`,
+                onclick: () => {
+                    const newValue = align.value === 'left' ? '' : align.value;
+                    updateStyleProp('textAlign', newValue);
+                }
+            }, [getIcon(align.icon, 16)]);
+            alignButtonsRow.appendChild(btn);
+        });
+        alignGroup.appendChild(alignButtonsRow);
+        body.appendChild(alignGroup);
+
+        const cssClassGroup = createElement('div', { className: 'mb-3' });
+        cssClassGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Custom CSS Class' }));
+        cssClassGroup.appendChild(createElement('input', {
+            type: 'text',
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm',
+            value: getEntity()?.css?.class || '',
+            placeholder: 'e.g. my-custom-class',
+            'data-focus-id': `${target.kind}-css-class-${entityId}`,
+            oninput: (e: Event) => {
+                const cssClass = (e.target as HTMLInputElement).value;
+                const ent = getEntity();
+                if (!ent) return;
+                if (target.kind === 'field') {
+                    formStore.getState().updateField(target.fieldId, {
+                        css: { class: cssClass || undefined }
+                    });
+                } else {
+                    formStore.getState().updateSection(target.sectionId, {
+                        css: { class: cssClass || undefined }
+                    });
+                }
+            }
+        }));
+        body.appendChild(cssClassGroup);
+
+        const isPanelExpanded = advancedCssPanelState.get(entityId) || false;
+        const advancedToggleGroup = createElement('div', { className: 'mb-3' });
+        const advancedToggle = createElement('button', {
+            type: 'button',
+            className: 'text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1',
+            onclick: () => {
+                const advancedPanel = document.getElementById(`advanced-css-${entityId}`);
+                if (advancedPanel) {
+                    advancedPanel.classList.toggle('hidden');
+                    const isHidden = advancedPanel.classList.contains('hidden');
+                    advancedToggle.textContent = isHidden ? '▶ Show Advanced CSS' : '▼ Hide Advanced CSS';
+                    advancedCssPanelState.set(entityId, !isHidden);
+                }
+            }
+        });
+        advancedToggle.textContent = isPanelExpanded ? '▼ Hide Advanced CSS' : '▶ Show Advanced CSS';
+        advancedToggleGroup.appendChild(advancedToggle);
+        body.appendChild(advancedToggleGroup);
+
+        const advancedPanel = createElement('div', {
+            className: isPanelExpanded ? 'mb-3' : 'mb-3 hidden',
+            id: `advanced-css-${entityId}`
+        });
+        advancedPanel.appendChild(createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Raw CSS Style (JSON)' }));
+
+        const cssStyleId = `${target.kind}-css-style-${entityId}`;
+        const freshEnt = getEntity();
+        let initialCssStyleValue = freshEnt?.css?.style ? JSON.stringify(freshEnt.css.style, null, 2) : '';
+        const preservedValue = focusState?.id === cssStyleId ? focusState.value : undefined;
+        if (preservedValue !== undefined) {
+            initialCssStyleValue = preservedValue;
+        }
+
+        const cssStyleTextarea = createElement('textarea', {
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-xs font-mono',
+            rows: 3,
+            placeholder: '{"padding": "8px", "backgroundColor": "#f0f0f0"}',
+            'data-focus-id': cssStyleId,
+            'data-was-focused': 'false',
+            onfocus: (e: Event) => {
+                const textarea = e.target as HTMLTextAreaElement;
+                textarea.setAttribute('data-was-focused', 'true');
+                const ent = getEntity();
+                if (!textarea.value.trim() && ent?.css?.style && Object.keys(ent.css.style).length > 0) {
+                    textarea.value = JSON.stringify(ent.css.style, null, 2);
+                }
+            },
+            oninput: (e: Event) => {
+                const styleText = (e.target as HTMLTextAreaElement).value;
+                const ent = getEntity();
+                if (!ent) return;
+                try {
+                    if (styleText.trim()) {
+                        const styleObj = JSON.parse(styleText);
+                        if (target.kind === 'field') {
+                            formStore.getState().updateField(target.fieldId, {
+                                css: { ...ent.css, style: styleObj }
+                            });
+                        } else {
+                            formStore.getState().updateSection(target.sectionId, {
+                                css: { ...ent.css, style: styleObj }
+                            });
+                        }
+                    }
+                } catch {
+                    /* invalid JSON while typing */
+                }
+            },
+            onblur: (e: Event) => {
+                const textarea = e.target as HTMLTextAreaElement;
+                const styleText = textarea.value;
+                const wasFocused = textarea.getAttribute('data-was-focused') === 'true';
+                if (!wasFocused) return;
+                textarea.setAttribute('data-was-focused', 'false');
+                setTimeout(() => {
+                    if (!document.body.contains(textarea)) return;
+                    const advPanel = document.getElementById(`advanced-css-${entityId}`);
+                    const isPanelVisible = advPanel && !advPanel.classList.contains('hidden');
+                    if (!isPanelVisible) return;
+                    const ent = getEntity();
+                    if (!ent) return;
+                    try {
+                        if (styleText.trim()) {
+                            const styleObj = JSON.parse(styleText);
+                            if (target.kind === 'field') {
+                                formStore.getState().updateField(target.fieldId, {
+                                    css: { ...ent.css, style: styleObj }
+                                });
+                            } else {
+                                formStore.getState().updateSection(target.sectionId, {
+                                    css: { ...ent.css, style: styleObj }
+                                });
+                            }
+                        } else if (ent.css?.style && Object.keys(ent.css.style).length > 0) {
+                            textarea.value = JSON.stringify(ent.css.style, null, 2);
+                        } else {
+                            if (target.kind === 'field') {
+                                formStore.getState().updateField(target.fieldId, {
+                                    css: { ...ent.css, style: undefined }
+                                });
+                            } else {
+                                formStore.getState().updateSection(target.sectionId, {
+                                    css: { ...ent.css, style: undefined }
+                                });
+                            }
+                        }
+                    } catch {
+                        if (ent.css?.style) {
+                            textarea.value = JSON.stringify(ent.css.style, null, 2);
+                        }
+                    }
+                }, 0);
+            }
+        });
+        cssStyleTextarea.value = initialCssStyleValue;
+        advancedPanel.appendChild(cssStyleTextarea);
+        body.appendChild(advancedPanel);
+    }
+
+    private renderGroupSettingsPanel(
+        section: FormSection,
+        allSections: FormSection[],
+        focusState: { id: string; selectionStart: number | null; selectionEnd: number | null; value?: string } | null
+    ): HTMLElement {
+        const panel = createElement('div', { className: ' dark:bg-gray-900 flex flex-col h-full overflow-y-auto' });
+
+        const header = createElement('div', { className: 'flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800' });
+        header.appendChild(createElement('h2', { className: 'font-semibold text-gray-900 dark:text-white', text: 'Group Settings' }));
+        header.appendChild(createElement('button', {
+            className: 'text-gray-500 hover:text-gray-700',
+            onclick: () => formStore.getState().selectSection(null)
+        }, [getIcon('X', 20)]));
+        panel.appendChild(header);
+
+        const body = createElement('div', { className: 'flex-1 overflow-y-auto p-4 px-2 space-y-3', id: 'config-panel-body' });
+        const sectionId = section.id;
+
+        const sectionHeading = (text: string) =>
+            createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-2', text });
+
+        // BASIC
+        body.appendChild(sectionHeading('Basic'));
+        const labelGroup = createElement('div');
+        labelGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Group Label' }));
+        labelGroup.appendChild(createElement('input', {
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+            value: section.name ?? section.title,
+            'data-focus-id': `group-label-${sectionId}`,
+            oninput: (e: Event) => {
+                const v = (e.target as HTMLInputElement).value;
+                const existing = labelUpdateTimeouts.get(`group-${sectionId}`);
+                if (existing) clearTimeout(existing);
+                const timeoutId = setTimeout(() => {
+                    labelUpdateTimeouts.delete(`group-${sectionId}`);
+                    formStore.getState().updateSection(sectionId, { title: v, name: v });
+                }, LABEL_DEBOUNCE_MS);
+                labelUpdateTimeouts.set(`group-${sectionId}`, timeoutId);
+            }
+        }));
+        body.appendChild(labelGroup);
+
+        const descGroup = createElement('div');
+        descGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Description' }));
+        descGroup.appendChild(createElement('input', {
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+            value: section.description ?? '',
+            placeholder: 'Optional',
+            'data-focus-id': `group-desc-${sectionId}`,
+            oninput: (e: Event) => {
+                const v = (e.target as HTMLInputElement).value;
+                formStore.getState().updateSection(sectionId, { description: v || null });
+            }
+        }));
+        body.appendChild(descGroup);
+
+        // LAYOUT
+        body.appendChild(sectionHeading('Layout'));
+        const order = section.order ?? 0;
+        const pos = section.position ?? { row: order, column: 0, width: 12, order };
+        const currentWidth = Math.max(1, Math.min(12, pos.width ?? 12));
+        body.appendChild(
+            this.createGridSpanSelector({
+                currentSpan: currentWidth,
+                badgeElementId: `group-span-badge-${sectionId}`,
+                onSelect: (span) => {
+                    const st = formStore.getState().schema.sections.find((s) => s.id === sectionId);
+                    if (!st) return;
+                    const p = st.position ?? { row: order, column: 0, width: 12, order: st.order ?? order };
+                    formStore.getState().updateSection(sectionId, {
+                        position: { ...p, width: span, order: p.order ?? st.order ?? order }
+                    });
+                }
+            })
+        );
+
+        // FIELDS IN GROUP
+        body.appendChild(sectionHeading('Fields in group'));
+        const fieldRows = createElement('div', { className: 'rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-2 space-y-1 text-sm text-gray-700 dark:text-gray-300' });
+        if (section.fields.length === 0) {
+            fieldRows.appendChild(createElement('div', { className: 'text-gray-400 italic text-xs py-1', text: 'No fields added yet' }));
+        } else {
+            section.fields.forEach((f) => {
+                const display = (f as { displayName?: string }).displayName || f.label || f.id;
+                fieldRows.appendChild(createElement('div', { className: 'truncate', text: display }));
+            });
+        }
+        body.appendChild(fieldRows);
+
+        // DISPLAY OPTIONS
+        body.appendChild(sectionHeading('Display options'));
+        body.appendChild(
+            this.createCheckboxField(
+                'Visible',
+                section.visible !== false,
+                (checked) => formStore.getState().updateSection(sectionId, { visible: checked }),
+                `group-visible-${sectionId}`
+            )
+        );
+        body.appendChild(
+            this.createCheckboxField(
+                'Show side/down arrow to expand/collapse',
+                section.collapsible !== false,
+                (checked) => formStore.getState().updateSection(sectionId, { collapsible: checked }),
+                `group-collapsible-${sectionId}`
+            )
+        );
+
+        // PARENT GROUP
+        body.appendChild(sectionHeading('Parent group'));
+        const parentGroup = createElement('div', { className: 'mb-2' });
+        parentGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Parent Group' }));
+        const parentSelect = createElement('select', {
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+            value: section.parentGroupId || '',
+            onchange: (e: Event) => {
+                const v = (e.target as HTMLSelectElement).value;
+                const selfId = sectionId;
+                if (!v || v === selfId) {
+                    formStore.getState().updateSection(selfId, { parentGroupId: null });
+                } else {
+                    formStore.getState().updateSection(selfId, { parentGroupId: v });
+                }
+            }
+        });
+        parentSelect.appendChild(createElement('option', { value: '', text: 'None', selected: !section.parentGroupId }));
+        allSections.forEach((g) => {
+            const label = g.name ?? g.title;
+            parentSelect.appendChild(
+                createElement('option', {
+                    value: g.id,
+                    text: label,
+                    selected: section.parentGroupId === g.id
+                })
+            );
+        });
+        parentGroup.appendChild(parentSelect);
+        body.appendChild(parentGroup);
+
+        // REPEATABLE GROUP
+        body.appendChild(sectionHeading('Repeatable group'));
+        body.appendChild(
+            this.createCheckboxField(
+                'Allow multiple instances',
+                section.repeatable === true,
+                (checked) => formStore.getState().updateSection(sectionId, { repeatable: checked }),
+                `group-repeatable-${sectionId}`
+            )
+        );
+        if (section.repeatable === true) {
+            const minG = createElement('div', { className: 'mb-2' });
+            minG.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Min Instances' }));
+            minG.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: section.minInstances != null ? String(section.minInstances) : '',
+                placeholder: 'e.g. 1',
+                'data-focus-id': `group-min-inst-${sectionId}`,
+                oninput: (e: Event) => {
+                    const raw = (e.target as HTMLInputElement).value;
+                    if (raw === '') {
+                        formStore.getState().updateSection(sectionId, { minInstances: null });
+                        return;
+                    }
+                    const n = parseInt(raw, 10);
+                    formStore.getState().updateSection(sectionId, { minInstances: isNaN(n) ? null : n });
+                }
+            }));
+            body.appendChild(minG);
+
+            const maxG = createElement('div', { className: 'mb-2' });
+            maxG.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Max Instances' }));
+            maxG.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: section.maxInstances != null ? String(section.maxInstances) : '',
+                placeholder: 'Unlimited',
+                'data-focus-id': `group-max-inst-${sectionId}`,
+                oninput: (e: Event) => {
+                    const raw = (e.target as HTMLInputElement).value;
+                    if (raw === '') {
+                        formStore.getState().updateSection(sectionId, { maxInstances: null });
+                        return;
+                    }
+                    const n = parseInt(raw, 10);
+                    formStore.getState().updateSection(sectionId, { maxInstances: isNaN(n) ? null : n });
+                }
+            }));
+            body.appendChild(maxG);
+        }
+
+        this.appendSharedStylingSection(body, { kind: 'section', sectionId }, focusState);
+
+        panel.appendChild(body);
+        return panel;
+    }
+
     private renderConfigPanel(state: any, focusState: { id: string; selectionStart: number | null; selectionEnd: number | null; value?: string } | null = null): HTMLElement {
         const panel = createElement('div', { className: ' dark:bg-gray-900 flex flex-col h-full overflow-y-auto' });
+
+        if (state.selectedSectionId) {
+            const selectedSection = state.schema.sections.find((s: FormSection) => s.id === state.selectedSectionId);
+            if (selectedSection) {
+                return this.renderGroupSettingsPanel(selectedSection, state.schema.sections, focusState);
+            }
+        }
 
         // Get the latest field from state to ensure we have the most up-to-date data
         const selectedField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === state.selectedFieldId);
 
         if (!selectedField) {
-            panel.appendChild(createElement('div', { className: 'p-4 text-center text-gray-500', text: 'Select a field to configure' }));
+            panel.appendChild(createElement('div', { className: 'p-4 text-center text-gray-500', text: 'Select a field or section to configure' }));
             return panel;
         }
 
@@ -1131,60 +1650,28 @@ export class FormBuilder {
             body.appendChild(imageGroup);
         }
 
-        // Grid Span Selector (replaces width slider)
-        const layoutGroup = createElement('div', { className: 'layout-span-group' });
-
-        // Label with current value display
-        const layoutLabelRow = createElement('div', { className: 'flex items-center justify-between mb-2' });
-        layoutLabelRow.appendChild(createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300', text: 'Grid Span' }));
-
-        // Get current span from layout, fallback to width conversion
+        // Grid Span Selector (shared component with Group Settings)
         const currentSpan = selectedField.layout?.span !== undefined
             ? selectedField.layout.span
             : Math.max(1, Math.min(12, Math.round((parseWidth(selectedField.width || '100%') / 100) * 12)));
-
-        // Value display badge
-        const spanValueDisplay = createElement('span', {
-            className: 'span-value-badge px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded-full',
-            text: `${currentSpan}/12`,
-            id: `span-value-${selectedField.id}`
-            // const widthValueDisplay = createElement('span', {
-            //     className: 'width-value-badge px-2 py-0.5 text-xs font-semibold bg-[#019FA2] text-white dark:bg-blue-900 dark:text-blue-200 rounded-full',
-            //     text: `${currentWidth}%`,
-            //     id: `width-value-${selectedField.id}`
-        });
-        layoutLabelRow.appendChild(spanValueDisplay);
-        layoutGroup.appendChild(layoutLabelRow);
-
-        // Grid span selector buttons (1-12 columns)
-        const spanButtonsContainer = createElement('div', { className: 'grid grid-cols-6 gap-2 mt-2' });
         const fieldId = selectedField.id;
-        for (let span = 1; span <= 12; span++) {
-            const isActive = currentSpan === span;
-            const spanBtn = createElement('button', {
-                type: 'button',
-                className: `span-preset-btn px-2 py-1.5 text-xs rounded transition-colors cursor-pointer ${isActive ? 'bg-[#e7e7ff] text-[#635bff] font-semibold' : 'bg-white border-2 border-[#e7e7ff] dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`,
-                text: `${span}`,
-                title: `${span} column${span > 1 ? 's' : ''} (${Math.round((span / 12) * 100)}%)`
-            });
-            spanBtn.addEventListener('click', (e: Event) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const state = formStore.getState();
-                const field = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === fieldId);
-                if (field) {
-                    const layout = field.layout || { row: 0, column: 0 };
-                    state.updateField(fieldId, {
-                        layout: { ...layout, span },
-                        width: Math.round((span / 12) * 100) as FieldWidth
-                    });
+        body.appendChild(
+            this.createGridSpanSelector({
+                currentSpan,
+                badgeElementId: `span-value-${fieldId}`,
+                onSelect: (span) => {
+                    const st = formStore.getState();
+                    const field = st.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === fieldId);
+                    if (field) {
+                        const layout = field.layout || { row: 0, column: 0 };
+                        st.updateField(fieldId, {
+                            layout: { ...layout, span },
+                            width: Math.round((span / 12) * 100) as FieldWidth
+                        });
+                    }
                 }
-            });
-            spanButtonsContainer.appendChild(spanBtn);
-        }
-        layoutGroup.appendChild(spanButtonsContainer);
-
-        body.appendChild(layoutGroup);
+            })
+        );
 
         // Required (sync with validations.required)
         body.appendChild(this.createCheckboxField(
@@ -2713,302 +3200,7 @@ export class FormBuilder {
             }
         }
 
-        // --- CSS Styling (Field Level) ---
-        const cssHeader = createElement('h3', { className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6', text: 'Styling' });
-        body.appendChild(cssHeader);
-
-        // Helper to get current style value
-        const getStyleValue = (prop: string): string => selectedField.css?.style?.[prop] || '';
-
-        // Helper to update a single style property - gets fresh state from store each time
-        const updateStyleProp = (prop: string, value: string) => {
-            // Get fresh field state from store to prevent stale closure issues
-            const state = formStore.getState();
-            const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
-            if (!freshField) {
-                return;
-            }
-
-            const currentStyle = freshField.css?.style || {};
-            const newStyle = { ...currentStyle };
-            if (value) {
-                newStyle[prop] = value;
-            } else {
-                delete newStyle[prop];
-            }
-
-            // IMPORTANT: Only pass 'style' in the update, NOT the entire CSS object
-            // This allows updateField to preserve the existing CSS class automatically
-            // and prevents double-merging of styles
-            const updatePayload = {
-                css: {
-                    style: Object.keys(newStyle).length > 0 ? newStyle : undefined
-                    // Do NOT spread freshField.css here - let updateField preserve class
-                }
-            };
-
-            state.updateField(selectedField.id, updatePayload);
-        };
-
-        // Padding dropdown
-        const paddingGroup = createElement('div', { className: 'mb-3' });
-        paddingGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Padding' }));
-        const paddingSelect = createElement('select', {
-            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-sm',
-            onchange: (e: Event) => {
-                updateStyleProp('padding', (e.target as HTMLSelectElement).value);
-            }
-        });
-        const paddingOptions = [
-            { value: '', label: 'None' },
-            { value: '4px', label: '4px - Tight' },
-            { value: '8px', label: '8px - Normal' },
-            { value: '12px', label: '12px - Comfortable' },
-            { value: '16px', label: '16px - Spacious' },
-            { value: '24px', label: '24px - Large' }
-        ];
-        paddingOptions.forEach(opt => {
-            paddingSelect.appendChild(createElement('option', { value: opt.value, text: opt.label, selected: getStyleValue('padding') === opt.value }));
-        });
-        paddingGroup.appendChild(paddingSelect);
-        body.appendChild(paddingGroup);
-
-        // Background Color picker
-        const bgColorGroup = createElement('div', { className: 'mb-3' });
-        bgColorGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Background Color' }));
-        const bgColorRow = createElement('div', { className: 'flex items-center gap-2' });
-        const bgColorInput = createElement('input', {
-            type: 'color',
-            className: 'w-10 h-10 rounded border border-gray-300 cursor-pointer',
-            value: getStyleValue('backgroundColor') || '#ffffff',
-            onchange: (e: Event) => {
-                const color = (e.target as HTMLInputElement).value;
-                updateStyleProp('backgroundColor', color === '#ffffff' ? '' : color);
-            }
-        });
-        const bgColorClear = createElement('button', {
-            type: 'button',
-            className: 'px-2 py-1 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded',
-            text: 'Clear',
-            onclick: () => {
-                (bgColorInput as HTMLInputElement).value = '#ffffff';
-                updateStyleProp('backgroundColor', '');
-            }
-        });
-        bgColorRow.appendChild(bgColorInput);
-        bgColorRow.appendChild(bgColorClear);
-        bgColorGroup.appendChild(bgColorRow);
-        body.appendChild(bgColorGroup);
-
-        // Text Alignment buttons
-        const alignGroup = createElement('div', { className: 'mb-3' });
-        alignGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Text Alignment' }));
-        const alignButtonsRow = createElement('div', { className: 'flex gap-1' });
-        const alignments = [
-            { value: 'left', icon: 'AlignLeft' },
-            { value: 'center', icon: 'AlignCenter' },
-            { value: 'right', icon: 'AlignRight' }
-        ];
-        const currentAlign = getStyleValue('textAlign') || 'left';
-        alignments.forEach(align => {
-            const isActive = currentAlign === align.value;
-            const btn = createElement('button', {
-                type: 'button',
-                className: `p-2 rounded border ${isActive ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`,
-                title: `Align ${align.value}`,
-                onclick: () => {
-                    const newValue = align.value === 'left' ? '' : align.value;
-                    updateStyleProp('textAlign', newValue);
-                }
-            }, [getIcon(align.icon, 16)]);
-            alignButtonsRow.appendChild(btn);
-        });
-        alignGroup.appendChild(alignButtonsRow);
-        body.appendChild(alignGroup);
-
-        // CSS Class input (simplified)
-        const cssClassGroup = createElement('div', { className: 'mb-3' });
-        cssClassGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Custom CSS Class' }));
-        cssClassGroup.appendChild(createElement('input', {
-            type: 'text',
-            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-sm',
-            value: selectedField.css?.class || '',
-            placeholder: 'e.g. my-custom-class',
-            'data-focus-id': `field-css-class-${selectedField.id}`,
-            oninput: (e: Event) => {
-                const cssClass = (e.target as HTMLInputElement).value;
-                // Get fresh state to prevent stale closure
-                const state = formStore.getState();
-                const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
-                if (!freshField) return;
-
-                // IMPORTANT: Only pass 'class' in the update, NOT 'style'
-                // This allows updateField to preserve the existing style automatically
-                state.updateField(selectedField.id, {
-                    css: {
-                        class: cssClass || undefined
-                        // Do NOT spread freshField.css here - let updateField preserve style
-                    }
-                });
-            }
-        }));
-        body.appendChild(cssClassGroup);
-
-        // Advanced Mode toggle for raw CSS editing
-        // Check if panel was previously expanded for this field
-        const isPanelExpanded = advancedCssPanelState.get(selectedField.id) || false;
-
-        const advancedToggleGroup = createElement('div', { className: 'mb-3' });
-        const advancedToggle = createElement('button', {
-            type: 'button',
-            className: 'text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1',
-            onclick: () => {
-                const advancedPanel = document.getElementById(`advanced-css-${selectedField.id}`);
-                if (advancedPanel) {
-                    advancedPanel.classList.toggle('hidden');
-                    const isHidden = advancedPanel.classList.contains('hidden');
-                    advancedToggle.textContent = isHidden ? '▶ Show Advanced CSS' : '▼ Hide Advanced CSS';
-                    // Save state to preserve across re-renders
-                    advancedCssPanelState.set(selectedField.id, !isHidden);
-                }
-            }
-        });
-        // Set initial text based on preserved state
-        advancedToggle.textContent = isPanelExpanded ? '▼ Hide Advanced CSS' : '▶ Show Advanced CSS';
-        advancedToggleGroup.appendChild(advancedToggle);
-        body.appendChild(advancedToggleGroup);
-
-        // Advanced CSS panel (use preserved state for visibility)
-        const advancedPanel = createElement('div', {
-            className: isPanelExpanded ? 'mb-3' : 'mb-3 hidden',
-            id: `advanced-css-${selectedField.id}`
-        });
-        advancedPanel.appendChild(createElement('label', { className: 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1', text: 'Raw CSS Style (JSON)' }));
-
-        const cssStyleId = `field-css-style-${selectedField.id}`;
-
-        // Always get the freshest field data from store to ensure we have the latest CSS style
-        const freshState = formStore.getState();
-        const freshFieldForInit = freshState.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
-
-        // Use fresh field data if available, otherwise fall back to selectedField
-        const fieldForCssStyle = freshFieldForInit || selectedField;
-        let initialCssStyleValue = fieldForCssStyle.css?.style ? JSON.stringify(fieldForCssStyle.css.style, null, 2) : '';
-        const preservedValue = focusState?.id === cssStyleId ? focusState.value : undefined;
-        if (preservedValue !== undefined) {
-            initialCssStyleValue = preservedValue;
-        }
-
-
-        const cssStyleTextarea = createElement('textarea', {
-            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent text-xs font-mono',
-            rows: 3,
-            placeholder: '{"padding": "8px", "backgroundColor": "#f0f0f0"}',
-            'data-focus-id': cssStyleId,
-            'data-was-focused': 'false',
-            onfocus: (e: Event) => {
-                const textarea = e.target as HTMLTextAreaElement;
-
-                // Mark that this textarea has received genuine user focus
-                textarea.setAttribute('data-was-focused', 'true');
-
-                // DEBUG: Log when CSS style textarea gets focus
-                const state = formStore.getState();
-                const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
-
-                // Safety check: If textarea is empty but store has CSS style, restore it
-                if (!textarea.value.trim() && freshField?.css?.style && Object.keys(freshField.css.style).length > 0) {
-                    const styleString = JSON.stringify(freshField.css.style, null, 2);
-                    textarea.value = styleString;
-                }
-            },
-            oninput: (e: Event) => {
-                const styleText = (e.target as HTMLTextAreaElement).value;
-                // Save on input to prevent data loss during re-renders
-                const state = formStore.getState();
-                const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
-                if (!freshField) return;
-
-                try {
-                    if (styleText.trim()) {
-                        const styleObj = JSON.parse(styleText);
-                        state.updateField(selectedField.id, {
-                            css: { ...freshField.css, style: styleObj }
-                        });
-                    }
-                    // Don't clear on empty during oninput - only clear intentionally on blur when panel is visible
-                } catch (err) {
-                    // Invalid JSON during typing - ignore, will validate on blur
-                }
-            },
-            onblur: (e: Event) => {
-                const textarea = e.target as HTMLTextAreaElement;
-                const styleText = textarea.value;
-
-                // Only process blur if this textarea was genuinely focused by the user
-                // This prevents spurious blur events from re-renders
-                const wasFocused = textarea.getAttribute('data-was-focused') === 'true';
-                if (!wasFocused) {
-                    return;
-                }
-
-                // Reset the focus flag
-                textarea.setAttribute('data-was-focused', 'false');
-
-                // Defer blur processing to allow click events on fields to fire first
-                // This prevents the double-click issue when clicking on fields after using the textarea
-                setTimeout(() => {
-                    // Check if this textarea is still in the DOM
-                    if (!document.body.contains(textarea)) {
-                        return;
-                    }
-
-                    // Check if the advanced panel is visible
-                    const advPanel = document.getElementById(`advanced-css-${selectedField.id}`);
-                    const isPanelVisible = advPanel && !advPanel.classList.contains('hidden');
-                    if (!isPanelVisible) {
-                        return;
-                    }
-
-                    // Get fresh state to prevent stale closure
-                    const state = formStore.getState();
-                    const freshField = state.schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id);
-                    if (!freshField) return;
-
-                    try {
-                        if (styleText.trim()) {
-                            const styleObj = JSON.parse(styleText);
-                            state.updateField(selectedField.id, {
-                                css: { ...freshField.css, style: styleObj }
-                            });
-                        } else {
-                            // Only clear if user explicitly cleared - check store first
-                            if (freshField.css?.style && Object.keys(freshField.css.style).length > 0) {
-                                // Store has data but textarea is empty - restore from store
-                                textarea.value = JSON.stringify(freshField.css.style, null, 2);
-                            } else {
-                                // No data in store, clear is intentional
-                                state.updateField(selectedField.id, {
-                                    css: { ...freshField.css, style: undefined }
-                                });
-                            }
-                        }
-                    } catch (err) {
-                        // Invalid JSON - restore from store if available
-                        if (freshField.css?.style) {
-                            textarea.value = JSON.stringify(freshField.css.style, null, 2);
-                        }
-                    }
-                }, 0); // Defer to next event loop tick to allow click events to fire first
-            }
-        });
-
-        // Set textarea value directly (textarea needs property, not attribute)
-        // This must be done after createElement because textarea.value is a property, not an attribute
-        cssStyleTextarea.value = initialCssStyleValue;
-
-        advancedPanel.appendChild(cssStyleTextarea);
-        body.appendChild(advancedPanel);
+        this.appendSharedStylingSection(body, { kind: 'field', fieldId: selectedField.id }, focusState);
 
         // --- Async Options (Select/Radio) ---
         // COMMENTED OUT: Options Source and Source Type functionality

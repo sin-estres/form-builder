@@ -1,4 +1,4 @@
-import { FormSchema, FormSection } from '../core/schemaTypes';
+import { FormSchema } from '../core/schemaTypes';
 import { createElement } from '../utils/dom';
 import { formStore } from '../core/useFormStore';
 import { Section } from './Section';
@@ -8,10 +8,12 @@ export class SectionList {
     private container: HTMLElement;
     private schema: FormSchema;
     private selectedFieldId: string | null;
+    private selectedSectionId: string | null;
 
-    constructor(schema: FormSchema, selectedFieldId: string | null) {
+    constructor(schema: FormSchema, selectedFieldId: string | null, selectedSectionId: string | null) {
         this.schema = schema;
         this.selectedFieldId = selectedFieldId;
+        this.selectedSectionId = selectedSectionId;
         this.container = this.render();
     }
 
@@ -48,7 +50,11 @@ export class SectionList {
         });
         
         sortedSections.forEach(section => {
-            const sectionComponent = new Section(section, (id) => id === this.selectedFieldId);
+            const sectionComponent = new Section(
+                section,
+                (id) => id === this.selectedFieldId,
+                section.id === this.selectedSectionId
+            );
             listContainer.appendChild(sectionComponent.getElement());
         });
 

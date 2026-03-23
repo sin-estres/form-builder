@@ -16,6 +16,7 @@ export interface MasterType {
 interface FormState {
     schema: FormSchema;
     selectedFieldId: string | null;
+    selectedSectionId: string | null;
     history: FormSchema[];
     historyIndex: number;
     isPreviewMode: boolean;
@@ -56,6 +57,7 @@ interface FormActions {
     removeField: (fieldId: string) => void;
     updateField: (fieldId: string, updates: Partial<FormField>) => void;
     selectField: (fieldId: string | null) => void;
+    selectSection: (sectionId: string | null) => void;
     moveField: (fieldId: string, targetSectionId: string | null, newIndex: number) => void;
 
     undo: () => void;
@@ -75,6 +77,7 @@ const INITIAL_SCHEMA: FormSchema = {
 export const formStore = createStore<FormState & FormActions>((set, get) => ({
     schema: INITIAL_SCHEMA,
     selectedFieldId: null,
+    selectedSectionId: null,
     history: [INITIAL_SCHEMA],
     historyIndex: 0,
     isPreviewMode: false,
@@ -497,13 +500,25 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
 
     addSection: () => {
         const { schema, history, historyIndex } = get();
+        const order = schema.sections.length;
         const newSection: FormSection = {
             id: generateId(),
-            title: `Section ${schema.sections.length + 1}`,
+            title: `Section ${order + 1}`,
+            name: `Section ${order + 1}`,
             fields: [],
             columns: 1, // Legacy - prefer layout.columns
             layout: { type: 'grid', columns: 12, gap: '16px' },
-            order: schema.sections.length // Set order based on current section count
+            order,
+            position: { row: order, column: 0, width: 12, order },
+            expanded: true,
+            visible: true,
+            collapsible: true,
+            parentGroupId: null,
+            repeatable: false,
+            dataKey: null,
+            addButtonLabel: null,
+            minInstances: null,
+            maxInstances: null
         };
         const newSchema = { ...schema, sections: [...schema.sections, newSection] };
 
@@ -515,13 +530,14 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     },
 
     removeSection: (sectionId) => {
-        const { schema, history, historyIndex } = get();
+        const { schema, history, historyIndex, selectedSectionId } = get();
         const newSchema = {
             ...schema,
             sections: schema.sections.filter((s) => s.id !== sectionId),
         };
         set({
             schema: newSchema,
+            selectedSectionId: selectedSectionId === sectionId ? null : selectedSectionId,
             history: [...history.slice(0, historyIndex + 1), newSchema],
             historyIndex: historyIndex + 1,
         });
@@ -531,9 +547,47 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         const { schema, history, historyIndex } = get();
         const newSchema = {
             ...schema,
-            sections: schema.sections.map((s) =>
-                s.id === sectionId ? { ...s, ...updates } : s
-            ),
+            sections: schema.sections.map((s) => {
+                if (s.id !== sectionId) return s;
+
+                let mergedUpdates = { ...updates };
+                if (updates.css !== undefined) {
+                    const styleKeyPassed = updates.css && 'style' in updates.css;
+                    let newStyle: Record<string, string> | undefined;
+                    if (styleKeyPassed) {
+                        if (updates.css!.style === undefined || updates.css!.style === null) {
+                            newStyle = undefined;
+                        } else if (typeof updates.css!.style === 'object') {
+                            const onlyStyleInUpdate = !('class' in updates.css!) || updates.css!.class === undefined;
+                            if (onlyStyleInUpdate) {
+                                newStyle = updates.css!.style as Record<string, string>;
+                            } else {
+                                newStyle = { ...(s.css?.style || {}), ...(updates.css!.style as Record<string, string>) };
+                            }
+                        } else {
+                            newStyle = updates.css!.style as unknown as Record<string, string>;
+                        }
+                    } else {
+                        newStyle = s.css?.style;
+                    }
+
+                    mergedUpdates.css = {
+                        ...(s.css || {}),
+                        ...updates.css,
+                        style: newStyle
+                    };
+
+                    if (!mergedUpdates.css.class) delete mergedUpdates.css.class;
+                    if (!mergedUpdates.css.style || Object.keys(mergedUpdates.css.style).length === 0) {
+                        delete mergedUpdates.css.style;
+                    }
+                    if (Object.keys(mergedUpdates.css).length === 0) {
+                        mergedUpdates.css = undefined;
+                    }
+                }
+
+                return { ...s, ...mergedUpdates };
+            }),
         };
         set({
             schema: newSchema,
@@ -733,7 +787,17 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         });
     },
 
-    selectField: (fieldId) => set({ selectedFieldId: fieldId }),
+    selectField: (fieldId) =>
+        set({
+            selectedFieldId: fieldId,
+            selectedSectionId: fieldId ? null : null
+        }),
+
+    selectSection: (sectionId) =>
+        set({
+            selectedSectionId: sectionId,
+            selectedFieldId: null
+        }),
 
     moveField: (fieldId, targetSectionId, newIndex) => {
         const { schema, history, historyIndex } = get();

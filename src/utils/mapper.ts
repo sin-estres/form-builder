@@ -1,4 +1,4 @@
-import { FormSchema, FormField, ValidationRule, ValidationObject, FieldValidations, FieldWidth, parseWidth } from '../core/schemaTypes';
+import { FormSchema, FormField, FormSection, ValidationRule, ValidationObject, FieldValidations, FieldWidth, parseWidth } from '../core/schemaTypes';
 import { DEFAULT_FIELD_CONFIG } from '../core/constants';
 
 /**
@@ -512,10 +512,34 @@ export const cleanFormSchema = (schema: any): FormSchema => {
     // Use the transformField function which handles both old and new formats
     const cleanField = transformField;
 
-    // Handle schema with direct fields array (convert to sections)
     let sections: any[] = [];
-    if (schema.fields && Array.isArray(schema.fields) && schema.fields.length > 0) {
-        // Convert fields array to a single section
+    if (schema.sections && Array.isArray(schema.sections)) {
+        sections = schema.sections;
+    } else if (schema.groups && Array.isArray(schema.groups)) {
+        const rootFields = schema.fields && Array.isArray(schema.fields) ? schema.fields : [];
+        const rootById = new Map(rootFields.map((f: any) => [String(f.id), f]));
+
+        sections = schema.groups.map((group: any, index: number) => {
+            let fieldList: any[] | undefined = group.fields;
+            if (Array.isArray(group.fieldIds) && group.fieldIds.length > 0 && rootById.size > 0) {
+                fieldList = group.fieldIds
+                    .map((id: string) => rootById.get(String(id)))
+                    .filter(Boolean) as any[];
+            }
+            if (!fieldList) fieldList = [];
+
+            return {
+                ...group,
+                id: group.id || `section-${index}`,
+                title: group.title || group.name || `Section ${index + 1}`,
+                name: group.name ?? group.title,
+                fields: fieldList,
+                order: group.order !== undefined ? group.order : index,
+                isExpanded: group.isExpanded !== undefined ? group.isExpanded : true,
+                expanded: group.expanded !== undefined ? group.expanded : group.isExpanded !== false
+            };
+        });
+    } else if (schema.fields && Array.isArray(schema.fields) && schema.fields.length > 0) {
         sections = [{
             id: schema.id ? `section-${schema.id}` : 'section-1',
             title: schema.formName || schema.title || 'Form Fields',
@@ -523,17 +547,6 @@ export const cleanFormSchema = (schema: any): FormSchema => {
             order: 0,
             isExpanded: true
         }];
-    } else if (schema.sections && Array.isArray(schema.sections)) {
-        sections = schema.sections;
-    } else if (schema.groups && Array.isArray(schema.groups)) {
-        // Handle groups array (similar to sections)
-        sections = schema.groups.map((group: any, index: number) => ({
-            id: group.id || `section-${index}`,
-            title: group.title || group.name || `Section ${index + 1}`,
-            fields: group.fields || [],
-            order: group.order !== undefined ? group.order : index,
-            isExpanded: group.isExpanded !== undefined ? group.isExpanded : true
-        }));
     }
 
     return {
@@ -541,23 +554,37 @@ export const cleanFormSchema = (schema: any): FormSchema => {
         title: schema.title || schema.formName || 'Form',
         formName: schema.formName || schema.formId || schema.id,
         layout: schema.layout || { type: 'grid', columns: 12, gap: '16px' }, // Preserve form-level layout or set default
-        sections: sections.map((section: any, sectionIndex: number) => ({
-            id: section.id || `section-${sectionIndex}`,
-            title: section.title || `Section ${sectionIndex + 1}`,
-            fields: (section.fields || []).map((field: any, fieldIndex: number) => {
-                const cleaned = cleanField(field);
-                // Ensure order is set if not provided
-                if (cleaned.order === undefined) {
-                    cleaned.order = fieldIndex;
-                }
-                return cleaned;
-            }),
-            isExpanded: section.isExpanded !== undefined ? section.isExpanded : true,
-            columns: section.columns, // Legacy - prefer layout.columns
-            order: section.order !== undefined ? section.order : sectionIndex, // Ensure section order is set
-            layout: section.layout || { type: 'grid', columns: section.columns || 12, gap: '16px' }, // Preserve section layout or set default
-            css: section.css, // Preserve section CSS
-        }))
+        sections: sections.map((section: any, sectionIndex: number) => {
+            const order = section.order !== undefined ? section.order : sectionIndex;
+            return {
+                id: section.id || `section-${sectionIndex}`,
+                title: section.title || `Section ${sectionIndex + 1}`,
+                name: section.name ?? section.title,
+                description: section.description ?? null,
+                fields: (section.fields || []).map((field: any, fieldIndex: number) => {
+                    const cleaned = cleanField(field);
+                    if (cleaned.order === undefined) {
+                        cleaned.order = fieldIndex;
+                    }
+                    return cleaned;
+                }),
+                isExpanded: section.isExpanded !== undefined ? section.isExpanded : true,
+                expanded: section.expanded !== undefined ? section.expanded : section.isExpanded !== false,
+                columns: section.columns,
+                order,
+                layout: section.layout || { type: 'grid', columns: section.columns || 12, gap: '16px' },
+                css: section.css,
+                position: section.position ?? { row: order, column: 0, width: 12, order },
+                visible: section.visible !== false,
+                collapsible: section.collapsible !== false,
+                parentGroupId: section.parentGroupId ?? null,
+                repeatable: section.repeatable === true,
+                dataKey: section.dataKey ?? null,
+                addButtonLabel: section.addButtonLabel ?? null,
+                minInstances: section.minInstances ?? null,
+                maxInstances: section.maxInstances ?? null
+            };
+        })
     };
 };
 
@@ -619,7 +646,7 @@ function convertWidthToSpan(width: FieldWidth | undefined, totalColumns: number 
  * @param field 
  * @returns Field in payload format
  */
-function fieldToPayload(field: FormField): any {
+function fieldToPayload(field: FormField, opts?: { groupId?: string }): any {
     // Auto-upgrade text to email when outputting: if field is email-like, output as email with regex
     let outputType = field.type;
     let outputValidations: FieldValidations | undefined = field.validations ? { ...field.validations } : undefined;
@@ -639,6 +666,9 @@ function fieldToPayload(field: FormField): any {
         name: field.fieldName || field.id, // Model key for binding (API / host app)
         order: field.order !== undefined ? field.order : 0
     };
+    if (opts?.groupId) {
+        payload.groupId = opts.groupId;
+    }
 
     // Layout (required) - prefer layout.span, fallback to width conversion
     if (field.layout?.span !== undefined) {
@@ -801,25 +831,55 @@ function fieldToPayload(field: FormField): any {
     return payload;
 }
 
+function sectionToGroupPayload(section: FormSection, index: number): any {
+    const order = section.order !== undefined ? section.order : index;
+    const pos = section.position ?? { row: order, column: 0, width: 12, order };
+    const width = Math.max(1, Math.min(12, pos.width ?? 12));
+    return {
+        id: section.id,
+        name: section.name ?? section.title,
+        description: section.description ?? null,
+        position: {
+            row: pos.row ?? 0,
+            column: pos.column ?? 0,
+            width,
+            order: pos.order ?? order
+        },
+        fieldIds: section.fields.map((f) => f.id),
+        expanded: section.expanded !== undefined ? section.expanded : section.isExpanded !== false,
+        visible: section.visible !== false,
+        collapsible: section.collapsible !== false,
+        parentGroupId: section.parentGroupId ?? null,
+        repeatable: section.repeatable === true,
+        dataKey: section.dataKey ?? null,
+        addButtonLabel: section.addButtonLabel ?? null,
+        minInstances: section.minInstances ?? null,
+        maxInstances: section.maxInstances ?? null,
+        css: section.css
+    };
+}
+
 /**
  * Transforms Form Builder JSON to Platform JSON (standardized payload format)
- * @param builderSchema 
- * @returns Standardized payload format
+ * @param builderSchema
+ * @returns Standardized payload format (root `fields` + `groups` with fieldIds)
  */
 export const builderToPlatform = (builderSchema: FormSchema): any => {
+    const fieldsFlat: any[] = [];
+    const groups = builderSchema.sections.map((section, sectionIndex) => {
+        section.fields.forEach((f) => {
+            fieldsFlat.push(fieldToPayload(f, { groupId: section.id }));
+        });
+        return sectionToGroupPayload(section, sectionIndex);
+    });
+
     return {
         id: builderSchema.id,
         title: builderSchema.title,
         formName: builderSchema.formName,
         layout: builderSchema.layout || { type: 'grid', columns: 12, gap: '16px' },
-        sections: builderSchema.sections.map((section, sectionIndex) => ({
-            id: section.id,
-            title: section.title,
-            order: section.order !== undefined ? section.order : sectionIndex,
-            layout: section.layout || { type: 'grid', columns: section.columns || 12, gap: '16px' },
-            css: section.css,
-            fields: section.fields.map(fieldToPayload)
-        }))
+        fields: fieldsFlat,
+        groups
     };
 };
 

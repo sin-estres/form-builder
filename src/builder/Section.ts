@@ -4,14 +4,19 @@ import { formStore } from '../core/useFormStore';
 import { FieldWrapper } from './FieldWrapper';
 import Sortable from 'sortablejs';
 
+const SECTION_TITLE_DEBOUNCE_MS = 300;
+const sectionTitleUpdateTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 export class Section {
     private container: HTMLElement;
     private section: FormSection;
     private isSelectedField: (fieldId: string) => boolean;
+    private isSelectedSection: boolean;
 
-    constructor(section: FormSection, isSelectedField: (fieldId: string) => boolean) {
+    constructor(section: FormSection, isSelectedField: (fieldId: string) => boolean, isSelectedSection: boolean) {
         this.section = section;
         this.isSelectedField = isSelectedField;
+        this.isSelectedSection = isSelectedSection;
         this.container = this.render();
     }
 
@@ -20,24 +25,45 @@ export class Section {
     }
 
     private render(): HTMLElement {
+        const sectionVisible = this.section.visible !== false;
         const sectionEl = createElement('div', {
-            className: 'mb-6 rounded-lg border bg-white dark:bg-gray-900 shadow-sm transition-all border-[#e9e9e9] ',
-            'data-id': this.section.id
+            className: `mb-6 rounded-lg border bg-white dark:bg-gray-900 shadow-sm transition-all border-[#e9e9e9] ${!sectionVisible ? 'opacity-50' : ''} ${this.isSelectedSection ? 'ring-2 ring-[#635bff]' : ''}`,
+            'data-id': this.section.id,
+            'data-section-id': this.section.id
         });
 
-        // Header
-        const header = createElement('div', { className: 'flex items-center justify-between  p-2 border-b border-gray-100 bg-white dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg' });
-        const headerLeft = createElement('div', { className: 'flex items-center flex-1' });
+        // Header — click selects group in right panel (child controls stop propagation)
+        const header = createElement('div', {
+            className: 'flex items-center justify-between  p-2 border-b border-gray-100 bg-white dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg cursor-pointer',
+            onclick: () => {
+                formStore.getState().selectSection(this.section.id);
+            }
+        });
+        const headerLeft = createElement('div', { className: 'flex items-center flex-1 min-w-0' });
 
         // Drag Handle for Section
-        headerLeft.appendChild(createElement('div', { className: 'cursor-move mr-3 text-gray-400 hover:text-gray-600 section-handle' }, [getIcon('GripVertical', 20)]));
+        const dragHandle = createElement('div', { className: 'cursor-move mr-3 text-gray-400 hover:text-gray-600 section-handle flex-shrink-0' }, [getIcon('GripVertical', 20)]);
+        dragHandle.addEventListener('mousedown', (e: Event) => e.stopPropagation());
+        dragHandle.addEventListener('click', (e: Event) => e.stopPropagation());
+        headerLeft.appendChild(dragHandle);
 
         // Title Input
         headerLeft.appendChild(createElement('input', {
-            className: 'bg-transparent font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:border-b border-blue-500',
+            className: 'bg-transparent font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:border-b border-blue-500 min-w-0 flex-1',
             value: this.section.title,
             'data-focus-id': `section-title-${this.section.id}`,
-            oninput: (e: Event) => formStore.getState().updateSection(this.section.id, { title: (e.target as HTMLInputElement).value })
+            onclick: (e: Event) => e.stopPropagation(),
+            oninput: (e: Event) => {
+                const sid = this.section.id;
+                const value = (e.target as HTMLInputElement).value;
+                const existing = sectionTitleUpdateTimeouts.get(sid);
+                if (existing) clearTimeout(existing);
+                const timeoutId = setTimeout(() => {
+                    sectionTitleUpdateTimeouts.delete(sid);
+                    formStore.getState().updateSection(sid, { title: value, name: value });
+                }, SECTION_TITLE_DEBOUNCE_MS);
+                sectionTitleUpdateTimeouts.set(sid, timeoutId);
+            }
         }));
         header.appendChild(headerLeft);
 
@@ -47,6 +73,7 @@ export class Section {
         const colSelect = createElement('select', {
             className: 'text-xs border rounded bg-transparent mr-2 p-1 text-gray-600',
             title: 'Section Columns',
+            onclick: (e: Event) => e.stopPropagation(),
             onchange: (e: Event) => {
                 formStore.getState().updateSection(this.section.id, { columns: parseInt((e.target as HTMLSelectElement).value) as 1 | 2 | 3 });
             }
@@ -59,7 +86,8 @@ export class Section {
         // Delete Button
         actions.appendChild(createElement('button', {
             className: 'text-gray-600 hover:text-red-500 transition-colors p-1',
-            onclick: () => {
+            onclick: (e: Event) => {
+                e.stopPropagation();
                 if (confirm('Delete this section and all its fields?')) {
                     formStore.getState().removeSection(this.section.id);
                 }
