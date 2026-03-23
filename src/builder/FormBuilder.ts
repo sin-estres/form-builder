@@ -14,6 +14,7 @@ import { cloneForm, cloneSection } from '../utils/clone';
 import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
 import { MasterType } from '../core/useFormStore';
+import { getValidParentSectionIds } from '../utils/sectionHierarchy';
 
 // Module-level state to track which fields have their Advanced CSS panel expanded
 const advancedCssPanelState: Map<string, boolean> = new Map();
@@ -1345,7 +1346,9 @@ export class FormBuilder {
             }
         });
         parentSelect.appendChild(createElement('option', { value: '', text: 'None', selected: !section.parentGroupId }));
+        const validParentIds = new Set(getValidParentSectionIds(allSections, sectionId));
         allSections.forEach((g) => {
+            if (!validParentIds.has(g.id)) return;
             const label = g.name ?? g.title;
             parentSelect.appendChild(
                 createElement('option', {

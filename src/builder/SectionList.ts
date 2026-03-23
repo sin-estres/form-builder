@@ -1,6 +1,7 @@
 import { FormSchema } from '../core/schemaTypes';
 import { createElement } from '../utils/dom';
 import { formStore } from '../core/useFormStore';
+import { getRootSections } from '../utils/sectionHierarchy';
 import { Section } from './Section';
 import Sortable from 'sortablejs';
 
@@ -42,18 +43,18 @@ export class SectionList {
             listContainer.appendChild(placeholder);
         }
 
-        // Sort sections by order before rendering
-        const sortedSections = [...this.schema.sections].sort((a, b) => {
+        const rootSections = getRootSections(this.schema.sections).sort((a, b) => {
             const orderA = a.order !== undefined ? a.order : 0;
             const orderB = b.order !== undefined ? b.order : 0;
             return orderA - orderB;
         });
-        
-        sortedSections.forEach(section => {
+
+        rootSections.forEach((section) => {
             const sectionComponent = new Section(
                 section,
                 (id) => id === this.selectedFieldId,
-                section.id === this.selectedSectionId
+                this.selectedSectionId,
+                this.schema.sections
             );
             listContainer.appendChild(sectionComponent.getElement());
         });

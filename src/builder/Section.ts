@@ -1,6 +1,7 @@
 import { FormSection, FormField } from '../core/schemaTypes';
 import { createElement, getIcon } from '../utils/dom';
 import { formStore } from '../core/useFormStore';
+import { getChildSections } from '../utils/sectionHierarchy';
 import { FieldWrapper } from './FieldWrapper';
 import Sortable from 'sortablejs';
 
@@ -10,13 +11,23 @@ const sectionTitleUpdateTimeouts = new Map<string, ReturnType<typeof setTimeout>
 export class Section {
     private container: HTMLElement;
     private section: FormSection;
+    private allSections: FormSection[];
     private isSelectedField: (fieldId: string) => boolean;
-    private isSelectedSection: boolean;
+    private selectedSectionId: string | null;
+    private depth: number;
 
-    constructor(section: FormSection, isSelectedField: (fieldId: string) => boolean, isSelectedSection: boolean) {
+    constructor(
+        section: FormSection,
+        isSelectedField: (fieldId: string) => boolean,
+        selectedSectionId: string | null,
+        allSections: FormSection[],
+        depth = 0
+    ) {
         this.section = section;
+        this.allSections = allSections;
         this.isSelectedField = isSelectedField;
-        this.isSelectedSection = isSelectedSection;
+        this.selectedSectionId = selectedSectionId;
+        this.depth = depth;
         this.container = this.render();
     }
 
@@ -26,8 +37,10 @@ export class Section {
 
     private render(): HTMLElement {
         const sectionVisible = this.section.visible !== false;
+        const isSelectedSection = this.section.id === this.selectedSectionId;
+        const marginClass = this.depth > 0 ? 'mb-4' : 'mb-6';
         const sectionEl = createElement('div', {
-            className: `mb-6 rounded-lg border bg-white dark:bg-gray-900 shadow-sm transition-all border-[#e9e9e9] ${!sectionVisible ? 'opacity-50' : ''} ${this.isSelectedSection ? 'ring-2 ring-[#635bff]' : ''}`,
+            className: `${marginClass} rounded-lg border bg-white dark:bg-gray-900 shadow-sm transition-all border-[#e9e9e9] ${!sectionVisible ? 'opacity-50' : ''} ${isSelectedSection ? 'ring-2 ring-[#635bff]' : ''} ${this.depth > 0 ? 'shadow-inner' : ''}`,
             'data-id': this.section.id,
             'data-section-id': this.section.id
         });
@@ -148,6 +161,29 @@ export class Section {
 
         sectionEl.appendChild(fieldsGrid);
 
+        const childSections = getChildSections(this.allSections, this.section.id);
+        if (childSections.length > 0) {
+            const nestedWrap = createElement('div', {
+                className:
+                    this.depth === 0
+                        ? 'px-4 pb-4 pt-0 border-t border-dashed border-gray-200 dark:border-gray-700'
+                        : 'pl-3 ml-2 mt-3 pt-3 border-l-2 border-[#635bff]/35 dark:border-[#635bff]/50 rounded-bl-md'
+            });
+            const nestedList = createElement('div', { className: 'space-y-4' });
+            childSections.forEach((child) => {
+                const childComponent = new Section(
+                    child,
+                    this.isSelectedField,
+                    this.selectedSectionId,
+                    this.allSections,
+                    this.depth + 1
+                );
+                nestedList.appendChild(childComponent.getElement());
+            });
+            nestedWrap.appendChild(nestedList);
+            sectionEl.appendChild(nestedWrap);
+        }
+
         // Initialize Sortable for this section's fields
         this.initFieldSortable(fieldsGrid);
 
@@ -166,7 +202,6 @@ export class Section {
             onAdd: (evt) => {
                 const item = evt.item;
                 const type = item.getAttribute('data-type');
-                const _fromSectionId = evt.from.getAttribute('data-section-id'); // ID of source section (if moving)
                 const toSectionId = this.section.id;
 
                 // If dropped from toolbox (new field) or template

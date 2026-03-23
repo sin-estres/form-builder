@@ -3,6 +3,12 @@ import { FormSchema, FormSection, FormField, FieldType } from './schemaTypes';
 import { generateId, DEFAULT_FIELD_CONFIG } from './constants';
 import { cloneForm, cloneSection, cloneField } from '../utils/clone';
 import { cleanFormSchema } from '../utils/mapper';
+import {
+    getNextRootOrder,
+    getRootSections,
+    nextSiblingOrder,
+    wouldCreateParentCycle,
+} from '../utils/sectionHierarchy';
 
 export interface MasterType {
     id: string;
@@ -489,6 +495,8 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
     importSection: (section) => {
         const { schema, history, historyIndex } = get();
         const clonedSection = cloneSection(section); // Deep clone with new IDs
+        clonedSection.parentGroupId = null;
+        clonedSection.order = getNextRootOrder(schema.sections);
         const newSchema = { ...schema, sections: [...schema.sections, clonedSection] };
 
         set({
@@ -500,7 +508,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
 
     addSection: () => {
         const { schema, history, historyIndex } = get();
-        const order = schema.sections.length;
+        const order = getNextRootOrder(schema.sections);
         const newSection: FormSection = {
             id: generateId(),
             title: `Section ${order + 1}`,
@@ -533,7 +541,9 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         const { schema, history, historyIndex, selectedSectionId } = get();
         const newSchema = {
             ...schema,
-            sections: schema.sections.filter((s) => s.id !== sectionId),
+            sections: schema.sections
+                .filter((s) => s.id !== sectionId)
+                .map((s) => (s.parentGroupId === sectionId ? { ...s, parentGroupId: null } : s)),
         };
         set({
             schema: newSchema,
@@ -545,27 +555,42 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
 
     updateSection: (sectionId, updates) => {
         const { schema, history, historyIndex } = get();
+
+        let processedUpdates = { ...updates };
+        if (updates.parentGroupId !== undefined) {
+            const newParent = updates.parentGroupId;
+            if (newParent === null || newParent === '') {
+                processedUpdates.parentGroupId = null;
+                processedUpdates.order = nextSiblingOrder(schema.sections, sectionId, null);
+            } else if (wouldCreateParentCycle(schema.sections, sectionId, newParent)) {
+                delete processedUpdates.parentGroupId;
+            } else {
+                processedUpdates.parentGroupId = newParent;
+                processedUpdates.order = nextSiblingOrder(schema.sections, sectionId, newParent);
+            }
+        }
+
         const newSchema = {
             ...schema,
             sections: schema.sections.map((s) => {
                 if (s.id !== sectionId) return s;
 
-                let mergedUpdates = { ...updates };
-                if (updates.css !== undefined) {
-                    const styleKeyPassed = updates.css && 'style' in updates.css;
+                let mergedUpdates = { ...processedUpdates };
+                if (processedUpdates.css !== undefined) {
+                    const styleKeyPassed = processedUpdates.css && 'style' in processedUpdates.css;
                     let newStyle: Record<string, string> | undefined;
                     if (styleKeyPassed) {
-                        if (updates.css!.style === undefined || updates.css!.style === null) {
+                        if (processedUpdates.css!.style === undefined || processedUpdates.css!.style === null) {
                             newStyle = undefined;
-                        } else if (typeof updates.css!.style === 'object') {
-                            const onlyStyleInUpdate = !('class' in updates.css!) || updates.css!.class === undefined;
+                        } else if (typeof processedUpdates.css!.style === 'object') {
+                            const onlyStyleInUpdate = !('class' in processedUpdates.css!) || processedUpdates.css!.class === undefined;
                             if (onlyStyleInUpdate) {
-                                newStyle = updates.css!.style as Record<string, string>;
+                                newStyle = processedUpdates.css!.style as Record<string, string>;
                             } else {
-                                newStyle = { ...(s.css?.style || {}), ...(updates.css!.style as Record<string, string>) };
+                                newStyle = { ...(s.css?.style || {}), ...(processedUpdates.css!.style as Record<string, string>) };
                             }
                         } else {
-                            newStyle = updates.css!.style as unknown as Record<string, string>;
+                            newStyle = processedUpdates.css!.style as unknown as Record<string, string>;
                         }
                     } else {
                         newStyle = s.css?.style;
@@ -573,7 +598,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
 
                     mergedUpdates.css = {
                         ...(s.css || {}),
-                        ...updates.css,
+                        ...processedUpdates.css,
                         style: newStyle
                     };
 
@@ -598,17 +623,23 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
 
     moveSection: (oldIndex, newIndex) => {
         const { schema, history, historyIndex } = get();
-        const newSections = [...schema.sections];
-        const [movedSection] = newSections.splice(oldIndex, 1);
-        newSections.splice(newIndex, 0, movedSection);
-        
-        // Update order for all sections
-        newSections.forEach((section, index) => {
-            if (section.order !== index) {
-                section.order = index;
-            }
-        });
-
+        const roots = getRootSections(schema.sections).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        if (oldIndex < 0 || oldIndex >= roots.length || newIndex < 0 || newIndex >= roots.length || oldIndex === newIndex) {
+            return;
+        }
+        const reorderedRoots = [...roots];
+        const [moved] = reorderedRoots.splice(oldIndex, 1);
+        reorderedRoots.splice(newIndex, 0, moved);
+        const orderByRootId = new Map(reorderedRoots.map((r, i) => [r.id, i]));
+        const rootIdSet = new Set(reorderedRoots.map((r) => r.id));
+        const nonRoots = schema.sections.filter((s) => !rootIdSet.has(s.id));
+        const newSections = [
+            ...reorderedRoots.map((r) => {
+                const full = schema.sections.find((s) => s.id === r.id)!;
+                return { ...full, order: orderByRootId.get(r.id)! };
+            }),
+            ...nonRoots
+        ];
         const newSchema = { ...schema, sections: newSections };
         set({
             schema: newSchema,
