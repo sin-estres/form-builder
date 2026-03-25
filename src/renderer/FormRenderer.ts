@@ -386,6 +386,22 @@ export class FormRenderer {
             });
 
             sectionEl.appendChild(grid);
+
+            if (section.repeatable === true) {
+                const addLabel =
+                    (section.addButtonLabel && section.addButtonLabel.trim()) || '+ Add';
+                const addRow = createElement('div', { className: 'mt-3 flex justify-start' });
+                addRow.appendChild(
+                    createElement('button', {
+                        type: 'button',
+                        className:
+                            'px-4 py-2 text-sm font-medium rounded-md border border-[#019FA2] text-[#019FA2] dark:text-[#4dd4d6] dark:border-[#019FA2] bg-transparent hover:bg-[#019FA2]/10 transition-colors',
+                        text: addLabel
+                    })
+                );
+                sectionEl.appendChild(addRow);
+            }
+
             form.appendChild(sectionEl);
         });
 

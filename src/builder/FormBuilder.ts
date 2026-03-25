@@ -298,6 +298,7 @@ export class FormBuilder {
                     collapsible: s.collapsible,
                     parentGroupId: s.parentGroupId,
                     repeatable: s.repeatable,
+                    addButtonLabel: s.addButtonLabel,
                     minInstances: s.minInstances,
                     maxInstances: s.maxInstances,
                     css: s.css,
@@ -1367,11 +1368,39 @@ export class FormBuilder {
             this.createCheckboxField(
                 'Allow multiple instances',
                 section.repeatable === true,
-                (checked) => formStore.getState().updateSection(sectionId, { repeatable: checked }),
+                (checked) =>
+                    formStore.getState().updateSection(sectionId, {
+                        repeatable: checked,
+                        ...(checked ? {} : { addButtonLabel: null })
+                    }),
                 `group-repeatable-${sectionId}`
             )
         );
         if (section.repeatable === true) {
+            const addLabelWrap = createElement('div', { className: 'mb-2' });
+            addLabelWrap.appendChild(
+                createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                    text: 'Add Button Label'
+                })
+            );
+            addLabelWrap.appendChild(
+                createElement('input', {
+                    type: 'text',
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                    value: section.addButtonLabel ?? '',
+                    placeholder: 'e.g. + Billing Address',
+                    'data-focus-id': `group-add-btn-label-${sectionId}`,
+                    oninput: (e: Event) => {
+                        const raw = (e.target as HTMLInputElement).value;
+                        formStore.getState().updateSection(sectionId, {
+                            addButtonLabel: raw === '' ? null : raw
+                        });
+                    }
+                })
+            );
+            body.appendChild(addLabelWrap);
+
             const minG = createElement('div', { className: 'mb-2' });
             minG.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Min Instances' }));
             minG.appendChild(createElement('input', {

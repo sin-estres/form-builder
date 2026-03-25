@@ -184,6 +184,25 @@ export class Section {
             sectionEl.appendChild(nestedWrap);
         }
 
+        if (this.section.repeatable === true) {
+            const addLabel =
+                (this.section.addButtonLabel && this.section.addButtonLabel.trim()) || '+ Add';
+            const footer = createElement('div', {
+                className:
+                    'px-4 pb-4 pt-2 flex justify-start border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30'
+            });
+            footer.appendChild(
+                createElement('button', {
+                    type: 'button',
+                    className:
+                        'px-4 py-2 text-sm font-medium rounded-md border border-[#019FA2] text-[#019FA2] dark:text-[#4dd4d6] dark:border-[#019FA2] bg-white dark:bg-gray-900 hover:bg-[#019FA2]/10 transition-colors',
+                    text: addLabel,
+                    onclick: (e: Event) => e.preventDefault()
+                })
+            );
+            sectionEl.appendChild(footer);
+        }
+
         // Initialize Sortable for this section's fields
         this.initFieldSortable(fieldsGrid);
 
