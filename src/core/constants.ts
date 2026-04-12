@@ -26,6 +26,7 @@ export const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
     { type: 'file', label: 'File Upload', icon: 'Upload' },
     { type: 'image', label: 'Image', icon: 'Image' },
     { type: 'name_generator', label: 'Name Generator', icon: 'Hash' },
+    { type: 'formula', label: 'Formula', icon: 'Calculator' },
 ];
 
 export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
@@ -83,6 +84,19 @@ export const DEFAULT_FIELD_CONFIG: Record<FieldType, Partial<FormField>> = {
         nameGeneratorFormat: 'TEXT_ID',
         nameGeneratorText: '',
         nameGeneratorIdPadding: 4
+    },
+    formula: {
+        label: 'Formula Field',
+        placeholder: '—',
+        width: '50%',
+        enabled: true,
+        visible: true,
+        formulaConfig: {
+            mode: 'single' as const,
+            single: { expression: '' },
+            multiple: { compareField: '', conditions: [], fallbackExpression: '' },
+            decimalPlaces: 2
+        }
     },
 };
 

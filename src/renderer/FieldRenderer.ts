@@ -594,6 +594,21 @@ export class FieldRenderer {
                 break;
             }
 
+            case 'formula': {
+                // Readonly computed field - value pre-computed by FormRenderer (or blank in builder)
+                const formulaDisplay = value !== undefined && value !== null ? String(value) : '—';
+                input = createElement('input', {
+                    type: 'text',
+                    className: 'flex min-h-touch w-full rounded-md border border-input bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm sm:text-base font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+                    placeholder: '—',
+                    value: formulaDisplay,
+                    readonly: true,
+                    disabled: true,
+                    title: 'Computed field — value is calculated from a formula'
+                });
+                break;
+            }
+
             default: // text, number, email, date, datetime, etc.
                 const rules = getValidationRules(field);
                 // For postal, phone, OTP: use type="text" to preserve leading zeros; prevent scientific notation (e, +, -)

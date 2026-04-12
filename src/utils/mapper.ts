@@ -185,6 +185,7 @@ function normalizeFieldType(type: any): string {
     if (str === 'REPEATER' || normalized === 'repeater') return 'repeater';
     if (str === 'DATETIME' || normalized === 'datetime') return 'datetime';
     if (str === 'NAME_GENERATOR' || normalized === 'namegenerator') return 'name_generator';
+    if (str === 'FORMULA' || normalized === 'formula') return 'formula';
     return str.toLowerCase();
 }
 
@@ -460,6 +461,8 @@ function transformField(field: any): FormField {
     if (field.repeatIncrementEnabled !== undefined) transformed.repeatIncrementEnabled = field.repeatIncrementEnabled;
     // Date / DateTime conditional constraint
     if (field.dateConstraints !== undefined) transformed.dateConstraints = field.dateConstraints;
+    // Formula field config
+    if (field.formulaConfig !== undefined) transformed.formulaConfig = field.formulaConfig;
     // Name generator
     if (field.nameGeneratorFormat !== undefined) transformed.nameGeneratorFormat = field.nameGeneratorFormat;
     if (field.nameGeneratorText !== undefined) transformed.nameGeneratorText = field.nameGeneratorText;
@@ -812,6 +815,13 @@ function fieldToPayload(field: FormField, opts?: { groupId?: string }): any {
         if (field.showWhenValueOffFields && field.showWhenValueOffFields.length > 0) {
             payload.showWhenValueOffFields = field.showWhenValueOffFields;
         }
+    }
+
+    // Formula field - payload format for FORMULA
+    if (field.type === 'formula') {
+        payload.fieldType = 'FORMULA';
+        payload.type = 'formula';
+        if (field.formulaConfig !== undefined) payload.formulaConfig = field.formulaConfig;
     }
 
     // Repeater - payload format for REPEATER

@@ -5,11 +5,15 @@ import {
     parseFormulaDependencies,
     validateFormula,
     detectCircularDependency,
-    getNumericFieldsForFormula
+    getNumericFieldsForFormula,
+    getFieldsForFormula,
+    evaluateFormulaConfig,
+    validateFormulaExpression,
+    detectFormulaFieldCircularDependency
 } from '../utils/formula';
 import { builderToPlatform } from '../utils/mapper';
 import { FormRenderer } from '../renderer/FormRenderer';
-import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject, FieldValidations, LookupSourceType } from '../core/schemaTypes';
+import { FormSchema, FormSection, parseWidth, FieldWidth, ValidationObject, FieldValidations, LookupSourceType, FormulaConfig, FormulaCondition } from '../core/schemaTypes';
 import { cloneForm, cloneSection } from '../utils/clone';
 import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
@@ -18,6 +22,9 @@ import { getValidParentSectionIds } from '../utils/sectionHierarchy';
 
 // Module-level state to track which fields have their Advanced CSS panel expanded
 const advancedCssPanelState: Map<string, boolean> = new Map();
+
+// Tracks the last-focused formula expression textarea so field chips insert at cursor position
+let lastFocusedExprTextarea: HTMLTextAreaElement | null = null;
 
 // Debounced label updates to prevent flickering when typing
 const LABEL_DEBOUNCE_MS = 300;
@@ -658,7 +665,7 @@ export class FormBuilder {
             onclick: () => {
                 const schema = formStore.getState().schema;
 
-                // Validate formula fields before save
+                // Validate number fields with formula source
                 const numericFields = schema.sections.flatMap(s => s.fields).filter((f: any) => f.type === 'number');
                 const allIds = numericFields.map((f: any) => f.id);
                 const allNames = numericFields.map((f: any) => f.fieldName ?? f.id);
@@ -674,6 +681,32 @@ export class FormBuilder {
                             alert(`Circular dependency in formula for "${field.label}"`);
                             return;
                         }
+                    }
+                }
+
+                // Validate formula-type fields
+                for (const field of schema.sections.flatMap(s => s.fields)) {
+                    if (field.type !== 'formula' || !field.formulaConfig) continue;
+                    const fcfg = field.formulaConfig;
+                    const fAvailable = getFieldsForFormula(schema, field.id);
+                    const fNames = fAvailable.map(f => f.fieldName);
+                    const exprs: string[] = [];
+                    if (fcfg.mode === 'single') {
+                        if (fcfg.single?.expression) exprs.push(fcfg.single.expression);
+                    } else {
+                        fcfg.multiple?.conditions?.forEach((c: FormulaCondition) => { if (c.expression) exprs.push(c.expression); });
+                        if (fcfg.multiple?.fallbackExpression) exprs.push(fcfg.multiple.fallbackExpression);
+                    }
+                    for (const expr of exprs) {
+                        const result = validateFormulaExpression(expr, fNames);
+                        if (!result.valid) {
+                            alert(`Formula error in "${field.label}": ${result.error}`);
+                            return;
+                        }
+                    }
+                    if (detectFormulaFieldCircularDependency(schema, field.id, fcfg)) {
+                        alert(`Circular dependency detected in formula for "${field.label}"`);
+                        return;
                     }
                 }
 
@@ -1602,8 +1635,341 @@ export class FormBuilder {
             }
         }
 
-        // Placeholder (skip for image - uses Image section instead)
-        if (selectedField.type !== 'image') {
+        // --- Formula field: Formula Configuration ---
+        if (selectedField.type === 'formula') {
+            const schema = formStore.getState().schema;
+            const availableFields = getFieldsForFormula(schema, selectedField.id);
+
+            const cfg: FormulaConfig = (selectedField as any).formulaConfig ?? {
+                mode: 'single',
+                single: { expression: '' },
+                multiple: { compareField: '', conditions: [], fallbackExpression: '' },
+                decimalPlaces: 2
+            };
+
+            /** Read freshest formulaConfig from store and merge a partial update */
+            const patchFormulaConfig = (patch: Partial<FormulaConfig>) => {
+                const fresh = formStore.getState().schema.sections
+                    .flatMap((s: any) => s.fields)
+                    .find((f: any) => f.id === selectedField.id) as any;
+                const current: FormulaConfig = fresh?.formulaConfig ?? cfg;
+                formStore.getState().updateField(selectedField.id, { formulaConfig: { ...current, ...patch } } as any);
+            };
+
+            const patchMultiple = (patch: Partial<FormulaConfig['multiple']>) => {
+                const fresh = formStore.getState().schema.sections
+                    .flatMap((s: any) => s.fields)
+                    .find((f: any) => f.id === selectedField.id) as any;
+                const current: FormulaConfig = fresh?.formulaConfig ?? cfg;
+                patchFormulaConfig({ multiple: { ...current.multiple, ...patch } });
+            };
+
+            const formulaHeader = createElement('h3', {
+                className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-4',
+                text: 'Formula Configuration'
+            });
+            body.appendChild(formulaHeader);
+
+            // Mode toggle
+            const modeGroup = createElement('div', { className: 'mb-4' });
+            modeGroup.appendChild(createElement('label', {
+                className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-2',
+                text: 'Mode'
+            }));
+            const modeRow = createElement('div', { className: 'flex gap-2' });
+            const activeModeClass = 'flex-1 px-3 py-1.5 text-sm rounded-md border bg-[#635bff] text-white border-[#635bff] font-medium';
+            const inactiveModeClass = 'flex-1 px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-[#635bff] transition-colors';
+            const singleBtn = createElement('button', {
+                type: 'button',
+                className: cfg.mode === 'single' ? activeModeClass : inactiveModeClass,
+                text: 'Single Expression',
+                onclick: () => { patchFormulaConfig({ mode: 'single' }); this.render(); }
+            });
+            const multipleBtn = createElement('button', {
+                type: 'button',
+                className: cfg.mode === 'multiple' ? activeModeClass : inactiveModeClass,
+                text: 'Multiple Conditions',
+                onclick: () => { patchFormulaConfig({ mode: 'multiple' }); this.render(); }
+            });
+            modeRow.appendChild(singleBtn);
+            modeRow.appendChild(multipleBtn);
+            modeGroup.appendChild(modeRow);
+            body.appendChild(modeGroup);
+
+            if (cfg.mode === 'single') {
+                // Single expression editor
+                const exprGroup = createElement('div', { className: 'mb-3' });
+                exprGroup.appendChild(createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                    text: 'Expression'
+                }));
+                const exprTextarea = createElement('textarea', {
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono text-sm resize-none',
+                    placeholder: 'e.g. {fieldA} + {fieldB} * 1.18',
+                    rows: '3'
+                }) as HTMLTextAreaElement;
+                exprTextarea.value = cfg.single?.expression ?? '';
+                exprTextarea.addEventListener('focus', () => { lastFocusedExprTextarea = exprTextarea; });
+                const exprError = createElement('div', { className: 'text-xs text-red-500 mt-1 hidden' });
+                exprTextarea.addEventListener('input', () => {
+                    const expr = exprTextarea.value;
+                    const result = validateFormulaExpression(expr, availableFields.map(f => f.fieldName));
+                    if (result.valid || !expr.trim()) {
+                        exprError.classList.add('hidden');
+                    } else {
+                        exprError.textContent = result.error;
+                        exprError.classList.remove('hidden');
+                    }
+                    const freshCfg = (formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
+                    formStore.getState().updateField(selectedField.id, { formulaConfig: { ...freshCfg, single: { expression: expr } } } as any);
+                });
+                exprGroup.appendChild(exprTextarea);
+                exprGroup.appendChild(exprError);
+                body.appendChild(exprGroup);
+            } else {
+                // Multiple conditions mode
+                // Compare field selector
+                const compareGroup = createElement('div', { className: 'mb-3' });
+                compareGroup.appendChild(createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                    text: 'Compare Field'
+                }));
+                const compareSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                    onchange: (e: Event) => {
+                        const val = (e.target as HTMLSelectElement).value;
+                        patchMultiple({ compareField: val });
+                    }
+                });
+                compareSelect.appendChild(createElement('option', { value: '', text: 'Select field to compare…', selected: !cfg.multiple?.compareField }));
+                schema.sections.flatMap((s: any) => s.fields)
+                    .filter((f: any) => f.id !== selectedField.id)
+                    .forEach((f: any) => {
+                        const fn = f.fieldName ?? f.id;
+                        compareSelect.appendChild(createElement('option', {
+                            value: fn,
+                            text: `${f.label} (${fn})`,
+                            selected: cfg.multiple?.compareField === fn
+                        }));
+                    });
+                compareGroup.appendChild(compareSelect);
+                body.appendChild(compareGroup);
+
+                // Condition rows
+                const conditionsLabel = createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-2',
+                    text: 'Conditions'
+                });
+                body.appendChild(conditionsLabel);
+
+                const conditions: FormulaCondition[] = cfg.multiple?.conditions ?? [];
+                conditions.forEach((cond, idx) => {
+                    const row = createElement('div', { className: 'mb-2 p-2 rounded-md border border-gray-100 dark:border-gray-800 space-y-1' });
+
+                    const whenLabel = createElement('div', { className: 'text-xs text-gray-500 dark:text-gray-400', text: 'When equals' });
+                    const valueInput = createElement('input', {
+                        type: 'text',
+                        className: 'w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                        value: cond.value,
+                        placeholder: 'e.g. BHS 146',
+                        oninput: (e: Event) => {
+                            const v = (e.target as HTMLInputElement).value;
+                            const freshCfg = (formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
+                            const newConds = [...(freshCfg.multiple?.conditions ?? [])];
+                            newConds[idx] = { ...newConds[idx], value: v };
+                            patchMultiple({ conditions: newConds });
+                        }
+                    });
+
+                    const exprLabel = createElement('div', { className: 'text-xs text-gray-500 dark:text-gray-400', text: '→ Expression' });
+                    const condTextarea = createElement('textarea', {
+                        className: 'w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono resize-none',
+                        placeholder: 'e.g. {fieldA} + {fieldB}',
+                        rows: '2'
+                    }) as HTMLTextAreaElement;
+                    condTextarea.value = cond.expression ?? '';
+                    condTextarea.addEventListener('focus', () => { lastFocusedExprTextarea = condTextarea; });
+                    condTextarea.addEventListener('input', () => {
+                        const expr = condTextarea.value;
+                        const freshCfg = (formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
+                        const newConds = [...(freshCfg.multiple?.conditions ?? [])];
+                        newConds[idx] = { ...newConds[idx], expression: expr };
+                        patchMultiple({ conditions: newConds });
+                    });
+
+                    const removeBtn = createElement('button', {
+                        type: 'button',
+                        className: 'text-xs text-red-500 hover:text-red-700 dark:text-red-400',
+                        text: '− Remove',
+                        onclick: () => {
+                            const freshCfg = (formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
+                            const newConds = [...(freshCfg.multiple?.conditions ?? [])];
+                            newConds.splice(idx, 1);
+                            patchMultiple({ conditions: newConds });
+                            this.render();
+                        }
+                    });
+
+                    row.appendChild(whenLabel);
+                    row.appendChild(valueInput);
+                    row.appendChild(exprLabel);
+                    row.appendChild(condTextarea);
+                    row.appendChild(removeBtn);
+                    body.appendChild(row);
+                });
+
+                // Add condition button
+                body.appendChild(createElement('button', {
+                    type: 'button',
+                    className: 'w-full mb-3 py-1.5 text-sm border border-dashed border-gray-300 dark:border-gray-600 rounded-md text-gray-500 dark:text-gray-400 hover:border-[#635bff] hover:text-[#635bff] transition-colors',
+                    text: '+ Add Condition',
+                    onclick: () => {
+                        const freshCfg = (formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
+                        const newConds = [...(freshCfg.multiple?.conditions ?? []), { value: '', expression: '' }];
+                        patchMultiple({ conditions: newConds });
+                        this.render();
+                    }
+                }));
+
+                // Fallback expression
+                const fallbackGroup = createElement('div', { className: 'mb-3' });
+                fallbackGroup.appendChild(createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                    text: 'Fallback Expression'
+                }));
+                const fallbackTextarea = createElement('textarea', {
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono text-sm resize-none',
+                    placeholder: 'e.g. 0',
+                    rows: '2'
+                }) as HTMLTextAreaElement;
+                fallbackTextarea.value = cfg.multiple?.fallbackExpression ?? '';
+                fallbackTextarea.addEventListener('focus', () => { lastFocusedExprTextarea = fallbackTextarea; });
+                fallbackTextarea.addEventListener('input', () => {
+                    patchMultiple({ fallbackExpression: fallbackTextarea.value });
+                });
+                fallbackGroup.appendChild(fallbackTextarea);
+                body.appendChild(fallbackGroup);
+            }
+
+            // Field reference dropdown — select a field to insert {fieldName} at cursor
+            if (availableFields.length > 0) {
+                const insertGroup = createElement('div', { className: 'mb-3' });
+                insertGroup.appendChild(createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                    text: 'Insert Field Reference'
+                }));
+                const insertSelect = createElement('select', {
+                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                    onchange: (e: Event) => {
+                        const sel = e.target as HTMLSelectElement;
+                        const ref = sel.value;
+                        if (!ref) return;
+                        const ta = lastFocusedExprTextarea;
+                        if (ta) {
+                            const start = ta.selectionStart ?? ta.value.length;
+                            const end = ta.selectionEnd ?? ta.value.length;
+                            const before = ta.value.slice(0, start);
+                            const after = ta.value.slice(end);
+                            const pad = before.length > 0 && !/\s$/.test(before) ? ' ' : '';
+                            ta.value = before + pad + ref + after;
+                            const newPos = before.length + pad.length + ref.length;
+                            ta.selectionStart = ta.selectionEnd = newPos;
+                            ta.dispatchEvent(new Event('input', { bubbles: true }));
+                            ta.focus();
+                        }
+                        sel.value = '';
+                    }
+                });
+                insertSelect.appendChild(createElement('option', { value: '', text: 'Select field to insert…', selected: true }));
+                availableFields.forEach(f => {
+                    insertSelect.appendChild(createElement('option', {
+                        value: `{${f.fieldName}}`,
+                        text: `${f.label} ({${f.fieldName}})`
+                    }));
+                });
+                insertGroup.appendChild(insertSelect);
+                body.appendChild(insertGroup);
+            }
+
+            // Math helper buttons
+            body.appendChild(createElement('label', {
+                className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                text: 'Math Helpers'
+            }));
+            const mathWrap = createElement('div', { className: 'flex flex-wrap gap-1 mb-3' });
+            const mathOps: { text: string; insert: string }[] = [
+                { text: '+', insert: ' + ' }, { text: '-', insert: ' - ' },
+                { text: '*', insert: ' * ' }, { text: '/', insert: ' / ' },
+                { text: '(', insert: '(' }, { text: ')', insert: ')' },
+                { text: 'ROUND', insert: 'ROUND(' }, { text: 'ABS', insert: 'ABS(' },
+                { text: 'MIN', insert: 'MIN(' }, { text: 'MAX', insert: 'MAX(' },
+                { text: 'FLOOR', insert: 'FLOOR(' }, { text: 'CEIL', insert: 'CEIL(' },
+            ];
+            mathOps.forEach(op => {
+                mathWrap.appendChild(createElement('button', {
+                    type: 'button',
+                    className: 'px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded font-mono hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors',
+                    text: op.text,
+                    onclick: () => {
+                        const ta = lastFocusedExprTextarea;
+                        if (!ta) return;
+                        const start = ta.selectionStart ?? ta.value.length;
+                        const end = ta.selectionEnd ?? ta.value.length;
+                        ta.value = ta.value.slice(0, start) + op.insert + ta.value.slice(end);
+                        const newPos = start + op.insert.length;
+                        ta.selectionStart = ta.selectionEnd = newPos;
+                        ta.dispatchEvent(new Event('input', { bubbles: true }));
+                        ta.focus();
+                    }
+                }));
+            });
+            body.appendChild(mathWrap);
+
+            // Decimal places
+            const dpGroup = createElement('div', { className: 'mb-3' });
+            dpGroup.appendChild(createElement('label', {
+                className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                text: 'Decimal Places'
+            }));
+            dpGroup.appendChild(createElement('input', {
+                type: 'number',
+                className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
+                value: String(cfg.decimalPlaces ?? 2),
+                min: '0', max: '10', placeholder: '2',
+                oninput: (e: Event) => {
+                    const v = (e.target as HTMLInputElement).value;
+                    patchFormulaConfig({ decimalPlaces: v !== '' ? parseInt(v, 10) : 2 });
+                }
+            }));
+            body.appendChild(dpGroup);
+
+            // Live preview (all field values = 0)
+            const zeroValues: Record<string, number> = {};
+            availableFields.forEach(f => { zeroValues[f.fieldName] = 0; zeroValues[f.id] = 0; });
+            let previewText = '—';
+            try {
+                const previewResult = evaluateFormulaConfig(cfg, zeroValues);
+                if (!previewResult.error && !isNaN(previewResult.result)) {
+                    previewText = previewResult.result.toFixed(cfg.decimalPlaces ?? 2);
+                } else if (previewResult.error) {
+                    previewText = `Error: ${previewResult.error}`;
+                }
+            } catch { /* ignore */ }
+
+            const previewSection = createElement('div', { className: 'mb-4' });
+            previewSection.appendChild(createElement('label', {
+                className: 'block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1',
+                text: 'Preview (fields = 0)'
+            }));
+            previewSection.appendChild(createElement('div', {
+                className: 'px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-sm font-mono text-gray-700 dark:text-gray-300',
+                text: previewText
+            }));
+            body.appendChild(previewSection);
+        }
+
+        // Placeholder (skip for image and formula (read-only computed) field types)
+        if (selectedField.type !== 'image' && selectedField.type !== 'formula') {
             const placeholderGroup = createElement('div');
             placeholderGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Placeholder' }));
             placeholderGroup.appendChild(createElement('input', {

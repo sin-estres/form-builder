@@ -16,7 +16,8 @@ export type FieldType =
     | 'image'
     | 'email'
     | 'phone'
-    | 'name_generator'; // Auto-generated name based on format (e.g. RFQ-0001)
+    | 'name_generator' // Auto-generated name based on format (e.g. RFQ-0001)
+    | 'formula'; // Computed formula field — single expression or multi-condition
 
 /** Name generator format options for name_generator field type */
 export type NameGeneratorFormat =
@@ -213,6 +214,8 @@ export interface FormField {
     nameGeneratorPrefix?: string;
     nameGeneratorSuffix?: string;
     nameGeneratorIdPadding?: number;
+    // Formula field configuration (for type === 'formula')
+    formulaConfig?: FormulaConfig;
 }
 
 /**
@@ -224,6 +227,34 @@ export interface DateConstraint {
     operator: 'LESS_THAN' | 'LESS_THAN_EQUAL' | 'GREATER_THAN' | 'GREATER_THAN_EQUAL';
     compareWith: 'CURRENT_DATE' | 'FIELD';
     fieldName?: string; // When compareWith === 'FIELD': fieldName or id of the referenced date/datetime field
+}
+
+/**
+ * A single condition row for multi-condition formula fields.
+ * When the compare field equals `value`, evaluate `expression`.
+ */
+export interface FormulaCondition {
+    value: string;
+    expression: string;
+}
+
+/**
+ * Configuration for the formula field type.
+ * Supports two modes: single expression or multiple conditions.
+ */
+export interface FormulaConfig {
+    mode: 'single' | 'multiple';
+    /** Used when mode === 'single' */
+    single: {
+        expression: string; // e.g. "{fieldA} + {fieldB}"
+    };
+    /** Used when mode === 'multiple' */
+    multiple: {
+        compareField: string;        // fieldName of the field whose value is compared
+        conditions: FormulaCondition[];
+        fallbackExpression: string;  // expression used when no condition matches
+    };
+    decimalPlaces: number; // Number of decimal places in the output (0–10)
 }
 
 /**

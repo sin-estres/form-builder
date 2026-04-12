@@ -1,7 +1,7 @@
 import { FormSchema, FormField, getColSpanFromWidth, ValidationObject, ValidationRule } from '../core/schemaTypes';
 import { FieldRenderer } from './FieldRenderer';
 import { createElement } from '../utils/dom';
-import { evaluateFormula } from '../utils/formula';
+import { evaluateFormula, evaluateFormulaConfig, extractBracketFields } from '../utils/formula';
 import { generateName } from '../utils/nameGenerator';
 
 // Helper function to convert validation object to array format for validation logic
@@ -193,13 +193,30 @@ function buildFormulaValuesMap(schema: FormSchema, data: Record<string, any>): R
         if (field.fieldName) values[field.fieldName] = val;
     }
 
-    // Compute formula fields (iterate to handle formula chains: A=B+C, D=A*2)
+    // Compute number fields with formula source (iterate to handle formula chains: A=B+C, D=A*2)
     const formulaFields = allFields.filter(f => f.type === 'number' && f.valueSource === 'formula' && f.formula);
     for (let pass = 0; pass < Math.max(1, formulaFields.length); pass++) {
         for (const field of formulaFields) {
             const modelKey = getModelKey(field);
             const result = evaluateFormula(field.formula!, values);
             const newVal = isNaN(result) ? undefined : result;
+            values[modelKey] = newVal;
+            values[field.id] = newVal;
+            if (field.fieldName) values[field.fieldName] = newVal;
+        }
+    }
+    // Compute formula-type fields (dedicated formula field type with formulaConfig)
+    const formulaTypeFields = allFields.filter(f => f.type === 'formula' && f.formulaConfig);
+    for (let pass = 0; pass < Math.max(1, formulaTypeFields.length); pass++) {
+        for (const field of formulaTypeFields) {
+            const modelKey = getModelKey(field);
+            const compareFieldName = field.formulaConfig!.multiple?.compareField;
+            const compareValue = compareFieldName ? String(values[compareFieldName] ?? '') : '';
+            const evalResult = evaluateFormulaConfig(field.formulaConfig!, values, compareValue);
+            const dp = field.formulaConfig!.decimalPlaces ?? 2;
+            const newVal = !evalResult.error && !isNaN(evalResult.result)
+                ? parseFloat(evalResult.result.toFixed(dp))
+                : undefined;
             values[modelKey] = newVal;
             values[field.id] = newVal;
             if (field.fieldName) values[field.fieldName] = newVal;
@@ -227,9 +244,28 @@ function computeFormulaValue(field: FormField, schema: FormSchema, data: Record<
 function isFormulaDependency(schema: FormSchema, modelKey: string, fieldId?: string): boolean {
     for (const section of schema.sections) {
         for (const field of section.fields) {
+            // number fields with formula source
             if (field.type === 'number' && field.valueSource === 'formula' && field.dependencies) {
                 if (field.dependencies.includes(modelKey)) return true;
                 if (fieldId && field.dependencies.includes(fieldId)) return true;
+            }
+            // formula-type fields — check all expressions for {ref} placeholders
+            if (field.type === 'formula' && field.formulaConfig) {
+                const cfg = field.formulaConfig;
+                const exprs: string[] = [];
+                if (cfg.mode === 'single') { if (cfg.single?.expression) exprs.push(cfg.single.expression); }
+                else {
+                    cfg.multiple?.conditions?.forEach(c => { if (c.expression) exprs.push(c.expression); });
+                    if (cfg.multiple?.fallbackExpression) exprs.push(cfg.multiple.fallbackExpression);
+                    if (cfg.multiple?.compareField) {
+                        if (cfg.multiple.compareField === modelKey || cfg.multiple.compareField === fieldId) return true;
+                    }
+                }
+                for (const expr of exprs) {
+                    for (const ref of extractBracketFields(expr)) {
+                        if (ref === modelKey || (fieldId && ref === fieldId)) return true;
+                    }
+                }
             }
         }
     }
@@ -330,6 +366,18 @@ export class FormRenderer {
                     const computed = computeFormulaValue(field, this.schema, this.data);
                     fieldValue = computed;
                     this.data[modelKey] = computed; // Keep data in sync for submit
+                } else if (field.type === 'formula' && field.formulaConfig) {
+                    // Dedicated formula field type: evaluate from formulaConfig
+                    const allValues = buildFormulaValuesMap(this.schema, this.data);
+                    const compareFieldName = field.formulaConfig.multiple?.compareField;
+                    const compareValue = compareFieldName ? String(allValues[compareFieldName] ?? '') : '';
+                    const evalResult = evaluateFormulaConfig(field.formulaConfig, allValues, compareValue);
+                    const dp = field.formulaConfig.decimalPlaces ?? 2;
+                    const computed = !evalResult.error && !isNaN(evalResult.result)
+                        ? parseFloat(evalResult.result.toFixed(dp))
+                        : undefined;
+                    fieldValue = computed;
+                    this.data[modelKey] = computed;
                 } else if (field.type === 'name_generator') {
                     // Generate value on form load; use existing if already set (e.g. from edit mode)
                     fieldValue = this.data[modelKey];
@@ -342,7 +390,8 @@ export class FormRenderer {
                 } else {
                     fieldValue = this.data[modelKey];
                 }
-                const isFormulaField = field.type === 'number' && field.valueSource === 'formula';
+                const isFormulaField = (field.type === 'number' && field.valueSource === 'formula')
+                    || field.type === 'formula';
                 const fieldEl = FieldRenderer.render(
                     field,
                     fieldValue,
