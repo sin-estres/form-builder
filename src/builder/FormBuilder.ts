@@ -19,12 +19,15 @@ import Sortable from 'sortablejs';
 import { SectionList } from './SectionList';
 import { MasterType } from '../core/useFormStore';
 import { getValidParentSectionIds } from '../utils/sectionHierarchy';
+import { FormulaEditorWidget } from './FormulaEditorWidget';
+import { FieldInfo } from '../utils/formulaTokenParser';
 
 // Module-level state to track which fields have their Advanced CSS panel expanded
 const advancedCssPanelState: Map<string, boolean> = new Map();
 
-// Tracks the last-focused formula expression textarea so field chips insert at cursor position
-let lastFocusedExprTextarea: HTMLTextAreaElement | null = null;
+// Tracks the last-focused FormulaEditorWidget so "Insert Field" and math-helper
+// buttons know which editor to target (the user may have clicked away briefly).
+let lastFocusedFormulaWidget: FormulaEditorWidget | null = null;
 
 // Debounced label updates to prevent flickering when typing
 const LABEL_DEBOUNCE_MS = 300;
@@ -685,11 +688,22 @@ export class FormBuilder {
                 }
 
                 // Validate formula-type fields
+                // Formula fields can reference ANY field in the form (not just numeric),
+                // so build the valid-refs set from all schema fields excluding the formula field itself.
                 for (const field of schema.sections.flatMap(s => s.fields)) {
                     if (field.type !== 'formula' || !field.formulaConfig) continue;
                     const fcfg = field.formulaConfig;
-                    const fAvailable = getFieldsForFormula(schema, field.id);
-                    const fNames = fAvailable.map(f => f.fieldName);
+                    // All schema fields (any type) are valid refs for formula-type fields
+                    const allOtherFields = schema.sections
+                        .flatMap((s: any) => s.fields)
+                        .filter((f: any) => f.id !== field.id);
+                    // Accept both fieldName and id as valid refs
+                    const validRefSet = new Set<string>();
+                    allOtherFields.forEach((f: any) => {
+                        if (f.fieldName) validRefSet.add(f.fieldName);
+                        if (f.id) validRefSet.add(f.id);
+                    });
+                    const validRefs = Array.from(validRefSet);
                     const exprs: string[] = [];
                     if (fcfg.mode === 'single') {
                         if (fcfg.single?.expression) exprs.push(fcfg.single.expression);
@@ -698,7 +712,7 @@ export class FormBuilder {
                         if (fcfg.multiple?.fallbackExpression) exprs.push(fcfg.multiple.fallbackExpression);
                     }
                     for (const expr of exprs) {
-                        const result = validateFormulaExpression(expr, fNames);
+                        const result = validateFormulaExpression(expr, validRefs);
                         if (!result.valid) {
                             alert(`Formula error in "${field.label}": ${result.error}`);
                             return;
@@ -1567,77 +1581,167 @@ export class FormBuilder {
                 const availableIds = numericFields.map(f => f.id);
                 const availableNames = numericFields.map(f => f.fieldName);
 
+                // ── FieldInfo list for the widget ──────────────────────────────────
+                // • availableFields = ALL schema fields (for label-resolution so any
+                //   stored ref — regardless of current field type — resolves to a label)
+                // • numFieldInfos = numeric-only (insert dropdown + validation only)
+                // WHY: if a referenced field was a 'number' type when the formula was
+                // saved but its type was later changed (or it's a 'formula'-type field),
+                // numericFields would no longer contain it and the chip would appear red.
+                // Using all schema fields for the fieldMap mirrors the same fix already
+                // applied to the standalone formula-type field widget.
+                const allFieldInfosForWidget: FieldInfo[] = schema.sections
+                    .flatMap((s: any) => s.fields)
+                    .filter((f: any) => f.id !== selectedField.id)
+                    .map((f: any) => ({
+                        id: f.id,
+                        fieldName: (f.fieldName ?? f.id) as string,
+                        label: (f.label || f.fieldName || f.id) as string,
+                    }));
+
+                const numFieldInfos: FieldInfo[] = numericFields.map(f => ({
+                    id: f.id,
+                    fieldName: f.fieldName,
+                    label: f.label || f.fieldName || f.id,
+                }));
+
                 const formulaGroup = createElement('div', { className: 'mb-3' });
-                formulaGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Formula' }));
-                const formulaInput = createElement('input', {
-                    type: 'text',
-                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono text-sm',
-                    value: selectedField.formula || '',
+                formulaGroup.appendChild(createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                    text: 'Formula'
+                }));
+
+                // ── Rich formula editor ────────────────────────────────────────────
+                const numFormulaWidget = new FormulaEditorWidget({
+                    mode: 'plain',
+                    availableFields: allFieldInfosForWidget,
+                    // Always read from the store snapshot — guarantees correct reload
+                    // after field switch and re-render.
+                    initialValue: selectedField.formula || '',
                     placeholder: 'e.g. quantity * price',
-                    'data-focus-id': `field-formula-${selectedField.id}`,
-                    oninput: (e: Event) => {
-                        const formula = (e.target as HTMLInputElement).value.trim();
+                    onChange: (formula) => {
                         const deps = parseFormulaDependencies(formula);
-                        const validation = validateFormula(formula, availableIds, availableNames, selectedField.id);
-                        const hasCircular = deps.length > 0 && detectCircularDependency(schema, selectedField.id, formula, deps);
-                        const errEl = formulaGroup.querySelector('.formula-error') as HTMLElement | null;
-                        if (errEl) {
-                            if (validation.valid && !hasCircular) {
-                                errEl.textContent = '';
-                                errEl.classList.add('hidden');
-                            } else {
-                                errEl.textContent = !validation.valid ? validation.error : 'Circular dependency detected';
-                                errEl.classList.remove('hidden');
-                            }
+                        const isValid = (() => {
+                            if (!formula.trim()) return true;
+                            const v = validateFormula(formula, availableIds, availableNames, selectedField.id);
+                            if (!v.valid) return false;
+                            return !(deps.length > 0 && detectCircularDependency(schema, selectedField.id, formula, deps));
+                        })();
+                        numFormulaWidget.setError(!isValid && formula.trim().length > 0);
+                        if (!isValid && formula.trim()) {
+                            const v = validateFormula(formula, availableIds, availableNames, selectedField.id);
+                            formulaError.textContent = !v.valid
+                                ? (v as { valid: false; error: string }).error
+                                : 'Circular dependency detected';
+                            formulaError.classList.remove('hidden');
+                        } else {
+                            formulaError.textContent = '';
+                            formulaError.classList.add('hidden');
                         }
                         formStore.getState().updateField(selectedField.id, { formula, dependencies: deps });
                     }
-                }) as HTMLInputElement;
-                formulaGroup.appendChild(formulaInput);
-                const formulaError = createElement('div', { className: 'text-xs text-red-600 dark:text-red-400 mt-1 formula-error hidden' });
+                });
+
+                // Always set lastFocusedFormulaWidget on focus, scoped to this render cycle
+                numFormulaWidget.getElement().querySelector('[data-formula-editor]')
+                    ?.addEventListener('focus', () => { lastFocusedFormulaWidget = numFormulaWidget; });
+
+                formulaGroup.appendChild(numFormulaWidget.getElement());
+                const formulaError = createElement('div', {
+                    className: 'text-xs text-red-600 dark:text-red-400 mt-1 formula-error hidden'
+                });
                 formulaGroup.appendChild(formulaError);
                 body.appendChild(formulaGroup);
 
-                // Insert field dropdown - quick insert into formula
+                // ── Insert Field dropdown (numeric fields only for number formula) ──
                 const insertGroup = createElement('div', { className: 'mb-3' });
-                insertGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Insert Field' }));
+                insertGroup.appendChild(createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                    text: 'Insert Field'
+                }));
                 const insertSelect = createElement('select', {
                     className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                     onchange: (e: Event) => {
                         const sel = e.target as HTMLSelectElement;
                         const ref = sel.value;
                         if (!ref) return;
-                        const current = selectedField.formula || '';
-                        const insert = current ? ` ${ref} ` : ref;
-                        const newFormula = current + insert;
-                        formStore.getState().updateField(selectedField.id, {
-                            formula: newFormula,
-                            dependencies: parseFormulaDependencies(newFormula)
-                        });
-                        formulaInput.value = newFormula;
+                        const field = numFieldInfos.find(f => f.fieldName === ref || f.id === ref);
+                        if (field) {
+                            numFormulaWidget.insertField(field);
+                            lastFocusedFormulaWidget = numFormulaWidget;
+                        }
                         sel.value = '';
-                        this.render();
                     }
                 });
-                insertSelect.appendChild(createElement('option', { value: '', text: 'Select field to insert...', selected: true }));
-                numericFields.forEach(f => {
+                insertSelect.appendChild(createElement('option', { value: '', text: 'Select field to insert…', selected: true }));
+                numFieldInfos.forEach(f => {
                     const ref = f.fieldName !== f.id ? f.fieldName : f.id;
-                    insertSelect.appendChild(createElement('option', { value: ref, text: `${f.label} (${ref})` }));
+                    insertSelect.appendChild(createElement('option', { value: ref, text: f.label }));
                 });
                 insertGroup.appendChild(insertSelect);
                 body.appendChild(insertGroup);
 
-                const hintEl = createElement('p', {
-                    className: 'text-xs text-gray-500 dark:text-gray-400 mb-2',
-                    text: 'Use +, -, *, / and parentheses. Reference fields by their name or ID.'
+                // ── Operator quick-insert buttons ─────────────────────────────────
+                body.appendChild(createElement('label', {
+                    className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                    text: 'Operators'
+                }));
+                const numMathWrap = createElement('div', { className: 'flex flex-wrap gap-1 mb-3' });
+                [
+                    { text: '+', insert: ' + ' }, { text: '-', insert: ' - ' },
+                    { text: '*', insert: ' * ' }, { text: '/', insert: ' / ' },
+                    { text: '%', insert: ' % ' }, { text: '(', insert: '(' }, { text: ')', insert: ')' },
+                ].forEach(op => {
+                    numMathWrap.appendChild(createElement('button', {
+                        type: 'button',
+                        className: 'px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded font-mono hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors',
+                        text: op.text,
+                        onclick: () => {
+                            // Use numFormulaWidget directly — avoids targeting a stale
+                            // widget from a previously rendered field.
+                            (lastFocusedFormulaWidget ?? numFormulaWidget).insertText(op.insert);
+                        }
+                    }));
                 });
-                body.appendChild(hintEl);
+                body.appendChild(numMathWrap);
+
+                body.appendChild(createElement('p', {
+                    className: 'text-xs text-gray-500 dark:text-gray-400 mb-2',
+                    text: 'Fields shown as labels — stored as field references internally.'
+                }));
             }
         }
 
         // --- Formula field: Formula Configuration ---
         if (selectedField.type === 'formula') {
             const schema = formStore.getState().schema;
+
+            // ── Fix: use ALL schema fields for the formula type ──────────────────
+            //
+            // WHY:
+            //  1. State-corruption fix — the fieldMap used by the widget must
+            //     include EVERY field so that stored refs (of any type) can
+            //     be resolved to their label on re-render.  Previously only
+            //     number/formula types were included, so refs to text/select/etc.
+            //     fields fell back to showing the raw ID.
+            //
+            //  2. Requirement: "Insert Field dropdown should include ALL fields"
+            //     for the standalone formula type.
+            //
+            // The numeric-only restriction is kept for the Number-field formula
+            // (handled separately above).
+            const allSchemaFieldInfos: FieldInfo[] = schema.sections
+                .flatMap((s: any) => s.fields)
+                .filter((f: any) => f.id !== selectedField.id)
+                .map((f: any) => ({
+                    id: f.id,
+                    fieldName: (f.fieldName ?? f.id) as string,
+                    label: (f.label || f.fieldName || f.id) as string,
+                }));
+
+            // Keep the numeric-only list for validation (formula evaluation only
+            // makes sense with numeric refs; non-numeric refs evaluate as 0 but
+            // are still legal to reference).  Validation checks against ALL names.
             const availableFields = getFieldsForFormula(schema, selectedField.id);
 
             const cfg: FormulaConfig = (selectedField as any).formulaConfig ?? {
@@ -1696,38 +1800,62 @@ export class FormBuilder {
             modeGroup.appendChild(modeRow);
             body.appendChild(modeGroup);
 
+            // All schema fields → fieldMap for the widget (label resolution for any ref)
+            // This replaces the old numeric-only fwFieldInfos and fixes state corruption
+            // when switching fields and returning.
+            const fwFieldInfos = allSchemaFieldInfos;
+
+            // Shared focus tracker — reset to null for this render cycle so we
+            // never inherit a stale reference from a previously rendered field.
+            lastFocusedFormulaWidget = null;
+
+            const registerFormulaWidget = (widget: FormulaEditorWidget) => {
+                widget.getElement().querySelector('[data-formula-editor]')
+                    ?.addEventListener('focus', () => { lastFocusedFormulaWidget = widget; });
+            };
+
             if (cfg.mode === 'single') {
-                // Single expression editor
+                // ── Single expression editor ──────────────────────────────────────
                 const exprGroup = createElement('div', { className: 'mb-3' });
                 exprGroup.appendChild(createElement('label', {
                     className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
                     text: 'Expression'
                 }));
-                const exprTextarea = createElement('textarea', {
-                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono text-sm resize-none',
-                    placeholder: 'e.g. {fieldA} + {fieldB} * 1.18',
-                    rows: '3'
-                }) as HTMLTextAreaElement;
-                exprTextarea.value = cfg.single?.expression ?? '';
-                exprTextarea.addEventListener('focus', () => { lastFocusedExprTextarea = exprTextarea; });
                 const exprError = createElement('div', { className: 'text-xs text-red-500 mt-1 hidden' });
-                exprTextarea.addEventListener('input', () => {
-                    const expr = exprTextarea.value;
-                    const result = validateFormulaExpression(expr, availableFields.map(f => f.fieldName));
-                    if (result.valid || !expr.trim()) {
-                        exprError.classList.add('hidden');
-                    } else {
-                        exprError.textContent = result.error;
-                        exprError.classList.remove('hidden');
+
+                const singleWidget = new FormulaEditorWidget({
+                    mode: 'bracket',
+                    // Use ALL schema fields for the fieldMap so any ref resolves to its label
+                    availableFields: fwFieldInfos,
+                    // Source of truth: always read from persisted cfg, never from a
+                    // closure variable.  This guarantees correct reload after field switch.
+                    initialValue: cfg.single?.expression ?? '',
+                    placeholder: 'e.g. {fieldA} + {fieldB} * 1.18',
+                    onChange: (expr) => {
+                        // Validate against ALL field names (formula type accepts any ref)
+                        const result = validateFormulaExpression(expr, fwFieldInfos.map(f => f.fieldName));
+                        const isValid = result.valid || !expr.trim();
+                        singleWidget.setError(!isValid);
+                        exprError.textContent = isValid ? '' : (result as { valid: false; error: string }).error;
+                        exprError.classList.toggle('hidden', isValid);
+                        const freshCfg = (formStore.getState().schema.sections
+                            .flatMap((s: any) => s.fields)
+                            .find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
+                        formStore.getState().updateField(selectedField.id, {
+                            formulaConfig: { ...freshCfg, single: { expression: expr } }
+                        } as any);
                     }
-                    const freshCfg = (formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
-                    formStore.getState().updateField(selectedField.id, { formulaConfig: { ...freshCfg, single: { expression: expr } } } as any);
                 });
-                exprGroup.appendChild(exprTextarea);
+                registerFormulaWidget(singleWidget);
+                // Immediately set as focused target so math helpers work without
+                // clicking the editor first.
+                lastFocusedFormulaWidget = singleWidget;
+
+                exprGroup.appendChild(singleWidget.getElement());
                 exprGroup.appendChild(exprError);
                 body.appendChild(exprGroup);
             } else {
-                // Multiple conditions mode
+                // ── Multiple conditions mode ──────────────────────────────────────
                 // Compare field selector
                 const compareGroup = createElement('div', { className: 'mb-3' });
                 compareGroup.appendChild(createElement('label', {
@@ -1756,18 +1884,17 @@ export class FormBuilder {
                 body.appendChild(compareGroup);
 
                 // Condition rows
-                const conditionsLabel = createElement('label', {
+                body.appendChild(createElement('label', {
                     className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-2',
                     text: 'Conditions'
-                });
-                body.appendChild(conditionsLabel);
+                }));
 
                 const conditions: FormulaCondition[] = cfg.multiple?.conditions ?? [];
                 conditions.forEach((cond, idx) => {
                     const row = createElement('div', { className: 'mb-2 p-2 rounded-md border border-gray-100 dark:border-gray-800 space-y-1' });
 
-                    const whenLabel = createElement('div', { className: 'text-xs text-gray-500 dark:text-gray-400', text: 'When equals' });
-                    const valueInput = createElement('input', {
+                    row.appendChild(createElement('div', { className: 'text-xs text-gray-500 dark:text-gray-400', text: 'When equals' }));
+                    row.appendChild(createElement('input', {
                         type: 'text',
                         className: 'w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-transparent',
                         value: cond.value,
@@ -1779,25 +1906,30 @@ export class FormBuilder {
                             newConds[idx] = { ...newConds[idx], value: v };
                             patchMultiple({ conditions: newConds });
                         }
-                    });
+                    }));
 
-                    const exprLabel = createElement('div', { className: 'text-xs text-gray-500 dark:text-gray-400', text: '→ Expression' });
-                    const condTextarea = createElement('textarea', {
-                        className: 'w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono resize-none',
+                    row.appendChild(createElement('div', { className: 'text-xs text-gray-500 dark:text-gray-400', text: '→ Expression' }));
+
+                    // Rich formula editor — ALL schema fields for resolution + validation
+                    const condWidget = new FormulaEditorWidget({
+                        mode: 'bracket',
+                        availableFields: fwFieldInfos,   // all-schema fieldMap
+                        initialValue: cond.expression ?? '',
                         placeholder: 'e.g. {fieldA} + {fieldB}',
-                        rows: '2'
-                    }) as HTMLTextAreaElement;
-                    condTextarea.value = cond.expression ?? '';
-                    condTextarea.addEventListener('focus', () => { lastFocusedExprTextarea = condTextarea; });
-                    condTextarea.addEventListener('input', () => {
-                        const expr = condTextarea.value;
-                        const freshCfg = (formStore.getState().schema.sections.flatMap((s: any) => s.fields).find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
-                        const newConds = [...(freshCfg.multiple?.conditions ?? [])];
-                        newConds[idx] = { ...newConds[idx], expression: expr };
-                        patchMultiple({ conditions: newConds });
+                        onChange: (expr) => {
+                            const freshCfg = (formStore.getState().schema.sections
+                                .flatMap((s: any) => s.fields)
+                                .find((f: any) => f.id === selectedField.id) as any)?.formulaConfig ?? cfg;
+                            const newConds = [...(freshCfg.multiple?.conditions ?? [])];
+                            newConds[idx] = { ...newConds[idx], expression: expr };
+                            patchMultiple({ conditions: newConds });
+                        }
                     });
+                    registerFormulaWidget(condWidget);
+                    if (!lastFocusedFormulaWidget) lastFocusedFormulaWidget = condWidget;
+                    row.appendChild(condWidget.getElement());
 
-                    const removeBtn = createElement('button', {
+                    row.appendChild(createElement('button', {
                         type: 'button',
                         className: 'text-xs text-red-500 hover:text-red-700 dark:text-red-400',
                         text: '− Remove',
@@ -1808,13 +1940,8 @@ export class FormBuilder {
                             patchMultiple({ conditions: newConds });
                             this.render();
                         }
-                    });
+                    }));
 
-                    row.appendChild(whenLabel);
-                    row.appendChild(valueInput);
-                    row.appendChild(exprLabel);
-                    row.appendChild(condTextarea);
-                    row.appendChild(removeBtn);
                     body.appendChild(row);
                 });
 
@@ -1837,22 +1964,25 @@ export class FormBuilder {
                     className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
                     text: 'Fallback Expression'
                 }));
-                const fallbackTextarea = createElement('textarea', {
-                    className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono text-sm resize-none',
+                const fallbackWidget = new FormulaEditorWidget({
+                    mode: 'bracket',
+                    availableFields: fwFieldInfos,
+                    initialValue: cfg.multiple?.fallbackExpression ?? '',
                     placeholder: 'e.g. 0',
-                    rows: '2'
-                }) as HTMLTextAreaElement;
-                fallbackTextarea.value = cfg.multiple?.fallbackExpression ?? '';
-                fallbackTextarea.addEventListener('focus', () => { lastFocusedExprTextarea = fallbackTextarea; });
-                fallbackTextarea.addEventListener('input', () => {
-                    patchMultiple({ fallbackExpression: fallbackTextarea.value });
+                    onChange: (expr) => {
+                        patchMultiple({ fallbackExpression: expr });
+                    }
                 });
-                fallbackGroup.appendChild(fallbackTextarea);
+                registerFormulaWidget(fallbackWidget);
+                if (!lastFocusedFormulaWidget) lastFocusedFormulaWidget = fallbackWidget;
+                fallbackGroup.appendChild(fallbackWidget.getElement());
                 body.appendChild(fallbackGroup);
             }
 
-            // Field reference dropdown — select a field to insert {fieldName} at cursor
-            if (availableFields.length > 0) {
+            // ── Insert Field Reference dropdown ────────────────────────────────────
+            // For the formula type: shows ALL schema fields (requirement).
+            // fwFieldInfos already contains all schema fields (fixed above).
+            if (fwFieldInfos.length > 0) {
                 const insertGroup = createElement('div', { className: 'mb-3' });
                 insertGroup.appendChild(createElement('label', {
                     className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
@@ -1864,34 +1994,27 @@ export class FormBuilder {
                         const sel = e.target as HTMLSelectElement;
                         const ref = sel.value;
                         if (!ref) return;
-                        const ta = lastFocusedExprTextarea;
-                        if (ta) {
-                            const start = ta.selectionStart ?? ta.value.length;
-                            const end = ta.selectionEnd ?? ta.value.length;
-                            const before = ta.value.slice(0, start);
-                            const after = ta.value.slice(end);
-                            const pad = before.length > 0 && !/\s$/.test(before) ? ' ' : '';
-                            ta.value = before + pad + ref + after;
-                            const newPos = before.length + pad.length + ref.length;
-                            ta.selectionStart = ta.selectionEnd = newPos;
-                            ta.dispatchEvent(new Event('input', { bubbles: true }));
-                            ta.focus();
+                        const field = fwFieldInfos.find(f => f.fieldName === ref || f.id === ref);
+                        // Fall back to singleWidget (single mode) to avoid null target
+                        const target = lastFocusedFormulaWidget;
+                        if (field && target) {
+                            target.insertField(field);
                         }
                         sel.value = '';
                     }
                 });
                 insertSelect.appendChild(createElement('option', { value: '', text: 'Select field to insert…', selected: true }));
-                availableFields.forEach(f => {
+                fwFieldInfos.forEach(f => {
                     insertSelect.appendChild(createElement('option', {
-                        value: `{${f.fieldName}}`,
-                        text: `${f.label} ({${f.fieldName}})`
+                        value: f.fieldName !== f.id ? f.fieldName : f.id,
+                        text: f.label  // show only human-readable label
                     }));
                 });
                 insertGroup.appendChild(insertSelect);
                 body.appendChild(insertGroup);
             }
 
-            // Math helper buttons
+            // ── Math helpers ──────────────────────────────────────────────────────
             body.appendChild(createElement('label', {
                 className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
                 text: 'Math Helpers'
@@ -1911,21 +2034,13 @@ export class FormBuilder {
                     className: 'px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded font-mono hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors',
                     text: op.text,
                     onclick: () => {
-                        const ta = lastFocusedExprTextarea;
-                        if (!ta) return;
-                        const start = ta.selectionStart ?? ta.value.length;
-                        const end = ta.selectionEnd ?? ta.value.length;
-                        ta.value = ta.value.slice(0, start) + op.insert + ta.value.slice(end);
-                        const newPos = start + op.insert.length;
-                        ta.selectionStart = ta.selectionEnd = newPos;
-                        ta.dispatchEvent(new Event('input', { bubbles: true }));
-                        ta.focus();
+                        lastFocusedFormulaWidget?.insertText(op.insert);
                     }
                 }));
             });
             body.appendChild(mathWrap);
 
-            // Decimal places
+            // ── Decimal places ────────────────────────────────────────────────────
             const dpGroup = createElement('div', { className: 'mb-3' });
             dpGroup.appendChild(createElement('label', {
                 className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',

@@ -462,7 +462,35 @@ function transformField(field: any): FormField {
     // Date / DateTime conditional constraint
     if (field.dateConstraints !== undefined) transformed.dateConstraints = field.dateConstraints;
     // Formula field config
-    if (field.formulaConfig !== undefined) transformed.formulaConfig = field.formulaConfig;
+    // Accept both internal FormulaConfig object and the backend SIMPLE/SWITCH flat shape.
+    if (field.formulaConfig !== undefined) {
+        transformed.formulaConfig = field.formulaConfig;
+    } else if (field.type === 'formula' && field.formulaType) {
+        // Backend flat format → internal FormulaConfig
+        const dp: number = field.floatingPrecision ?? 2;
+        if (field.formulaType === 'SIMPLE') {
+            transformed.formulaConfig = {
+                mode: 'single',
+                single: { expression: field.formulaExpression ?? '' },
+                multiple: { compareField: '', conditions: [], fallbackExpression: '' },
+                decimalPlaces: dp
+            };
+        } else if (field.formulaType === 'SWITCH') {
+            const cases = Array.isArray(field.switchCases)
+                ? field.switchCases.map((c: any) => ({ value: c.matchValue ?? c.value ?? '', expression: c.formulaExpression ?? c.expression ?? '' }))
+                : [];
+            transformed.formulaConfig = {
+                mode: 'multiple',
+                single: { expression: '' },
+                multiple: {
+                    compareField: field.switchField ?? '',
+                    conditions: cases,
+                    fallbackExpression: field.switchDefaultFormula ?? ''
+                },
+                decimalPlaces: dp
+            };
+        }
+    }
     // Name generator
     if (field.nameGeneratorFormat !== undefined) transformed.nameGeneratorFormat = field.nameGeneratorFormat;
     if (field.nameGeneratorText !== undefined) transformed.nameGeneratorText = field.nameGeneratorText;
@@ -818,10 +846,40 @@ function fieldToPayload(field: FormField, opts?: { groupId?: string }): any {
     }
 
     // Formula field - payload format for FORMULA
+    // Maps internal FormulaConfig → backend SIMPLE / SWITCH format.
     if (field.type === 'formula') {
         payload.fieldType = 'FORMULA';
         payload.type = 'formula';
-        if (field.formulaConfig !== undefined) payload.formulaConfig = field.formulaConfig;
+        payload.readOnly = true;
+        payload.floatingPrecision = field.formulaConfig?.decimalPlaces ?? 2;
+
+        if (field.formulaConfig?.mode === 'single') {
+            // SIMPLE: single expression
+            payload.formulaType = 'SIMPLE';
+            payload.formulaExpression = field.formulaConfig.single?.expression ?? '';
+            payload.switchField = null;
+            payload.switchCases = null;
+            payload.switchDefaultFormula = null;
+        } else if (field.formulaConfig?.mode === 'multiple') {
+            // SWITCH: compare-field driven conditions
+            const multi = field.formulaConfig.multiple;
+            payload.formulaType = 'SWITCH';
+            payload.formulaExpression = '';
+            payload.switchField = multi?.compareField ?? null;
+            payload.switchCases = (multi?.conditions ?? []).map((c: any) => ({
+                matchValue: c.value,
+                formulaExpression: c.expression ?? ''
+            }));
+            payload.switchDefaultFormula = multi?.fallbackExpression ?? '';
+            payload.switchCases = payload.switchCases;
+        } else {
+            // Fallback: no config yet — output SIMPLE with empty expression
+            payload.formulaType = 'SIMPLE';
+            payload.formulaExpression = '';
+            payload.switchField = null;
+            payload.switchCases = null;
+            payload.switchDefaultFormula = null;
+        }
     }
 
     // Repeater - payload format for REPEATER
