@@ -2866,6 +2866,118 @@ export class FormBuilder {
                 parentFieldGroup.appendChild(parentFieldSelect);
                 body.appendChild(parentFieldGroup);
 
+                // -------------------------------------------------------
+                // Auto Populate Fields section (LOOKUP only)
+                // -------------------------------------------------------
+                const autoPopHeader = createElement('h3', {
+                    className: 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6',
+                    text: 'Auto Populate Fields'
+                });
+                body.appendChild(autoPopHeader);
+
+                // "Enable automation for selected records" checkbox
+                const autoPopEnabled = selectedField.autoPopulateFields?.enabled === true;
+                body.appendChild(this.createCheckboxField(
+                    'Enable automation for selected records',
+                    autoPopEnabled,
+                    (checked) => {
+                        const current = formStore.getState().schema.sections
+                            .flatMap(s => s.fields)
+                            .find(f => f.id === selectedField.id);
+                        formStore.getState().updateField(selectedField.id, {
+                            autoPopulateFields: {
+                                enabled: checked,
+                                fields: current?.autoPopulateFields?.fields ?? []
+                            }
+                        });
+                        this.render();
+                    },
+                    `auto-populate-enabled-${selectedField.id}`
+                ));
+
+                // Multi-select dropdown for fields from Lookup Value/Label field options
+                // Always rendered; disabled when the toggle is off or no lookup source selected.
+                {
+                    const autoPopFieldsGroup = createElement('div', { className: 'mb-4 mt-2' });
+                    autoPopFieldsGroup.appendChild(createElement('label', {
+                        className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1',
+                        text: 'Fields to auto-populate'
+                    }));
+
+                    // Collect available field options from lookupFieldOptionsMap (same list used by
+                    // Lookup Value Field / Lookup Label Field dropdowns)
+                    const lookupFieldOptionsMapForAP = formStore.getState().lookupFieldOptionsMap;
+                    const availableAutoPopFields: string[] = selectedField.lookupSource
+                        ? (lookupFieldOptionsMapForAP[selectedField.lookupSource] || [])
+                        : [];
+
+                    const selectedAutoPopFields: string[] = selectedField.autoPopulateFields?.fields ?? [];
+                    const isAutoPopDisabled = !autoPopEnabled || !selectedField.lookupSource;
+
+                    // We render a custom multi-select list using checkboxes so it's compact and
+                    // consistent with the rest of the properties panel UI.
+                    if (availableAutoPopFields.length === 0) {
+                        const emptyNote = createElement('p', {
+                            className: 'text-xs text-gray-400 dark:text-gray-500 mt-1',
+                            text: selectedField.lookupSource
+                                ? 'No fields available for this lookup source.'
+                                : 'Select a Lookup Source first.'
+                        });
+                        autoPopFieldsGroup.appendChild(emptyNote);
+                    } else {
+                        const fieldList = createElement('div', {
+                            className: `border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-100 dark:divide-gray-700 overflow-y-auto max-h-40 ${isAutoPopDisabled ? 'opacity-50 pointer-events-none' : ''}`
+                        });
+
+                        availableAutoPopFields.forEach((fieldKey: string) => {
+                            const isChecked = selectedAutoPopFields.includes(fieldKey);
+                            const row = createElement('label', {
+                                className: 'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-sm text-gray-700 dark:text-gray-300'
+                            });
+
+                            const cb = createElement('input', {
+                                type: 'checkbox',
+                                className: 'w-4 h-4 accent-blue-600',
+                                checked: isChecked,
+                                disabled: isAutoPopDisabled,
+                                onchange: (e: Event) => {
+                                    const target = e.target as HTMLInputElement;
+                                    const latestField = formStore.getState().schema.sections
+                                        .flatMap(s => s.fields)
+                                        .find(f => f.id === selectedField.id);
+                                    const latestSelected: string[] = latestField?.autoPopulateFields?.fields ?? [];
+                                    const updatedFields = target.checked
+                                        ? [...new Set([...latestSelected, fieldKey])]
+                                        : latestSelected.filter(k => k !== fieldKey);
+                                    formStore.getState().updateField(selectedField.id, {
+                                        autoPopulateFields: {
+                                            enabled: latestField?.autoPopulateFields?.enabled ?? true,
+                                            fields: updatedFields
+                                        }
+                                    });
+                                    // No full re-render needed — just update store; checkbox state is correct already
+                                }
+                            });
+
+                            row.appendChild(cb);
+                            row.appendChild(createElement('span', { text: fieldKey }));
+                            fieldList.appendChild(row);
+                        });
+
+                        autoPopFieldsGroup.appendChild(fieldList);
+
+                        // Show a brief summary of how many are selected
+                        if (selectedAutoPopFields.length > 0) {
+                            autoPopFieldsGroup.appendChild(createElement('p', {
+                                className: 'text-xs text-gray-400 dark:text-gray-500 mt-1',
+                                text: `${selectedAutoPopFields.length} field(s) selected`
+                            }));
+                        }
+                    }
+
+                    body.appendChild(autoPopFieldsGroup);
+                }
+
                 // Visibility checkbox
                 body.appendChild(this.createCheckboxField(
                     'Visibility',

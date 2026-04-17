@@ -152,6 +152,24 @@ export interface AsyncOptionSource {
 /** Lookup (Entity Fields) — source category for optionSource LOOKUP */
 export type LookupSourceType = 'MODULE' | 'MASTER_TYPE' | 'SETTINGS';
 
+/**
+ * Configuration for the auto-populate fields feature on LOOKUP dropdowns.
+ * When `enabled` is true and a user selects a lookup record, the fields listed
+ * in `fields` are automatically populated from the corresponding lookup record data.
+ *
+ * `fields` contains the field keys (e.g. column/property names) that are present
+ * in both the Lookup Value Field and the Lookup Label Field response objects.
+ */
+export interface AutoPopulateFieldsConfig {
+    /** Whether auto-population is active for this dropdown */
+    enabled: boolean;
+    /**
+     * List of field keys from the lookup response that should be auto-populated
+     * into other form fields when the user selects a value.
+     */
+    fields: string[];
+}
+
 export interface FormField {
     id: string;
     type: FieldType;
@@ -216,6 +234,10 @@ export interface FormField {
     nameGeneratorIdPadding?: number;
     // Formula field configuration (for type === 'formula')
     formulaConfig?: FormulaConfig;
+    // Auto-populate fields configuration (for LOOKUP optionSource only)
+    // When a lookup value is selected, the listed fields are automatically populated
+    // from the corresponding lookup record data.
+    autoPopulateFields?: AutoPopulateFieldsConfig;
 }
 
 /**

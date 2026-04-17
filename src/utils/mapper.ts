@@ -497,6 +497,15 @@ function transformField(field: any): FormField {
     if (field.nameGeneratorPrefix !== undefined) transformed.nameGeneratorPrefix = field.nameGeneratorPrefix;
     if (field.nameGeneratorSuffix !== undefined) transformed.nameGeneratorSuffix = field.nameGeneratorSuffix;
     if (field.nameGeneratorIdPadding !== undefined) transformed.nameGeneratorIdPadding = field.nameGeneratorIdPadding;
+    // Auto-populate fields config (LOOKUP optionSource only)
+    if (field.autoPopulateFields !== undefined && field.autoPopulateFields !== null) {
+        // Support both nested object format and flat fields array for inbound payloads
+        const apf = field.autoPopulateFields as any;
+        transformed.autoPopulateFields = {
+            enabled: typeof apf.enabled === 'boolean' ? apf.enabled : false,
+            fields: Array.isArray(apf.fields) ? apf.fields : []
+        };
+    }
     // Order is already set above
     if (field.css !== undefined) transformed.css = field.css; // Preserve CSS
     if (field.optionsSource !== undefined) transformed.optionsSource = field.optionsSource;
@@ -795,6 +804,17 @@ function fieldToPayload(field: FormField, opts?: { groupId?: string }): any {
             valueField: field.lookupValueField || '',
             labelField: field.lookupLabelField || '',
             parentFieldName: field.lookupParentFieldName ?? null
+        };
+    }
+    // Auto-populate fields (LOOKUP only) — only serialise when there is meaningful config
+    if (
+        field.optionSource === 'LOOKUP' &&
+        field.autoPopulateFields !== undefined &&
+        field.autoPopulateFields !== null
+    ) {
+        payload.autoPopulateFields = {
+            enabled: field.autoPopulateFields.enabled,
+            fields: Array.isArray(field.autoPopulateFields.fields) ? field.autoPopulateFields.fields : []
         };
     }
     if (field.isd !== undefined) payload.isd = field.isd;
