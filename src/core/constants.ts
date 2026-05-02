@@ -9,6 +9,14 @@ export const LOOKUP_SOURCE_TYPE_OPTIONS: { value: LookupSourceType; label: strin
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
+/**
+ * Generates a unique field name in the format: field_<timestamp>_<random>
+ * e.g. field_1777690293817_asd
+ * Used as the default `fieldName` (model key) for newly created fields.
+ */
+export const generateFieldName = () =>
+    `field_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`;
+
 export const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
     { type: 'text', label: 'Text Input', icon: 'Type' },
     { type: 'textarea', label: 'Text Area', icon: 'DocumentText' },

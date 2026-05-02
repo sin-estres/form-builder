@@ -1,6 +1,6 @@
 import { formStore } from '../core/useFormStore';
 import { createElement, getIcon } from '../utils/dom';
-import { FIELD_TYPES, REGEX_PRESETS, VALIDATION_TYPE_PRESETS, RegexPreset, LOOKUP_SOURCE_TYPE_OPTIONS } from '../core/constants';
+import { FIELD_TYPES, REGEX_PRESETS, VALIDATION_TYPE_PRESETS, RegexPreset, LOOKUP_SOURCE_TYPE_OPTIONS, generateFieldName } from '../core/constants';
 import {
     parseFormulaDependencies,
     validateFormula,
@@ -1524,6 +1524,37 @@ export class FormBuilder {
         panel.appendChild(header);
 
         const body = createElement('div', { className: 'flex-1 overflow-y-auto p-4 px-2 space-y-3', id: 'config-panel-body' });
+
+        // Name (fieldName) — unique model key, auto-generated but user-editable
+        const nameGroup = createElement('div');
+        nameGroup.appendChild(createElement('label', { className: 'block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1', text: 'Name' }));
+        const currentFieldName = selectedField.fieldName || generateFieldName();
+        // Ensure every field always carries a fieldName (back-fill on first open)
+        if (!selectedField.fieldName) {
+            formStore.getState().updateField(selectedField.id, { fieldName: currentFieldName });
+        }
+        const nameInput = createElement('input', {
+            className: 'w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md bg-transparent font-mono text-xs',
+            value: currentFieldName,
+            'data-focus-id': `field-name-${selectedField.id}`,
+            placeholder: 'field_...',
+            oninput: (e: Event) => {
+                const fieldId = selectedField.id;
+                const value = (e.target as HTMLInputElement).value.trim();
+                const key = `fieldname-${fieldId}`;
+                const existing = labelUpdateTimeouts.get(key);
+                if (existing) clearTimeout(existing);
+                const timeoutId = setTimeout(() => {
+                    labelUpdateTimeouts.delete(key);
+                    if (value) {
+                        formStore.getState().updateField(fieldId, { fieldName: value });
+                    }
+                }, LABEL_DEBOUNCE_MS);
+                labelUpdateTimeouts.set(key, timeoutId);
+            }
+        }) as HTMLInputElement;
+        nameGroup.appendChild(nameInput);
+        body.appendChild(nameGroup);
 
         // Label
         const labelGroup = createElement('div');

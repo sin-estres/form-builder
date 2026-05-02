@@ -1,4 +1,4 @@
-import { generateId } from '../core/constants';
+import { generateId, generateFieldName } from '../core/constants';
 import { FormSchema, FormSection, FormField } from '../core/schemaTypes';
 
 /**
@@ -32,6 +32,7 @@ export const cloneField = (field: FormField): FormField => {
     return {
         ...field,
         id: generateId(),
+        fieldName: generateFieldName(), // Always generate a fresh unique name on clone
         // Ensure options are also cloned if present
         options: field.options ? field.options.map(opt => ({ ...opt })) : undefined,
         validation: field.validation ? field.validation.map(v => ({ ...v })) : undefined,

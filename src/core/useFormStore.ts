@@ -1,6 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 import { FormSchema, FormSection, FormField, FieldType } from './schemaTypes';
-import { generateId, DEFAULT_FIELD_CONFIG } from './constants';
+import { generateId, generateFieldName, DEFAULT_FIELD_CONFIG } from './constants';
 import { cloneForm, cloneSection, cloneField } from '../utils/clone';
 import { cleanFormSchema } from '../utils/mapper';
 import {
@@ -653,6 +653,7 @@ export const formStore = createStore<FormState & FormActions>((set, get) => ({
         const baseField = {
             id: generateId(),
             type,
+            fieldName: generateFieldName(),
             ...DEFAULT_FIELD_CONFIG[type],
         } as FormField;
         
